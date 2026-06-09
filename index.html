@@ -133,26 +133,6 @@
             .container { padding: 32px 24px; }
             .nav-link { padding: 16px 20px; }
         }
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.4);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .modal-overlay.active { display: flex; }
-        .modal {
-            background: white;
-            border-radius: 12px;
-            padding: 28px;
-            max-width: 400px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-        }
-        .modal h3 { font-size: 18px; margin-bottom: 8px; }
     </style>
 </head>
 <body>
@@ -168,7 +148,7 @@
                     <span>员工提交每月指定休日期</span>
                 </div>
             </a>
-            <a href="javascript:void(0)" class="nav-link" id="scheduleLink" onclick="checkAdminAccess()">
+            <a href="javascript:void(0)" class="nav-link" id="scheduleLink" onclick="goToSchedule()">
                 <div class="nav-icon">⚙️</div>
                 <div class="nav-text">
                     一键生成排班表
@@ -179,71 +159,28 @@
         <p class="footer">捷展贸易 · 仓库管理</p>
     </div>
 
-    <div class="modal-overlay" id="adminModal">
-        <div class="modal">
-            <h3>🔐 管理员验证</h3>
-            <p style="margin-bottom:16px;color:var(--text-light);font-size:14px;">排班表生成功能仅管理员可用，请选择你的身份：</p>
-            <select id="adminSelect" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;margin-bottom:16px;">
-                <option value="">-- 请选择 --</option>
-            </select>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
-                <button class="nav-link" onclick="closeAdminModal()" style="background:#e2e8f0;color:var(--text);padding:10px 20px;font-size:13px;display:inline-block;width:auto;">取消</button>
-                <button class="nav-link" onclick="confirmAdmin()" style="background:linear-gradient(135deg,var(--primary),var(--primary-light));padding:10px 20px;font-size:13px;display:inline-block;width:auto;">确认进入</button>
-            </div>
-        </div>
-    </div>
-
     <script>
+    function goToSchedule() {
+        // 检查是否已有登录记录
+        const savedEmployee = localStorage.getItem('last_selected_employee');
+        if (!savedEmployee) {
+            // 第一次使用，先去指定休页面选名字
+            alert('请先在"指定休收集"页面选择你是谁');
+            window.location.href = '员工指定休管理.html';
+            return;
+        }
+        // 有记录，检查是否管理员
+        const admins = getAdminList();
+        if (admins.includes(savedEmployee)) {
+            window.location.href = '排班表生成.html';
+        } else {
+            alert('⚠️ ' + savedEmployee + ' 不是管理员，无法进入排班表生成功能');
+        }
+    }
+
     function getAdminList() {
         const saved = localStorage.getItem('admin_list');
         return saved ? JSON.parse(saved) : ['谢焕君'];
-    }
-
-    function getEmployeeList() {
-        const saved = localStorage.getItem('employee_list');
-        if (saved) return JSON.parse(saved);
-        return [
-            { name: '谢焕君', group: '经理' }, { name: '陈文童', group: '主管' },
-            { name: '付新远', group: '主管' }, { name: '林创武', group: '到货' },
-            { name: '李亚景', group: '到货' }, { name: '迟喻阳', group: '到货' },
-            { name: '蒋能', group: '到货' }, { name: '林镇兴', group: '主管' },
-            { name: '林佗贵', group: '发货' }, { name: '吴兴义', group: '发货' },
-            { name: '吴兴浪', group: '发货' }, { name: '刘少东', group: '发货' },
-            { name: '李仁', group: '发货' }, { name: '陈安然', group: '发货' },
-            { name: '黄丽情', group: '发货' }, { name: '崔斯欣', group: '发货' }
-        ];
-    }
-
-    function checkAdminAccess() {
-        // 每次点击都弹窗验证，不再使用 current_operator 记忆
-        const admins = getAdminList();
-        const employees = getEmployeeList();
-        const select = document.getElementById('adminSelect');
-        select.innerHTML = '<option value="">-- 请选择 --</option>';
-        employees.forEach(emp => {
-            const isAdmin = admins.includes(emp.name);
-            select.innerHTML += `<option value="${emp.name}">${isAdmin ? '⭐ ' : ''}${emp.name}（${emp.group}）</option>`;
-        });
-        document.getElementById('adminModal').classList.add('active');
-    }
-
-    function closeAdminModal() {
-        document.getElementById('adminModal').classList.remove('active');
-    }
-
-    function confirmAdmin() {
-        const selected = document.getElementById('adminSelect').value;
-        if (!selected) {
-            alert('请选择你的身份');
-            return;
-        }
-
-        const admins = getAdminList();
-        if (admins.includes(selected)) {
-            window.location.href = '排班表生成.html';
-        } else {
-            alert('⚠️ 你不是管理员，无法进入排班表生成功能');
-        }
     }
     </script>
 </body>
