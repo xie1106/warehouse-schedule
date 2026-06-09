@@ -640,24 +640,17 @@
             }
         });
 
-        // 2.5 规则C：谢焕君无指定休时默认每周日休息
+        // 2.5 规则C：谢焕君无指定休时默认每周日休息（所有周日都休）
         const xieHasDesignated = designatedRestMap['谢焕君'] && designatedRestMap['谢焕君'].length > 0;
 
         if (!xieHasDesignated && scheduleData['谢焕君']) {
-            const sundays = [];
             for (let d = 1; d <= daysInMonth; d++) {
                 const dow = new Date(currentYear, currentMonth - 1, d).getDay();
                 const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                 if (dow === 0 && !holidays[dateStr]) {
-                    sundays.push(d);
+                    scheduleData['谢焕君'][d - 1] = 'rest';
                 }
             }
-            const existingRest = scheduleData['谢焕君'].filter(s => s === 'rest' || s === 'designated').length;
-            const canAssign = Math.max(0, totalRest - existingRest);
-            const sundaysToAssign = sundays.slice(0, canAssign);
-            sundaysToAssign.forEach(d => {
-                scheduleData['谢焕君'][d - 1] = 'rest';
-            });
         }
 
         // 3. Auto-assign rest days for those without enough rest
