@@ -155,11 +155,13 @@
         }
         .schedule-table th, .schedule-table td {
             border: 1px solid var(--border);
-            padding: 4px 2px;
+            padding: 4px 3px;
             text-align: center;
-            min-width: 32px;
-            height: 28px;
+            min-width: 44px;
+            height: 30px;
             position: relative;
+            font-size: 12px;
+            white-space: nowrap;
         }
         .schedule-table th {
             background: #f1f5f9;
@@ -385,16 +387,16 @@
 
     // === Status Types ===
     const STATUS_TYPES = [
-        { key: 'work', label: '上班', short: '', color: '#ffffff' },
-        { key: 'rest', label: '休息', short: '休', color: '#fef9c3' },
-        { key: 'designated', label: '指定休', short: '指', color: '#f3e8ff' },
-        { key: 'duty', label: '上&值', short: '值', color: '#fecaca' },
-        { key: 'swap', label: '调休', short: '调', color: '#e5e7eb' },
-        { key: 'leave', label: '请假', short: '假', color: '#d1fae5' },
-        { key: 'annual', label: '年假', short: '年', color: '#dbeafe' },
-        { key: 'marriage', label: '婚假', short: '婚', color: '#fce7f3' },
-        { key: 'prenatal', label: '产检', short: '检', color: '#fed7aa' },
-        { key: 'maternity', label: '产假', short: '产', color: '#e0f2fe' }
+        { key: 'work', label: '上班', short: '上班', color: '#ffffff' },
+        { key: 'rest', label: '休息', short: '休息', color: '#fef9c3' },
+        { key: 'designated', label: '指定休', short: '指定休', color: '#f3e8ff' },
+        { key: 'duty', label: '上&值', short: '上&值', color: '#fecaca' },
+        { key: 'swap', label: '调休', short: '调休', color: '#e5e7eb' },
+        { key: 'leave', label: '请假', short: '请假', color: '#d1fae5' },
+        { key: 'annual', label: '年假', short: '年假', color: '#dbeafe' },
+        { key: 'marriage', label: '婚假', short: '婚假', color: '#fce7f3' },
+        { key: 'prenatal', label: '产检', short: '产检', color: '#fed7aa' },
+        { key: 'maternity', label: '产假', short: '产假', color: '#e0f2fe' }
     ];
 
     // === Default Employees ===
