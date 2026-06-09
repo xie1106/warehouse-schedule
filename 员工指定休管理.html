@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0, minimum-scale=0.5">
+    <title>员工指定休管理</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-light: #818cf8;
+            --primary-bg: #eef2ff;
+            --secondary: #ec4899;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 4px 24px rgba(0,0,0,0.06);
+            --radius: 12px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: #4338ca; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #059669; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-warning:hover { background: #d97706; }
+        .btn-outline {
+            background: white;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-outline:hover { background: var(--bg); }
+        .btn-back {
+            background: white;
+            color: var(--text-light);
+            border: 1px solid var(--border);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn-back:hover { background: var(--bg); }
+        .operator-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+        .operator-bar label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+        }
+        .operator-bar select {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+        .operator-bar select:focus {
+            border-color: var(--primary);
+        }
+        .operator-bar .admin-badge {
+            font-size: 12px;
+            color: var(--warning);
+            font-weight: 600;
+        }
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
+            border: 1px solid var(--border);
+        }
+        .card-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        /* Selection area */
+        .selection-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .form-group label {
+            font-size: 12px;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+        .form-group select, .form-group input {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            min-width: 140px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-group select:focus, .form-group input:focus {
+            border-color: var(--primary);
+        }
+        /* Calendar */
+        .calendar {
+            margin-top: 8px;
+        }
+        .calendar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .calendar-header h3 {
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+        .calendar-grid .weekday {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-light);
+            font-weight: 500;
+            padding: 6px 0;
+        }
+        .calendar-grid .day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.15s;
+            position: relative;
+            font-weight: 500;
+        }
+        .calendar-grid .day:hover:not(.empty):not(.disabled) {
+            background: var(--primary-bg);
+        }
+        .calendar-grid .day.empty { cursor: default; }
+        .calendar-grid .day.selected {
+            background: var(--primary);
+            color: white;
+        }
+        .calendar-grid .day.holiday {
+            color: var(--danger);
+        }
+        .calendar-grid .day.workday {
+            color: var(--primary);
+        }
+        .calendar-grid .day.workday::after {
+            content: '';
+            position: absolute;
+            bottom: 3px;
+            width: 4px;
+            height: 4px;
+            background: var(--primary);
+            border-radius: 50%;
+        }
+        .calendar-grid .day.holiday::after {
+            content: '';
+            position: absolute;
+            bottom: 3px;
+            width: 4px;
+            height: 4px;
+            background: var(--danger);
+            border-radius: 50%;
+        }
+        .calendar-grid .day.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        .calendar-legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--text-light);
+        }
+        .calendar-legend span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .legend-dot.holiday { background: var(--danger); }
+        .legend-dot.workday { background: var(--primary); }
+        .legend-dot.selected { background: var(--primary); }
+        /* Rest days config */
+        .rest-config {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 12px 0;
+            padding: 12px;
+            background: var(--primary-bg);
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        .rest-config input {
+            width: 50px;
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            text-align: center;
+            font-size: 13px;
+        }
+        /* Selected dates display */
+        .selected-dates {
+            margin-top: 12px;
+            padding: 12px;
+            background: #fefce8;
+            border-radius: 8px;
+            min-height: 40px;
+        }
+        .selected-dates .label {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-bottom: 6px;
+        }
+        .selected-dates .dates {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .date-tag {
+            background: var(--primary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        /* Sidebar */
+        .sidebar { display: flex; flex-direction: column; gap: 16px; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .stat-item {
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-item .num {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .stat-item .desc {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-top: 2px;
+        }
+        .employee-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .emp-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: background 0.15s;
+        }
+        .emp-item:hover { background: var(--bg); }
+        .emp-item .status {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        .emp-item .status.done { background: #d1fae5; color: #065f46; }
+        .emp-item .status.pending { background: #fef3c7; color: #92400e; }
+        .emp-dates {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-top: 2px;
+        }
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: white;
+            border-radius: var(--radius);
+            padding: 24px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal h3 {
+            margin-bottom: 16px;
+            font-size: 16px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+        .emp-manage-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .emp-manage-item:last-child { border: none; }
+        .emp-manage-item .name { flex: 1; font-size: 13px; }
+        .emp-manage-item .group {
+            font-size: 11px;
+            color: var(--text-light);
+            background: var(--bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .emp-manage-item .btn { padding: 4px 8px; font-size: 11px; }
+        /* Add employee form */
+        .add-emp-form {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .add-emp-form input, .add-emp-form select {
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--text);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            z-index: 2000;
+            transform: translateY(-20px);
+            opacity: 0;
+            transition: all 0.3s;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        /* Responsive */
+        @media (max-width: 768px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+            .selection-row { flex-direction: column; align-items: stretch; }
+            .form-group select, .form-group input { min-width: unset; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 当前操作人选择 -->
+    <div class="operator-bar">
+        <label>👤 当前操作人：</label>
+        <select id="operatorSelect" onchange="onOperatorChange()">
+            <option value="">-- 请选择 --</option>
+        </select>
+        <span class="admin-badge" id="adminBadge" style="display:none;">⭐ 管理员</span>
+    </div>
+
+    <div class="header">
+        <h1>📅 员工指定休管理</h1>
+        <div class="header-actions">
+            <button class="btn btn-outline" id="empManageBtn" onclick="openEmployeeModal()" style="display:none;">👥 员工管理</button>
+            <a href="index.html" class="btn-back">← 返回首页</a>
+        </div>
+    </div>
+
+    <div class="layout">
+        <div class="main-area">
+            <div class="card">
+                <div class="card-title">选择员工和月份</div>
+                <div class="selection-row">
+                    <div class="form-group">
+                        <label>选择员工</label>
+                        <select id="empSelect" onchange="onEmployeeChange()">
+                            <option value="">-- 请选择 --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>选择月份</label>
+                        <input type="month" id="monthSelect" onchange="onMonthChange()">
+                    </div>
+                    <button class="btn btn-success" onclick="submitSchedule()">✓ 提交指定休</button>
+                </div>
+
+                <div class="rest-config" id="restConfigArea">
+                    <span>本月应休天数：</span>
+                    <span id="restDaysDisplay" style="display:none;font-weight:600;"></span>
+                    <input type="number" id="totalRestDays" min="0" max="15" value="4" onchange="saveTotalRestDays()" style="display:none;">
+                    <span id="restDaysUnit">天（指定休不超过此数）</span>
+                </div>
+
+                <div id="deadlineNotice" style="display:none; padding:10px; background:#fef2f2; border-radius:8px; color:#991b1b; font-size:13px; margin-bottom:12px;">
+                    ⚠️ 本月已过25号截止日，无法提交指定休
+                </div>
+
+                <div class="calendar" id="calendarArea">
+                    <div class="calendar-header">
+                        <h3 id="calendarTitle">请先选择员工和月份</h3>
+                    </div>
+                    <div class="calendar-grid" id="calendarGrid"></div>
+                    <div class="calendar-legend">
+                        <span><div class="legend-dot holiday"></div>法定假日</span>
+                        <span><div class="legend-dot workday"></div>补班日</span>
+                        <span><div class="legend-dot selected"></div>已选指定休</span>
+                    </div>
+                </div>
+
+                <div class="selected-dates" id="selectedDatesArea">
+                    <div class="label">已选指定休日期：</div>
+                    <div class="dates" id="selectedDatesList">暂无</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="card">
+                <div class="card-title">📊 提交统计</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="num" id="submittedCount">0</div>
+                        <div class="desc">已提交</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="num" id="pendingCount">0</div>
+                        <div class="desc">未提交</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">📋 提交详情</div>
+                <div class="employee-list" id="empStatusList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employee Management Modal -->
+    <div class="modal-overlay" id="empModal">
+        <div class="modal">
+            <h3>👥 员工管理</h3>
+            <div id="empManageList"></div>
+            <div class="add-emp-form">
+                <input type="text" id="newEmpName" placeholder="姓名">
+                <select id="newEmpGroup">
+                    <option value="经理">经理</option>
+                    <option value="主管">主管</option>
+                    <option value="到货">到货</option>
+                    <option value="发货">发货</option>
+                </select>
+                <button class="btn btn-primary" onclick="addEmployee()">添加</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeEmployeeModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    // === Holiday Data 2025-2026 ===
+    const holidays = {
+        '2025-01-01': '元旦',
+        '2025-01-28': '春节', '2025-01-29': '春节', '2025-01-30': '春节', '2025-01-31': '春节',
+        '2025-02-01': '春节', '2025-02-02': '春节', '2025-02-03': '春节', '2025-02-04': '春节',
+        '2025-04-04': '清明', '2025-04-05': '清明', '2025-04-06': '清明',
+        '2025-05-01': '劳动节', '2025-05-02': '劳动节', '2025-05-03': '劳动节',
+        '2025-05-04': '劳动节', '2025-05-05': '劳动节',
+        '2025-05-31': '端午', '2025-06-01': '端午', '2025-06-02': '端午',
+        '2025-10-01': '国庆', '2025-10-02': '国庆', '2025-10-03': '国庆',
+        '2025-10-04': '国庆', '2025-10-05': '国庆', '2025-10-06': '国庆',
+        '2025-10-07': '国庆', '2025-10-08': '国庆',
+        '2026-01-01': '元旦', '2026-01-02': '元旦', '2026-01-03': '元旦',
+        '2026-02-17': '春节', '2026-02-18': '春节', '2026-02-19': '春节',
+        '2026-02-20': '春节', '2026-02-21': '春节', '2026-02-22': '春节', '2026-02-23': '春节',
+        '2026-04-05': '清明', '2026-04-06': '清明', '2026-04-07': '清明',
+        '2026-05-01': '劳动节', '2026-05-02': '劳动节', '2026-05-03': '劳动节',
+        '2026-06-19': '端午', '2026-06-20': '端午', '2026-06-21': '端午',
+        '2026-10-01': '国庆', '2026-10-02': '国庆', '2026-10-03': '国庆',
+        '2026-10-04': '国庆', '2026-10-05': '国庆', '2026-10-06': '国庆', '2026-10-07': '国庆'
+    };
+
+    const workDays = {
+        '2025-01-26': true, '2025-02-08': true,
+        '2025-04-27': true, '2025-05-04': true,
+        '2025-09-28': true, '2025-10-11': true,
+        '2026-02-14': true, '2026-02-28': true,
+        '2026-10-10': true
+    };
+
+    // === Default Employees ===
+    const DEFAULT_EMPLOYEES = [
+        { name: '谢焕君', group: '经理' },
+        { name: '陈文童', group: '主管' },
+        { name: '付新远', group: '主管' },
+        { name: '林创武', group: '到货' },
+        { name: '李亚景', group: '到货' },
+        { name: '迟喻阳', group: '到货' },
+        { name: '蒋能', group: '到货' },
+        { name: '林镇兴', group: '主管' },
+        { name: '林佗贵', group: '发货' },
+        { name: '吴兴义', group: '发货' },
+        { name: '吴兴浪', group: '发货' },
+        { name: '刘少东', group: '发货' },
+        { name: '李仁', group: '发货' },
+        { name: '陈安然', group: '发货' },
+        { name: '黄丽情', group: '发货' },
+        { name: '崔斯欣', group: '发货' }
+    ];
+
+    // === Admin System ===
+    const DEFAULT_ADMINS = ['谢焕君'];
+
+    function getAdminList() {
+        const saved = localStorage.getItem('admin_list');
+        if (saved) {
+            return JSON.parse(saved);
+        }
+        localStorage.setItem('admin_list', JSON.stringify(DEFAULT_ADMINS));
+        return [...DEFAULT_ADMINS];
+    }
+
+    function saveAdminList(list) {
+        localStorage.setItem('admin_list', JSON.stringify(list));
+    }
+
+    function isAdmin(name) {
+        return getAdminList().includes(name);
+    }
+
+    // === State ===
+    let employees = [];
+    let selectedDates = [];
+    let currentEmployee = '';
+    let currentYear = 0;
+    let currentMonth = 0;
+    let currentOperator = '';
+
+    // === Init ===
+    function init() {
+        loadEmployees();
+        populateOperatorSelect();
+        populateEmployeeSelect();
+        setDefaultMonth();
+        updateStats();
+        updateAdminUI();
+    }
+
+    function loadEmployees() {
+        const saved = localStorage.getItem('employee_list');
+        if (saved) {
+            employees = JSON.parse(saved);
+        } else {
+            employees = [...DEFAULT_EMPLOYEES];
+            saveEmployees();
+        }
+    }
+
+    function saveEmployees() {
+        localStorage.setItem('employee_list', JSON.stringify(employees));
+        const groups = {};
+        employees.forEach(e => {
+            if (!groups[e.group]) groups[e.group] = [];
+            groups[e.group].push(e.name);
+        });
+        localStorage.setItem('employee_groups', JSON.stringify(groups));
+    }
+
+    function populateOperatorSelect() {
+        const select = document.getElementById('operatorSelect');
+        select.innerHTML = '<option value="">-- 请选择 --</option>';
+        employees.forEach(emp => {
+            const adminMark = isAdmin(emp.name) ? ' ⭐' : '';
+            select.innerHTML += `<option value="${emp.name}">${emp.name}（${emp.group}）${adminMark}</option>`;
+        });
+    }
+
+    function onOperatorChange() {
+        currentOperator = document.getElementById('operatorSelect').value;
+        updateAdminUI();
+    }
+
+    function updateAdminUI() {
+        const isAdminUser = currentOperator && isAdmin(currentOperator);
+        const adminBadge = document.getElementById('adminBadge');
+        const empManageBtn = document.getElementById('empManageBtn');
+        const totalRestInput = document.getElementById('totalRestDays');
+        const restDaysDisplay = document.getElementById('restDaysDisplay');
+
+        // Show/hide admin badge
+        adminBadge.style.display = isAdminUser ? 'inline' : 'none';
+
+        // Show/hide employee manage button
+        empManageBtn.style.display = isAdminUser ? 'inline-flex' : 'none';
+
+        // Show/hide rest days editing
+        if (isAdminUser) {
+            totalRestInput.style.display = 'inline';
+            restDaysDisplay.style.display = 'none';
+        } else {
+            totalRestInput.style.display = 'none';
+            restDaysDisplay.style.display = 'inline';
+            restDaysDisplay.textContent = totalRestInput.value;
+        }
+    }
+
+    function populateEmployeeSelect() {
+        const select = document.getElementById('empSelect');
+        select.innerHTML = '<option value="">-- 请选择 --</option>';
+        employees.forEach(emp => {
+            const adminMark = isAdmin(emp.name) ? ' ⭐' : '';
+            select.innerHTML += `<option value="${emp.name}">${emp.name}（${emp.group}）${adminMark}</option>`;
+        });
+    }
+
+    function setDefaultMonth() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        document.getElementById('monthSelect').value = `${year}-${String(month).padStart(2, '0')}`;
+        currentYear = year;
+        currentMonth = month;
+        loadTotalRestDays();
+        checkDeadline();
+    }
+
+    // === Event Handlers ===
+    function onEmployeeChange() {
+        currentEmployee = document.getElementById('empSelect').value;
+        loadExistingDates();
+        renderCalendar();
+    }
+
+    function onMonthChange() {
+        const val = document.getElementById('monthSelect').value;
+        if (val) {
+            const [y, m] = val.split('-').map(Number);
+            currentYear = y;
+            currentMonth = m;
+            loadTotalRestDays();
+            checkDeadline();
+            loadExistingDates();
+            renderCalendar();
+            updateStats();
+        }
+    }
+
+    function checkDeadline() {
+        const now = new Date();
+        const notice = document.getElementById('deadlineNotice');
+        if (now.getFullYear() === currentYear && now.getMonth() + 1 === currentMonth && now.getDate() > 25) {
+            notice.style.display = 'block';
+        } else if (now.getFullYear() > currentYear || (now.getFullYear() === currentYear && now.getMonth() + 1 > currentMonth)) {
+            notice.style.display = 'block';
+        } else {
+            notice.style.display = 'none';
+        }
+    }
+
+    function loadTotalRestDays() {
+        const key = `total_rest_days_${currentYear}_${currentMonth}`;
+        const saved = localStorage.getItem(key);
+        const val = saved || 4;
+        document.getElementById('totalRestDays').value = val;
+        document.getElementById('restDaysDisplay').textContent = val;
+    }
+
+    function saveTotalRestDays() {
+        if (!currentOperator || !isAdmin(currentOperator)) {
+            showToast('只有管理员能修改应休天数', 'error');
+            loadTotalRestDays();
+            return;
+        }
+        const key = `total_rest_days_${currentYear}_${currentMonth}`;
+        const val = document.getElementById('totalRestDays').value;
+        localStorage.setItem(key, val);
+        document.getElementById('restDaysDisplay').textContent = val;
+    }
+
+    function loadExistingDates() {
+        if (!currentEmployee || !currentYear || !currentMonth) {
+            selectedDates = [];
+            return;
+        }
+        const key = `schedule_${currentYear}_${currentMonth}_${currentEmployee}`;
+        const saved = localStorage.getItem(key);
+        selectedDates = saved ? JSON.parse(saved) : [];
+        updateSelectedDatesDisplay();
+    }
+
+    // === Calendar Rendering ===
+    function renderCalendar() {
+        const grid = document.getElementById('calendarGrid');
+        const title = document.getElementById('calendarTitle');
+
+        if (!currentYear || !currentMonth) {
+            grid.innerHTML = '';
+            title.textContent = '请先选择月份';
+            return;
+        }
+
+        title.textContent = `${currentYear}年${currentMonth}月`;
+
+        const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay();
+        const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+        let html = '';
+        const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+        weekdays.forEach(d => { html += `<div class="weekday">${d}</div>`; });
+
+        for (let i = 0; i < firstDay; i++) {
+            html += '<div class="day empty"></div>';
+        }
+
+        const now = new Date();
+        const isDeadlinePassed = (now.getFullYear() === currentYear && now.getMonth() + 1 === currentMonth && now.getDate() > 25) ||
+            (now.getFullYear() > currentYear) || (now.getFullYear() === currentYear && now.getMonth() + 1 > currentMonth);
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            let classes = 'day';
+
+            if (holidays[dateStr]) classes += ' holiday';
+            if (workDays[dateStr]) classes += ' workday';
+            if (selectedDates.includes(d)) classes += ' selected';
+            if (isDeadlinePassed || !currentEmployee) classes += ' disabled';
+
+            html += `<div class="${classes}" data-day="${d}" onclick="toggleDay(${d})">${d}</div>`;
+        }
+
+        grid.innerHTML = html;
+    }
+
+    function toggleDay(day) {
+        if (!currentEmployee) {
+            showToast('请先选择员工', 'error');
+            return;
+        }
+
+        const now = new Date();
+        const isDeadlinePassed = (now.getFullYear() === currentYear && now.getMonth() + 1 === currentMonth && now.getDate() > 25) ||
+            (now.getFullYear() > currentYear) || (now.getFullYear() === currentYear && now.getMonth() + 1 > currentMonth);
+
+        if (isDeadlinePassed) {
+            showToast('已过截止日期，无法修改', 'error');
+            return;
+        }
+
+        const maxRest = parseInt(document.getElementById('totalRestDays').value) || 4;
+
+        const idx = selectedDates.indexOf(day);
+        if (idx > -1) {
+            selectedDates.splice(idx, 1);
+        } else {
+            if (selectedDates.length >= maxRest) {
+                showToast(`最多选择${maxRest}天指定休`, 'error');
+                return;
+            }
+            selectedDates.push(day);
+        }
+
+        selectedDates.sort((a, b) => a - b);
+        renderCalendar();
+        updateSelectedDatesDisplay();
+    }
+
+    function updateSelectedDatesDisplay() {
+        const container = document.getElementById('selectedDatesList');
+        if (selectedDates.length === 0) {
+            container.innerHTML = '<span style="color:var(--text-light);font-size:12px;">暂无选择</span>';
+        } else {
+            container.innerHTML = selectedDates.map(d =>
+                `<span class="date-tag">${currentMonth}月${d}日</span>`
+            ).join('');
+        }
+    }
+
+    // === Submit ===
+    function submitSchedule() {
+        if (!currentEmployee) {
+            showToast('请先选择员工', 'error');
+            return;
+        }
+        if (selectedDates.length === 0) {
+            showToast('请至少选择一天指定休', 'error');
+            return;
+        }
+
+        const now = new Date();
+        const isDeadlinePassed = (now.getFullYear() === currentYear && now.getMonth() + 1 === currentMonth && now.getDate() > 25) ||
+            (now.getFullYear() > currentYear) || (now.getFullYear() === currentYear && now.getMonth() + 1 > currentMonth);
+        if (isDeadlinePassed) {
+            showToast('已过截止日期，无法提交', 'error');
+            return;
+        }
+
+        const key = `schedule_${currentYear}_${currentMonth}_${currentEmployee}`;
+        localStorage.setItem(key, JSON.stringify(selectedDates));
+        showToast(`${currentEmployee} 的指定休已保存`, 'success');
+        updateStats();
+    }
+
+    // === Stats ===
+    function updateStats() {
+        let submitted = 0;
+        let pending = 0;
+        let listHtml = '';
+
+        employees.forEach(emp => {
+            const key = `schedule_${currentYear}_${currentMonth}_${emp.name}`;
+            const data = localStorage.getItem(key);
+            const adminMark = isAdmin(emp.name) ? '⭐ ' : '';
+            if (data) {
+                submitted++;
+                const dates = JSON.parse(data);
+                listHtml += `<div class="emp-item">
+                    <div>
+                        <div>${adminMark}${emp.name}</div>
+                        <div class="emp-dates">${dates.map(d => d + '日').join('、')}</div>
+                    </div>
+                    <span class="status done">已提交</span>
+                </div>`;
+            } else {
+                pending++;
+                listHtml += `<div class="emp-item">
+                    <div>${adminMark}${emp.name}</div>
+                    <span class="status pending">未提交</span>
+                </div>`;
+            }
+        });
+
+        document.getElementById('submittedCount').textContent = submitted;
+        document.getElementById('pendingCount').textContent = pending;
+        document.getElementById('empStatusList').innerHTML = listHtml;
+    }
+
+    // === Employee Management ===
+    function openEmployeeModal() {
+        if (!currentOperator || !isAdmin(currentOperator)) {
+            showToast('只有管理员能管理员工', 'error');
+            return;
+        }
+        document.getElementById('empModal').classList.add('active');
+        renderEmployeeManageList();
+    }
+
+    function closeEmployeeModal() {
+        document.getElementById('empModal').classList.remove('active');
+    }
+
+    function renderEmployeeManageList() {
+        const adminList = getAdminList();
+        const container = document.getElementById('empManageList');
+        container.innerHTML = employees.map((emp, idx) => {
+            const isEmpAdmin = adminList.includes(emp.name);
+            const adminLabel = isEmpAdmin ? ' ⭐管理员' : '';
+            const adminBtnHtml = isEmpAdmin
+                ? `<button class="btn btn-warning" onclick="toggleAdmin('${emp.name}', false)">取消管理员</button>`
+                : `<button class="btn btn-outline" onclick="toggleAdmin('${emp.name}', true)">设为管理员</button>`;
+            return `
+            <div class="emp-manage-item">
+                <span class="name">${emp.name}${adminLabel}</span>
+                <span class="group">${emp.group}</span>
+                ${adminBtnHtml}
+                <button class="btn btn-danger" onclick="removeEmployee(${idx})">删除</button>
+            </div>
+        `}).join('');
+    }
+
+    function toggleAdmin(name, setAsAdmin) {
+        if (!currentOperator || !isAdmin(currentOperator)) {
+            showToast('只有管理员能操作', 'error');
+            return;
+        }
+        let adminList = getAdminList();
+        if (setAsAdmin) {
+            if (!adminList.includes(name)) {
+                adminList.push(name);
+            }
+            showToast(`${name} 已设为管理员`, 'success');
+        } else {
+            // Prevent removing last admin
+            if (adminList.length <= 1) {
+                showToast('至少保留一个管理员', 'error');
+                return;
+            }
+            adminList = adminList.filter(n => n !== name);
+            showToast(`${name} 已取消管理员`, 'success');
+        }
+        saveAdminList(adminList);
+        renderEmployeeManageList();
+        populateOperatorSelect();
+        populateEmployeeSelect();
+        updateStats();
+        updateAdminUI();
+    }
+
+    function addEmployee() {
+        if (!currentOperator || !isAdmin(currentOperator)) {
+            showToast('只有管理员能添加员工', 'error');
+            return;
+        }
+        const name = document.getElementById('newEmpName').value.trim();
+        const group = document.getElementById('newEmpGroup').value;
+        if (!name) {
+            showToast('请输入姓名', 'error');
+            return;
+        }
+        if (employees.find(e => e.name === name)) {
+            showToast('员工已存在', 'error');
+            return;
+        }
+        employees.push({ name, group });
+        saveEmployees();
+        populateEmployeeSelect();
+        populateOperatorSelect();
+        renderEmployeeManageList();
+        document.getElementById('newEmpName').value = '';
+        showToast(`已添加 ${name}`, 'success');
+        updateStats();
+    }
+
+    function removeEmployee(idx) {
+        if (!currentOperator || !isAdmin(currentOperator)) {
+            showToast('只有管理员能删除员工', 'error');
+            return;
+        }
+        const name = employees[idx].name;
+        if (confirm(`确定删除 ${name}？`)) {
+            employees.splice(idx, 1);
+            // Also remove from admin list if present
+            let adminList = getAdminList();
+            adminList = adminList.filter(n => n !== name);
+            if (adminList.length === 0) adminList = ['谢焕君']; // Fallback
+            saveAdminList(adminList);
+            saveEmployees();
+            populateEmployeeSelect();
+            populateOperatorSelect();
+            renderEmployeeManageList();
+            showToast(`已删除 ${name}`, 'success');
+            updateStats();
+        }
+    }
+
+    // === Toast ===
+    function showToast(msg, type) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.className = 'toast ' + (type || '');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // === Start ===
+    init();
+    </script>
+</body>
+</html>

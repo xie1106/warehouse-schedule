@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0, minimum-scale=0.5">
+    <title>排班表生成</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-light: #818cf8;
+            --primary-bg: #eef2ff;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 4px 24px rgba(0,0,0,0.06);
+            --radius: 12px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: #4338ca; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #059669; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-warning:hover { background: #d97706; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-outline {
+            background: white;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-outline:hover { background: var(--bg); }
+        .btn-back {
+            background: white;
+            color: var(--text-light);
+            border: 1px solid var(--border);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn-back:hover { background: var(--bg); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .operator-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+        .operator-bar label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+        }
+        .operator-bar select {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+        .operator-bar select:focus {
+            border-color: var(--primary);
+        }
+        .operator-bar .admin-badge {
+            font-size: 12px;
+            color: var(--warning);
+            font-weight: 600;
+        }
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .controls select, .controls input {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+        .controls select:focus, .controls input:focus {
+            border-color: var(--primary);
+        }
+        /* Legend */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            color: var(--text);
+        }
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        /* Schedule Table */
+        .table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            min-width: 900px;
+        }
+        .schedule-table th, .schedule-table td {
+            border: 1px solid var(--border);
+            padding: 4px 2px;
+            text-align: center;
+            min-width: 32px;
+            height: 28px;
+            position: relative;
+        }
+        .schedule-table th {
+            background: #f1f5f9;
+            font-weight: 600;
+            font-size: 11px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .schedule-table th.holiday-col {
+            background: #fef2f2;
+            color: var(--danger);
+        }
+        .schedule-table .name-col {
+            position: sticky;
+            left: 0;
+            background: #f8fafc;
+            z-index: 5;
+            min-width: 60px;
+            font-weight: 600;
+            font-size: 11px;
+        }
+        .schedule-table .stats-row td {
+            background: #f0fdf4;
+            font-weight: 600;
+            color: #166534;
+        }
+        /* Status colors */
+        .status-work { background: #ffffff; }
+        .status-rest { background: #fef9c3; color: #854d0e; }
+        .status-designated { background: #f3e8ff; color: #6b21a8; }
+        .status-duty { background: #fecaca; color: #991b1b; }
+        .status-swap { background: #e5e7eb; color: #374151; }
+        .status-leave { background: #d1fae5; color: #065f46; }
+        .status-annual { background: #dbeafe; color: #1e40af; }
+        .status-marriage { background: #fce7f3; color: #9d174d; }
+        .status-prenatal { background: #fed7aa; color: #9a3412; }
+        .status-maternity { background: #e0f2fe; color: #075985; }
+        /* Editable cells */
+        .schedule-table td.editable {
+            cursor: pointer;
+            transition: box-shadow 0.15s;
+        }
+        .schedule-table td.editable:hover {
+            box-shadow: inset 0 0 0 2px var(--primary);
+        }
+        .schedule-table td.locked {
+            cursor: default;
+        }
+        /* Dropdown */
+        .cell-dropdown {
+            position: fixed;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            border: 1px solid var(--border);
+            z-index: 1000;
+            min-width: 120px;
+            max-height: 280px;
+            overflow-y: auto;
+            display: none;
+        }
+        .cell-dropdown.show { display: block; }
+        .cell-dropdown .option {
+            padding: 8px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.1s;
+        }
+        .cell-dropdown .option:hover {
+            background: var(--bg);
+        }
+        .cell-dropdown .option .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        /* Notice */
+        .notice {
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: #fef2f2;
+            border-radius: 8px;
+            border-left: 4px solid var(--danger);
+        }
+        .notice p {
+            color: #991b1b;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .notice ul {
+            color: #991b1b;
+            font-size: 12px;
+            margin-left: 16px;
+        }
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--text);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            z-index: 2000;
+            transform: translateY(-20px);
+            opacity: 0;
+            transition: all 0.3s;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        /* Responsive */
+        @media (max-width: 768px) {
+            body { padding: 12px; }
+            .header { flex-direction: column; align-items: flex-start; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .legend { gap: 6px; }
+            .legend-item { font-size: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 当前操作人选择 -->
+    <div class="operator-bar">
+        <label>👤 当前操作人：</label>
+        <select id="operatorSelect" onchange="onOperatorChange()">
+            <option value="">-- 请选择 --</option>
+        </select>
+        <span class="admin-badge" id="adminBadge" style="display:none;">⭐ 管理员</span>
+    </div>
+
+    <div class="header">
+        <h1>⚙️ 排班表生成</h1>
+        <div class="header-actions">
+            <a href="index.html" class="btn-back">← 返回首页</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="controls">
+            <input type="month" id="monthInput" onchange="onMonthChange()">
+            <button class="btn btn-primary" id="generateBtn" onclick="generateSchedule()">🔄 一键生成排班</button>
+            <button class="btn btn-success" id="confirmBtn" onclick="confirmSchedule()">✓ 确认排班</button>
+            <button class="btn btn-warning" id="exportBtn" onclick="exportExcel()">📥 导出Excel</button>
+            <button class="btn btn-danger" id="unlockBtn" onclick="unlockSchedule()" style="display:none">🔓 解锁编辑</button>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item"><div class="legend-color" style="background:#fff;border:1px solid #ccc"></div>上班</div>
+            <div class="legend-item"><div class="legend-color" style="background:#fef9c3"></div>休息</div>
+            <div class="legend-item"><div class="legend-color" style="background:#f3e8ff"></div>指定休</div>
+            <div class="legend-item"><div class="legend-color" style="background:#fecaca"></div>上&值</div>
+            <div class="legend-item"><div class="legend-color" style="background:#e5e7eb"></div>调休</div>
+            <div class="legend-item"><div class="legend-color" style="background:#d1fae5"></div>请假</div>
+            <div class="legend-item"><div class="legend-color" style="background:#dbeafe"></div>年假</div>
+            <div class="legend-item"><div class="legend-color" style="background:#fce7f3"></div>婚假</div>
+            <div class="legend-item"><div class="legend-color" style="background:#fed7aa"></div>产检</div>
+            <div class="legend-item"><div class="legend-color" style="background:#e0f2fe"></div>产假</div>
+        </div>
+
+        <div class="table-wrapper" id="tableWrapper">
+            <p style="text-align:center;padding:40px;color:var(--text-light);">选择月份后点击"一键生成排班"</p>
+        </div>
+    </div>
+
+    <div class="notice">
+        <p>⚠️ 注意事项</p>
+        <ul>
+            <li>排班生成后请仔细检查，确认无误后再点击"确认排班"</li>
+            <li>确认后排班表将锁定，不可再编辑</li>
+            <li>如需修改已确认的排班，请联系管理员解锁</li>
+            <li>值班人员请注意交接，确保仓库运营正常</li>
+        </ul>
+    </div>
+
+    <!-- Cell edit dropdown -->
+    <div class="cell-dropdown" id="cellDropdown"></div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    // === Holiday Data ===
+    const holidays = {
+        '2025-01-01': '元旦',
+        '2025-01-28': '春节', '2025-01-29': '春节', '2025-01-30': '春节', '2025-01-31': '春节',
+        '2025-02-01': '春节', '2025-02-02': '春节', '2025-02-03': '春节', '2025-02-04': '春节',
+        '2025-04-04': '清明', '2025-04-05': '清明', '2025-04-06': '清明',
+        '2025-05-01': '劳动节', '2025-05-02': '劳动节', '2025-05-03': '劳动节',
+        '2025-05-04': '劳动节', '2025-05-05': '劳动节',
+        '2025-05-31': '端午', '2025-06-01': '端午', '2025-06-02': '端午',
+        '2025-10-01': '国庆', '2025-10-02': '国庆', '2025-10-03': '国庆',
+        '2025-10-04': '国庆', '2025-10-05': '国庆', '2025-10-06': '国庆',
+        '2025-10-07': '国庆', '2025-10-08': '国庆',
+        '2026-01-01': '元旦', '2026-01-02': '元旦', '2026-01-03': '元旦',
+        '2026-02-17': '春节', '2026-02-18': '春节', '2026-02-19': '春节',
+        '2026-02-20': '春节', '2026-02-21': '春节', '2026-02-22': '春节', '2026-02-23': '春节',
+        '2026-04-05': '清明', '2026-04-06': '清明', '2026-04-07': '清明',
+        '2026-05-01': '劳动节', '2026-05-02': '劳动节', '2026-05-03': '劳动节',
+        '2026-06-19': '端午', '2026-06-20': '端午', '2026-06-21': '端午',
+        '2026-10-01': '国庆', '2026-10-02': '国庆', '2026-10-03': '国庆',
+        '2026-10-04': '国庆', '2026-10-05': '国庆', '2026-10-06': '国庆', '2026-10-07': '国庆'
+    };
+
+    const workDays = {
+        '2025-01-26': true, '2025-02-08': true,
+        '2025-04-27': true, '2025-05-04': true,
+        '2025-09-28': true, '2025-10-11': true,
+        '2026-02-14': true, '2026-02-28': true,
+        '2026-10-10': true
+    };
+
+    // === Status Types ===
+    const STATUS_TYPES = [
+        { key: 'work', label: '上班', short: '', color: '#ffffff' },
+        { key: 'rest', label: '休息', short: '休', color: '#fef9c3' },
+        { key: 'designated', label: '指定休', short: '指', color: '#f3e8ff' },
+        { key: 'duty', label: '上&值', short: '值', color: '#fecaca' },
+        { key: 'swap', label: '调休', short: '调', color: '#e5e7eb' },
+        { key: 'leave', label: '请假', short: '假', color: '#d1fae5' },
+        { key: 'annual', label: '年假', short: '年', color: '#dbeafe' },
+        { key: 'marriage', label: '婚假', short: '婚', color: '#fce7f3' },
+        { key: 'prenatal', label: '产检', short: '检', color: '#fed7aa' },
+        { key: 'maternity', label: '产假', short: '产', color: '#e0f2fe' }
+    ];
+
+    // === Default Employees ===
+    const DEFAULT_EMPLOYEES = [
+        { name: '谢焕君', group: '经理' },
+        { name: '陈文童', group: '主管' },
+        { name: '付新远', group: '主管' },
+        { name: '林创武', group: '到货' },
+        { name: '李亚景', group: '到货' },
+        { name: '迟喻阳', group: '到货' },
+        { name: '蒋能', group: '到货' },
+        { name: '林镇兴', group: '主管' },
+        { name: '林佗贵', group: '发货' },
+        { name: '吴兴义', group: '发货' },
+        { name: '吴兴浪', group: '发货' },
+        { name: '刘少东', group: '发货' },
+        { name: '李仁', group: '发货' },
+        { name: '陈安然', group: '发货' },
+        { name: '黄丽情', group: '发货' },
+        { name: '崔斯欣', group: '发货' }
+    ];
+
+    // === Admin System ===
+    const DEFAULT_ADMINS = ['谢焕君'];
+
+    function getAdminList() {
+        const saved = localStorage.getItem('admin_list');
+        if (saved) {
+            return JSON.parse(saved);
+        }
+        localStorage.setItem('admin_list', JSON.stringify(DEFAULT_ADMINS));
+        return [...DEFAULT_ADMINS];
+    }
+
+    function isAdmin(name) {
+        return getAdminList().includes(name);
+    }
+
+    // === State ===
+    let employees = [];
+    let currentYear = 0;
+    let currentMonth = 0;
+    let scheduleData = {}; // { name: [status for each day 1-31] }
+    let isLocked = false;
+    let activeDropdown = null;
+    let currentOperator = '';
+
+    // === Init ===
+    function init() {
+        loadEmployees();
+        populateOperatorSelect();
+        setDefaultMonth();
+        loadScheduleIfExists();
+        updateAdminUI();
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.cell-dropdown') && !e.target.closest('.editable')) {
+                hideDropdown();
+            }
+        });
+    }
+
+    function loadEmployees() {
+        const saved = localStorage.getItem('employee_list');
+        if (saved) {
+            employees = JSON.parse(saved);
+        } else {
+            employees = [...DEFAULT_EMPLOYEES];
+        }
+    }
+
+    function populateOperatorSelect() {
+        const select = document.getElementById('operatorSelect');
+        select.innerHTML = '<option value="">-- 请选择 --</option>';
+        employees.forEach(emp => {
+            const adminMark = isAdmin(emp.name) ? ' ⭐' : '';
+            select.innerHTML += `<option value="${emp.name}">${emp.name}（${emp.group}）${adminMark}</option>`;
+        });
+    }
+
+    function onOperatorChange() {
+        currentOperator = document.getElementById('operatorSelect').value;
+        updateAdminUI();
+    }
+
+    function updateAdminUI() {
+        const isAdminUser = currentOperator && isAdmin(currentOperator);
+        const adminBadge = document.getElementById('adminBadge');
+
+        // Show/hide admin badge
+        adminBadge.style.display = isAdminUser ? 'inline' : 'none';
+
+        // Update button states with admin check
+        updateButtonStates();
+    }
+
+    function setDefaultMonth() {
+        const now = new Date();
+        currentYear = now.getFullYear();
+        currentMonth = now.getMonth() + 1;
+        document.getElementById('monthInput').value = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+    }
+
+    function onMonthChange() {
+        const val = document.getElementById('monthInput').value;
+        if (val) {
+            const [y, m] = val.split('-').map(Number);
+            currentYear = y;
+            currentMonth = m;
+            loadScheduleIfExists();
+        }
+    }
+
+    function loadScheduleIfExists() {
+        const confirmedKey = `final_confirmed_schedule_${currentYear}_${currentMonth}`;
+        const schedKey = `final_schedule_${currentYear}_${currentMonth}`;
+
+        if (localStorage.getItem(confirmedKey)) {
+            isLocked = true;
+            scheduleData = JSON.parse(localStorage.getItem(confirmedKey));
+            renderTable();
+            updateButtonStates();
+        } else if (localStorage.getItem(schedKey)) {
+            isLocked = false;
+            scheduleData = JSON.parse(localStorage.getItem(schedKey));
+            renderTable();
+            updateButtonStates();
+        } else {
+            scheduleData = {};
+            document.getElementById('tableWrapper').innerHTML =
+                '<p style="text-align:center;padding:40px;color:var(--text-light);">选择月份后点击"一键生成排班"</p>';
+            updateButtonStates();
+        }
+    }
+
+    function updateButtonStates() {
+        const isPast = isPastMonth();
+        const isAdminUser = currentOperator && isAdmin(currentOperator);
+
+        // Generate, confirm, unlock require admin
+        document.getElementById('generateBtn').disabled = isPast || isLocked || !isAdminUser;
+        document.getElementById('confirmBtn').disabled = isPast || isLocked || Object.keys(scheduleData).length === 0 || !isAdminUser;
+        document.getElementById('exportBtn').disabled = Object.keys(scheduleData).length === 0;
+        document.getElementById('unlockBtn').style.display = (isLocked && isAdminUser) ? 'inline-flex' : 'none';
+    }
+
+    function isPastMonth() {
+        const now = new Date();
+        const nowY = now.getFullYear();
+        const nowM = now.getMonth() + 1;
+        return (currentYear < nowY) || (currentYear === nowY && currentMonth < nowM);
+    }
+
+    // === Generate Schedule ===
+    function generateSchedule() {
+        // Admin check
+        if (!currentOperator || !isAdmin(currentOperator)) {
+            showToast('只有管理员能生成排班', 'error');
+            return;
+        }
+
+        if (isPastMonth()) {
+            showToast('过去月份不可生成排班', 'error');
+            return;
+        }
+        if (isLocked) {
+            showToast('排班已锁定，请先解锁', 'error');
+            return;
+        }
+
+        const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+        const totalRestKey = `total_rest_days_${currentYear}_${currentMonth}`;
+        const totalRest = parseInt(localStorage.getItem(totalRestKey)) || 4;
+
+        // Initialize schedule
+        scheduleData = {};
+        employees.forEach(emp => {
+            scheduleData[emp.name] = new Array(daysInMonth).fill('work');
+        });
+
+        // 1. Apply holidays - everyone rests on holidays
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            if (holidays[dateStr]) {
+                employees.forEach(emp => {
+                    scheduleData[emp.name][d - 1] = 'rest';
+                });
+            }
+        }
+
+        // 2. Apply designated rest from localStorage
+        employees.forEach(emp => {
+            const key = `schedule_${currentYear}_${currentMonth}_${emp.name}`;
+            const saved = localStorage.getItem(key);
+            if (saved) {
+                const days = JSON.parse(saved);
+                days.forEach(d => {
+                    if (d <= daysInMonth) {
+                        scheduleData[emp.name][d - 1] = 'designated';
+                    }
+                });
+            }
+        });
+
+        // 2.5 规则C：谢焕君无指定休时默认每周日休息
+        const xieKey = `schedule_${currentYear}_${currentMonth}_谢焕君`;
+        const xieSaved = localStorage.getItem(xieKey);
+        const xieHasDesignated = xieSaved && JSON.parse(xieSaved).length > 0;
+
+        if (!xieHasDesignated && scheduleData['谢焕君']) {
+            // Find all Sundays in this month
+            const sundays = [];
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dow = new Date(currentYear, currentMonth - 1, d).getDay();
+                const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                if (dow === 0 && !holidays[dateStr]) {
+                    sundays.push(d);
+                }
+            }
+            // Count existing rest days for 谢焕君
+            const existingRest = scheduleData['谢焕君'].filter(s => s === 'rest' || s === 'designated').length;
+            const canAssign = Math.max(0, totalRest - existingRest);
+            const sundaysToAssign = sundays.slice(0, canAssign);
+            sundaysToAssign.forEach(d => {
+                scheduleData['谢焕君'][d - 1] = 'rest';
+            });
+        }
+
+        // 3. Auto-assign rest days for those without enough rest
+        employees.forEach(emp => {
+            const currentRestCount = scheduleData[emp.name].filter(s => s === 'rest' || s === 'designated').length;
+            const needed = totalRest - currentRestCount;
+
+            if (needed > 0) {
+                const availableDays = [];
+                for (let d = 1; d <= daysInMonth; d++) {
+                    if (scheduleData[emp.name][d - 1] === 'work') {
+                        const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                        const dow = new Date(currentYear, currentMonth - 1, d).getDay();
+
+                        // Scoring: prefer non-Monday, prefer spread out
+                        let score = 10;
+                        if (dow === 1) score -= 5; // Avoid Monday
+                        if (emp.name === '谢焕君' && dow === 0) score += 10; // 谢焕君 prefers Sunday
+                        if (workDays[dateStr]) score -= 8; // Avoid makeup workdays
+
+                        availableDays.push({ day: d, score, dow });
+                    }
+                }
+
+                // Sort by week distribution then score
+                const weekAssignments = {};
+                const assigned = [];
+
+                // Try to distribute evenly across weeks
+                for (let i = 0; i < needed && availableDays.length > 0; i++) {
+                    // Score each candidate based on week distribution
+                    availableDays.forEach(ad => {
+                        const weekNum = Math.floor((ad.day - 1) / 7);
+                        ad.finalScore = ad.score - (weekAssignments[weekNum] || 0) * 10;
+                    });
+
+                    availableDays.sort((a, b) => b.finalScore - a.finalScore);
+
+                    // Check constraints
+                    let picked = null;
+                    for (let j = 0; j < availableDays.length; j++) {
+                        const candidate = availableDays[j];
+                        const d = candidate.day;
+
+                        // 规则B：陈文童 and 付新远 cannot rest same day
+                        if (emp.name === '陈文童' && scheduleData['付新远'] && scheduleData['付新远'][d - 1] !== 'work' && scheduleData['付新远'][d - 1] !== 'duty') continue;
+                        if (emp.name === '付新远' && scheduleData['陈文童'] && scheduleData['陈文童'][d - 1] !== 'work' && scheduleData['陈文童'][d - 1] !== 'duty') continue;
+
+                        // 规则A：同组别至少保证1人上班
+                        const group = employees.find(e => e.name === emp.name)?.group;
+                        if (group) {
+                            const sameGroupMembers = employees.filter(e => e.group === group && e.name !== emp.name);
+                            const sameGroupWorkingCount = sameGroupMembers.filter(e =>
+                                scheduleData[e.name] && (scheduleData[e.name][d - 1] === 'work' || scheduleData[e.name][d - 1] === 'duty')
+                            ).length;
+                            // If no one else in group is working, can't rest
+                            if (sameGroupWorkingCount === 0) continue;
+                        }
+
+                        // Additional check: same group not too many resting (original logic)
+                        if (group) {
+                            const sameGroupResting = employees.filter(e =>
+                                e.group === group && e.name !== emp.name &&
+                                scheduleData[e.name] && scheduleData[e.name][d - 1] !== 'work' && scheduleData[e.name][d - 1] !== 'duty'
+                            ).length;
+                            const sameGroupTotal = employees.filter(e => e.group === group).length;
+                            if (sameGroupResting >= Math.ceil(sameGroupTotal / 2)) continue;
+                        }
+
+                        picked = j;
+                        break;
+                    }
+
+                    if (picked === null) picked = 0;
+
+                    const chosenDay = availableDays[picked].day;
+                    const weekNum = Math.floor((chosenDay - 1) / 7);
+                    weekAssignments[weekNum] = (weekAssignments[weekNum] || 0) + 1;
+                    scheduleData[emp.name][chosenDay - 1] = 'rest';
+                    availableDays.splice(picked, 1);
+                }
+            }
+        });
+
+        // 3.5 Post-validation: 规则A - ensure each group has at least 1 working person per day
+        // If violations found, swap rest days
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            if (holidays[dateStr]) continue; // Skip holidays
+
+            const groups = ['经理', '主管', '到货', '发货'];
+            groups.forEach(group => {
+                const groupMembers = employees.filter(e => e.group === group);
+                const workingMembers = groupMembers.filter(e =>
+                    scheduleData[e.name] && (scheduleData[e.name][d - 1] === 'work' || scheduleData[e.name][d - 1] === 'duty')
+                );
+
+                if (workingMembers.length === 0 && groupMembers.length > 0) {
+                    // Find a resting member in this group to force work
+                    const restingMembers = groupMembers.filter(e =>
+                        scheduleData[e.name] && scheduleData[e.name][d - 1] === 'rest'
+                    );
+                    if (restingMembers.length > 0) {
+                        // Pick the one with the most rest days already assigned
+                        restingMembers.sort((a, b) => {
+                            const aRest = scheduleData[a.name].filter(s => s === 'rest').length;
+                            const bRest = scheduleData[b.name].filter(s => s === 'rest').length;
+                            return bRest - aRest;
+                        });
+                        scheduleData[restingMembers[0].name][d - 1] = 'work';
+                    }
+                }
+            });
+
+            // 规则B post-validation: 陈文童 and 付新远 cannot both be non-working
+            if (scheduleData['陈文童'] && scheduleData['付新远']) {
+                const chenStatus = scheduleData['陈文童'][d - 1];
+                const fuStatus = scheduleData['付新远'][d - 1];
+                const chenWorking = (chenStatus === 'work' || chenStatus === 'duty');
+                const fuWorking = (fuStatus === 'work' || fuStatus === 'duty');
+
+                if (!chenWorking && !fuWorking) {
+                    // Force one of them to work - pick the one with more rest days
+                    const chenRest = scheduleData['陈文童'].filter(s => s === 'rest').length;
+                    const fuRest = scheduleData['付新远'].filter(s => s === 'rest').length;
+                    if (chenRest >= fuRest) {
+                        scheduleData['陈文童'][d - 1] = 'work';
+                    } else {
+                        scheduleData['付新远'][d - 1] = 'work';
+                    }
+                }
+            }
+        }
+
+        // 4. Assign duty (值班)
+        const dutyExclude = ['谢焕君', '付新远', '陈文童', '陈安然', '黄丽情', '崔斯欣'];
+        const dutyEligible = employees.filter(e => !dutyExclude.includes(e.name) && e.name !== '林镇兴').map(e => e.name);
+        let dutyIdx = 0;
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            if (holidays[dateStr]) continue; // No duty on holidays
+
+            // Find someone working that day to assign duty
+            let assigned = false;
+            for (let attempt = 0; attempt < dutyEligible.length; attempt++) {
+                const person = dutyEligible[dutyIdx % dutyEligible.length];
+                if (scheduleData[person][d - 1] === 'work') {
+                    scheduleData[person][d - 1] = 'duty';
+                    assigned = true;
+                    dutyIdx++;
+                    break;
+                }
+                dutyIdx++;
+            }
+
+            // If no eligible person found, assign 林镇兴
+            if (!assigned && scheduleData['林镇兴'] && scheduleData['林镇兴'][d - 1] === 'work') {
+                scheduleData['林镇兴'][d - 1] = 'duty';
+            }
+        }
+
+        // Save draft
+        localStorage.setItem(`final_schedule_${currentYear}_${currentMonth}`, JSON.stringify(scheduleData));
+        renderTable();
+        updateButtonStates();
+        showToast('排班表已生成', 'success');
+    }
+
+    // === Render Table ===
+    function renderTable() {
+        const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+        const wrapper = document.getElementById('tableWrapper');
+        const isAdminUser = currentOperator && isAdmin(currentOperator);
+
+        let html = '<table class="schedule-table"><thead><tr><th class="name-col">姓名</th>';
+
+        // Column headers (days)
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const dow = new Date(currentYear, currentMonth - 1, d).getDay();
+            const dowLabels = ['日', '一', '二', '三', '四', '五', '六'];
+            const isHoliday = !!holidays[dateStr];
+            const isWeekend = dow === 0 || dow === 6;
+
+            html += `<th class="${isHoliday ? 'holiday-col' : ''}" title="${holidays[dateStr] || ''}">${d}<br><span style="font-size:9px;font-weight:400;">${dowLabels[dow]}</span></th>`;
+        }
+        html += '</tr></thead><tbody>';
+
+        // Employee rows
+        employees.forEach(emp => {
+            if (!scheduleData[emp.name]) return;
+            html += `<tr><td class="name-col">${emp.name}</td>`;
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const status = scheduleData[emp.name][d - 1] || 'work';
+                const statusInfo = STATUS_TYPES.find(s => s.key === status) || STATUS_TYPES[0];
+                // Only admin can edit cells when not locked
+                const canEdit = !isLocked && isAdminUser;
+                const cellClass = `status-${status}${canEdit ? ' editable' : ' locked'}`;
+
+                html += `<td class="${cellClass}" data-name="${emp.name}" data-day="${d}" data-status="${status}"
+                    ${canEdit ? `onclick="openCellEdit(event, '${emp.name}', ${d})"` : ''}>
+                    ${statusInfo.short}</td>`;
+            }
+            html += '</tr>';
+        });
+
+        // Stats row
+        html += '<tr class="stats-row"><td class="name-col" style="background:#f0fdf4;">上班人数</td>';
+        for (let d = 1; d <= daysInMonth; d++) {
+            let workCount = 0;
+            employees.forEach(emp => {
+                if (!scheduleData[emp.name]) return;
+                const s = scheduleData[emp.name][d - 1];
+                if (s === 'work' || s === 'duty') workCount++;
+            });
+            html += `<td>${workCount}</td>`;
+        }
+        html += '</tr>';
+
+        html += '</tbody></table>';
+        wrapper.innerHTML = html;
+    }
+
+    // === Cell Edit Dropdown ===
+    function openCellEdit(event, name, day) {
+        if (isLocked) return;
+        if (!currentOperator || !isAdmin(currentOperator)) {
+            showToast('只有管理员能编辑排班', 'error');
+            return;
+        }
+        event.stopPropagation();
+
+        const dropdown = document.getElementById('cellDropdown');
+        const rect = event.target.getBoundingClientRect();
+
+        // Position dropdown
+        let top = rect.bottom + 4;
+        let left = rect.left;
+
+        // Adjust if goes off screen
+        if (top + 280 > window.innerHeight) {
+            top = rect.top - 280;
+        }
+        if (left + 120 > window.innerWidth) {
+            left = window.innerWidth - 130;
+        }
+
+        dropdown.style.top = Math.max(4, top) + 'px';
+        dropdown.style.left = Math.max(4, left) + 'px';
+
+        // Render options
+        dropdown.innerHTML = STATUS_TYPES.map(st =>
+            `<div class="option" onclick="setCellStatus('${name}', ${day}, '${st.key}')">
+                <div class="dot" style="background:${st.color};border:1px solid rgba(0,0,0,0.15)"></div>
+                ${st.label}
+            </div>`
+        ).join('');
+
+        dropdown.classList.add('show');
+        activeDropdown = { name, day };
+    }
+
+    function hideDropdown() {
+        document.getElementById('cellDropdown').classList.remove('show');
+        activeDropdown = null;
+    }
+
+    function setCellStatus(name, day, status) {
+        scheduleData[name][day - 1] = status;
+        localStorage.setItem(`final_schedule_${currentYear}_${currentMonth}`, JSON.stringify(scheduleData));
+        hideDropdown();
+        renderTable();
+    }
+
+    // === Confirm / Lock ===
+    function confirmSchedule() {
+        if (!currentOperator || !isAdmin(currentOperator)) {
+            showToast('只有管理员能确认排班', 'error');
+            return;
+        }
+        if (Object.keys(scheduleData).length === 0) {
+            showToast('请先生成排班表', 'error');
+            return;
+        }
+        if (!confirm('确认排班后将锁定不可编辑，是否继续？')) return;
+
+        const key = `final_confirmed_schedule_${currentYear}_${currentMonth}`;
+        localStorage.setItem(key, JSON.stringify(scheduleData));
+        isLocked = true;
+        renderTable();
+        updateButtonStates();
+        showToast('排班已确认并锁定', 'success');
+    }
+
+    function unlockSchedule() {
+        if (!currentOperator || !isAdmin(currentOperator)) {
+            showToast('只有管理员能解锁排班', 'error');
+            return;
+        }
+        if (!confirm('解锁后可重新编辑排班表，是否继续？')) return;
+        const key = `final_confirmed_schedule_${currentYear}_${currentMonth}`;
+        localStorage.removeItem(key);
+        isLocked = false;
+        renderTable();
+        updateButtonStates();
+        showToast('排班表已解锁', 'success');
+    }
+
+    // === Export Excel ===
+    function exportExcel() {
+        if (Object.keys(scheduleData).length === 0) {
+            showToast('没有数据可导出', 'error');
+            return;
+        }
+
+        const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+        // Build XLS with colors
+        let xls = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head><meta charset="UTF-8">
+        <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+        <x:Name>排班表</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+        </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+        <style>
+            td, th { border: 1px solid #ccc; padding: 4px 6px; text-align: center; font-size: 11px; }
+            th { background: #f0f0f0; font-weight: bold; }
+            .holiday-h { background: #fef2f2; color: #dc2626; font-weight: bold; }
+        </style>
+        </head><body><table>`;
+
+        // Title row
+        xls += `<tr><td colspan="${daysInMonth + 1}" style="font-size:14px;font-weight:bold;text-align:center;">
+            ${currentYear}年${currentMonth}月排班表</td></tr>`;
+
+        // Header row
+        xls += '<tr><th>姓名</th>';
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const isHoliday = !!holidays[dateStr];
+            const dow = new Date(currentYear, currentMonth - 1, d).getDay();
+            const dowLabels = ['日', '一', '二', '三', '四', '五', '六'];
+            xls += `<th${isHoliday ? ' class="holiday-h"' : ''}>${d}(${dowLabels[dow]})</th>`;
+        }
+        xls += '</tr>';
+
+        // Data rows
+        const colorMap = {
+            work: '#ffffff', rest: '#fef9c3', designated: '#f3e8ff',
+            duty: '#fecaca', swap: '#e5e7eb', leave: '#d1fae5',
+            annual: '#dbeafe', marriage: '#fce7f3', prenatal: '#fed7aa', maternity: '#e0f2fe'
+        };
+        const labelMap = {
+            work: '', rest: '休', designated: '指', duty: '值',
+            swap: '调', leave: '假', annual: '年', marriage: '婚', prenatal: '检', maternity: '产'
+        };
+
+        employees.forEach(emp => {
+            if (!scheduleData[emp.name]) return;
+            xls += `<tr><td style="font-weight:bold;">${emp.name}</td>`;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const status = scheduleData[emp.name][d - 1] || 'work';
+                xls += `<td style="background:${colorMap[status]}">${labelMap[status]}</td>`;
+            }
+            xls += '</tr>';
+        });
+
+        // Stats row
+        xls += '<tr><td style="font-weight:bold;background:#f0fdf4;">上班人数</td>';
+        for (let d = 1; d <= daysInMonth; d++) {
+            let count = 0;
+            employees.forEach(emp => {
+                if (!scheduleData[emp.name]) return;
+                const s = scheduleData[emp.name][d - 1];
+                if (s === 'work' || s === 'duty') count++;
+            });
+            xls += `<td style="background:#f0fdf4;font-weight:bold;">${count}</td>`;
+        }
+        xls += '</tr>';
+
+        xls += '</table></body></html>';
+
+        // Download
+        const blob = new Blob([xls], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `排班表_${currentYear}年${currentMonth}月.xls`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Excel已导出', 'success');
+    }
+
+    // === Toast ===
+    function showToast(msg, type) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.className = 'toast ' + (type || '');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // === Start ===
+    init();
+    </script>
+</body>
+</html>
