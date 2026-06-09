@@ -92,41 +92,6 @@
         }
         .btn-back:hover { background: var(--bg); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .operator-bar {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
-            padding: 12px 16px;
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border);
-            font-size: 14px;
-        }
-        .operator-bar .operator-name {
-            font-weight: 600;
-            color: var(--text);
-        }
-        .operator-bar .admin-badge {
-            font-size: 12px;
-            color: var(--warning);
-            font-weight: 600;
-        }
-        .operator-bar .switch-btn {
-            padding: 4px 10px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 12px;
-            cursor: pointer;
-            background: white;
-            color: var(--text-light);
-            transition: all 0.2s;
-        }
-        .operator-bar .switch-btn:hover {
-            background: var(--bg);
-            color: var(--text);
-        }
         .card {
             background: var(--card-bg);
             border-radius: var(--radius);
@@ -323,37 +288,6 @@
         .toast.show { transform: translateY(0); opacity: 1; }
         .toast.success { background: var(--success); }
         .toast.error { background: var(--danger); }
-        /* Modal */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.4);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .modal-overlay.active { display: flex; }
-        .modal {
-            background: white;
-            border-radius: var(--radius);
-            padding: 24px;
-            max-width: 500px;
-            width: 100%;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        .modal h3 {
-            margin-bottom: 16px;
-            font-size: 16px;
-        }
-        .modal-actions {
-            display: flex;
-            gap: 8px;
-            justify-content: flex-end;
-            margin-top: 16px;
-        }
         /* Responsive */
         @media (max-width: 768px) {
             body { padding: 12px; }
@@ -365,14 +299,6 @@
     </style>
 </head>
 <body>
-    <!-- 当前操作人展示（记忆式） -->
-    <div class="operator-bar" id="operatorBar">
-        <span>👤 当前操作人：</span>
-        <span class="operator-name" id="operatorName">未选择</span>
-        <span class="admin-badge" id="adminBadge" style="display:none;">⭐ 管理员</span>
-        <button class="switch-btn" onclick="switchOperator()">切换</button>
-    </div>
-
     <div class="header">
         <h1>⚙️ 排班表生成</h1>
         <div class="header-actions">
@@ -423,20 +349,6 @@
 
     <!-- Cell edit dropdown -->
     <div class="cell-dropdown" id="cellDropdown"></div>
-
-    <!-- 操作人选择弹窗 -->
-    <div class="modal-overlay" id="operatorModal">
-        <div class="modal">
-            <h3>👤 请选择你是谁</h3>
-            <p style="margin-bottom:16px;color:var(--text-light);font-size:13px;">首次使用需要选择身份，之后会自动记住</p>
-            <select id="operatorModalSelect" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;margin-bottom:16px;">
-                <option value="">-- 请选择 --</option>
-            </select>
-            <div class="modal-actions">
-                <button class="btn btn-primary" onclick="confirmOperatorSelection()">确认</button>
-            </div>
-        </div>
-    </div>
 
     <div class="toast" id="toast"></div>
 
@@ -528,65 +440,17 @@
     let scheduleData = {}; // { name: [status for each day 1-31] }
     let isLocked = false;
     let activeDropdown = null;
-    let currentOperator = '';
 
     // === Init ===
     function init() {
         loadEmployees();
-        initOperator();
         setDefaultMonth();
         loadScheduleIfExists();
-        updateAdminUI();
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.cell-dropdown') && !e.target.closest('.editable')) {
                 hideDropdown();
             }
         });
-    }
-
-    // === 操作人记忆系统 ===
-    function initOperator() {
-        const saved = localStorage.getItem('current_operator');
-        if (saved) {
-            currentOperator = saved;
-            updateOperatorDisplay();
-        } else {
-            showOperatorModal();
-        }
-    }
-
-    function showOperatorModal() {
-        const select = document.getElementById('operatorModalSelect');
-        select.innerHTML = '<option value="">-- 请选择 --</option>';
-        employees.forEach(emp => {
-            const adminMark = isAdmin(emp.name) ? ' ⭐' : '';
-            select.innerHTML += `<option value="${emp.name}">${emp.name}（${emp.group}）${adminMark}</option>`;
-        });
-        document.getElementById('operatorModal').classList.add('active');
-    }
-
-    function confirmOperatorSelection() {
-        const selected = document.getElementById('operatorModalSelect').value;
-        if (!selected) {
-            showToast('请选择你的身份', 'error');
-            return;
-        }
-        currentOperator = selected;
-        localStorage.setItem('current_operator', selected);
-        document.getElementById('operatorModal').classList.remove('active');
-        updateOperatorDisplay();
-        updateAdminUI();
-    }
-
-    function switchOperator() {
-        showOperatorModal();
-    }
-
-    function updateOperatorDisplay() {
-        const nameEl = document.getElementById('operatorName');
-        const badgeEl = document.getElementById('adminBadge');
-        nameEl.textContent = currentOperator || '未选择';
-        badgeEl.style.display = (currentOperator && isAdmin(currentOperator)) ? 'inline' : 'none';
     }
 
     function loadEmployees() {
@@ -596,12 +460,6 @@
         } else {
             employees = [...DEFAULT_EMPLOYEES];
         }
-    }
-
-    function updateAdminUI() {
-        const isAdminUser = currentOperator && isAdmin(currentOperator);
-        // Update button states with admin check
-        updateButtonStates();
     }
 
     function setDefaultMonth() {
@@ -643,45 +501,40 @@
         }
     }
 
-    // 判断某月排班是否已过截止（不能再生成/编辑）
-    // 规则：N月的排班表，必须在 N-1月的最后一天前完成
+    // === 判断排班截止时间（变更3）===
+    // 规则：N月的排班表，必须在 N-1月的最后一天（23:59:59）前完成
     function isScheduleDeadlinePassed() {
         const now = new Date();
-        // 目标月份的上个月最后一天是截止日
-        const lastDayOfPrevMonth = new Date(currentYear, currentMonth - 1, 0); // 上个月最后一天
-        // 设置到当天23:59:59
-        lastDayOfPrevMonth.setHours(23, 59, 59, 999);
+        // 目标月份为 currentYear/currentMonth
+        // 截止日为上个月最后一天
+        const lastDayOfPrevMonth = new Date(currentYear, currentMonth - 1, 0, 23, 59, 59);
         return now > lastDayOfPrevMonth;
     }
 
     function updateButtonStates() {
         const deadlinePassed = isScheduleDeadlinePassed();
-        const isAdminUser = currentOperator && isAdmin(currentOperator);
         const deadlineNotice = document.getElementById('deadlineNotice');
 
         // 显示截止提示
         if (deadlinePassed && !isLocked) {
             deadlineNotice.style.display = 'block';
-            deadlineNotice.innerHTML = `⚠️ ${currentYear}年${currentMonth}月的排班已过截止日期（截止日：${currentYear}年${currentMonth - 1 > 0 ? currentMonth - 1 : 12}月最后一天），不能再生成/编辑`;
+            let prevMonth = currentMonth - 1;
+            let prevYear = currentYear;
+            if (prevMonth <= 0) { prevMonth = 12; prevYear--; }
+            deadlineNotice.innerHTML = `⚠️ ${currentYear}年${currentMonth}月的排班已过截止日期（截止日：${prevYear}年${prevMonth}月最后一天），不能再生成/编辑`;
         } else {
             deadlineNotice.style.display = 'none';
         }
 
-        // Generate, confirm, unlock require admin + not past deadline
-        document.getElementById('generateBtn').disabled = deadlinePassed || isLocked || !isAdminUser;
-        document.getElementById('confirmBtn').disabled = deadlinePassed || isLocked || Object.keys(scheduleData).length === 0 || !isAdminUser;
+        // 所有进入的人都能操作（不再区分管理员），只看截止时间和锁定状态
+        document.getElementById('generateBtn').disabled = deadlinePassed || isLocked;
+        document.getElementById('confirmBtn').disabled = deadlinePassed || isLocked || Object.keys(scheduleData).length === 0;
         document.getElementById('exportBtn').disabled = Object.keys(scheduleData).length === 0;
-        document.getElementById('unlockBtn').style.display = (isLocked && isAdminUser && !deadlinePassed) ? 'inline-flex' : 'none';
+        document.getElementById('unlockBtn').style.display = (isLocked && !deadlinePassed) ? 'inline-flex' : 'none';
     }
 
     // === Generate Schedule ===
     function generateSchedule() {
-        // Admin check
-        if (!currentOperator || !isAdmin(currentOperator)) {
-            showToast('只有管理员能生成排班', 'error');
-            return;
-        }
-
         if (isScheduleDeadlinePassed()) {
             showToast('已过截止日期，不可生成排班', 'error');
             return;
@@ -731,7 +584,6 @@
         const xieHasDesignated = xieSaved && JSON.parse(xieSaved).length > 0;
 
         if (!xieHasDesignated && scheduleData['谢焕君']) {
-            // Find all Sundays in this month
             const sundays = [];
             for (let d = 1; d <= daysInMonth; d++) {
                 const dow = new Date(currentYear, currentMonth - 1, d).getDay();
@@ -740,7 +592,6 @@
                     sundays.push(d);
                 }
             }
-            // Count existing rest days for 谢焕君
             const existingRest = scheduleData['谢焕君'].filter(s => s === 'rest' || s === 'designated').length;
             const canAssign = Math.max(0, totalRest - existingRest);
             const sundaysToAssign = sundays.slice(0, canAssign);
@@ -761,23 +612,19 @@
                         const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                         const dow = new Date(currentYear, currentMonth - 1, d).getDay();
 
-                        // Scoring: prefer non-Monday, prefer spread out
                         let score = 10;
-                        if (dow === 1) score -= 5; // Avoid Monday
-                        if (emp.name === '谢焕君' && dow === 0) score += 10; // 谢焕君 prefers Sunday
-                        if (workDays[dateStr]) score -= 8; // Avoid makeup workdays
+                        if (dow === 1) score -= 5;
+                        if (emp.name === '谢焕君' && dow === 0) score += 10;
+                        if (workDays[dateStr]) score -= 8;
 
                         availableDays.push({ day: d, score, dow });
                     }
                 }
 
-                // Sort by week distribution then score
                 const weekAssignments = {};
                 const assigned = [];
 
-                // Try to distribute evenly across weeks
                 for (let i = 0; i < needed && availableDays.length > 0; i++) {
-                    // Score each candidate based on week distribution
                     availableDays.forEach(ad => {
                         const weekNum = Math.floor((ad.day - 1) / 7);
                         ad.finalScore = ad.score - (weekAssignments[weekNum] || 0) * 10;
@@ -785,28 +632,23 @@
 
                     availableDays.sort((a, b) => b.finalScore - a.finalScore);
 
-                    // Check constraints
                     let picked = null;
                     for (let j = 0; j < availableDays.length; j++) {
                         const candidate = availableDays[j];
                         const d = candidate.day;
 
-                        // 规则B：陈文童 and 付新远 cannot rest same day
                         if (emp.name === '陈文童' && scheduleData['付新远'] && scheduleData['付新远'][d - 1] !== 'work' && scheduleData['付新远'][d - 1] !== 'duty') continue;
                         if (emp.name === '付新远' && scheduleData['陈文童'] && scheduleData['陈文童'][d - 1] !== 'work' && scheduleData['陈文童'][d - 1] !== 'duty') continue;
 
-                        // 规则A：同组别至少保证1人上班
                         const group = employees.find(e => e.name === emp.name)?.group;
                         if (group) {
                             const sameGroupMembers = employees.filter(e => e.group === group && e.name !== emp.name);
                             const sameGroupWorkingCount = sameGroupMembers.filter(e =>
                                 scheduleData[e.name] && (scheduleData[e.name][d - 1] === 'work' || scheduleData[e.name][d - 1] === 'duty')
                             ).length;
-                            // If no one else in group is working, can't rest
                             if (sameGroupWorkingCount === 0) continue;
                         }
 
-                        // Additional check: same group not too many resting (original logic)
                         if (group) {
                             const sameGroupResting = employees.filter(e =>
                                 e.group === group && e.name !== emp.name &&
@@ -834,7 +676,7 @@
         // 3.5 Post-validation: 规则A - ensure each group has at least 1 working person per day
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            if (holidays[dateStr]) continue; // Skip holidays
+            if (holidays[dateStr]) continue;
 
             const groups = ['经理', '主管', '到货', '发货'];
             groups.forEach(group => {
@@ -884,7 +726,7 @@
 
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            if (holidays[dateStr]) continue; // No duty on holidays
+            if (holidays[dateStr]) continue;
 
             let assigned = false;
             for (let attempt = 0; attempt < dutyEligible.length; attempt++) {
@@ -914,12 +756,10 @@
     function renderTable() {
         const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
         const wrapper = document.getElementById('tableWrapper');
-        const isAdminUser = currentOperator && isAdmin(currentOperator);
         const deadlinePassed = isScheduleDeadlinePassed();
 
         let html = '<table class="schedule-table"><thead><tr><th class="name-col">姓名</th>';
 
-        // Column headers (days)
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             const dow = new Date(currentYear, currentMonth - 1, d).getDay();
@@ -930,7 +770,6 @@
         }
         html += '</tr></thead><tbody>';
 
-        // Employee rows
         employees.forEach(emp => {
             if (!scheduleData[emp.name]) return;
             html += `<tr><td class="name-col">${emp.name}</td>`;
@@ -938,8 +777,8 @@
             for (let d = 1; d <= daysInMonth; d++) {
                 const status = scheduleData[emp.name][d - 1] || 'work';
                 const statusInfo = STATUS_TYPES.find(s => s.key === status) || STATUS_TYPES[0];
-                // Only admin can edit cells when not locked and not past deadline
-                const canEdit = !isLocked && isAdminUser && !deadlinePassed;
+                // 所有人都能编辑，只看锁定和截止状态
+                const canEdit = !isLocked && !deadlinePassed;
                 const cellClass = `status-${status}${canEdit ? ' editable' : ' locked'}`;
 
                 html += `<td class="${cellClass}" data-name="${emp.name}" data-day="${d}" data-status="${status}"
@@ -969,10 +808,6 @@
     // === Cell Edit Dropdown ===
     function openCellEdit(event, name, day) {
         if (isLocked) return;
-        if (!currentOperator || !isAdmin(currentOperator)) {
-            showToast('只有管理员能编辑排班', 'error');
-            return;
-        }
         if (isScheduleDeadlinePassed()) {
             showToast('已过截止日期，无法编辑', 'error');
             return;
@@ -982,11 +817,9 @@
         const dropdown = document.getElementById('cellDropdown');
         const rect = event.target.getBoundingClientRect();
 
-        // Position dropdown
         let top = rect.bottom + 4;
         let left = rect.left;
 
-        // Adjust if goes off screen
         if (top + 280 > window.innerHeight) {
             top = rect.top - 280;
         }
@@ -997,7 +830,6 @@
         dropdown.style.top = Math.max(4, top) + 'px';
         dropdown.style.left = Math.max(4, left) + 'px';
 
-        // Render options
         dropdown.innerHTML = STATUS_TYPES.map(st =>
             `<div class="option" onclick="setCellStatus('${name}', ${day}, '${st.key}')">
                 <div class="dot" style="background:${st.color};border:1px solid rgba(0,0,0,0.15)"></div>
@@ -1023,10 +855,6 @@
 
     // === Confirm / Lock ===
     function confirmSchedule() {
-        if (!currentOperator || !isAdmin(currentOperator)) {
-            showToast('只有管理员能确认排班', 'error');
-            return;
-        }
         if (isScheduleDeadlinePassed()) {
             showToast('已过截止日期，无法确认', 'error');
             return;
@@ -1046,10 +874,6 @@
     }
 
     function unlockSchedule() {
-        if (!currentOperator || !isAdmin(currentOperator)) {
-            showToast('只有管理员能解锁排班', 'error');
-            return;
-        }
         if (!confirm('解锁后可重新编辑排班表，是否继续？')) return;
         const key = `final_confirmed_schedule_${currentYear}_${currentMonth}`;
         localStorage.removeItem(key);
@@ -1068,7 +892,6 @@
 
         const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
 
-        // Build XLS with colors
         let xls = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
         <head><meta charset="UTF-8">
         <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
@@ -1081,11 +904,9 @@
         </style>
         </head><body><table>`;
 
-        // Title row
         xls += `<tr><td colspan="${daysInMonth + 1}" style="font-size:14px;font-weight:bold;text-align:center;">
             ${currentYear}年${currentMonth}月排班表</td></tr>`;
 
-        // Header row
         xls += '<tr><th>姓名</th>';
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -1096,7 +917,6 @@
         }
         xls += '</tr>';
 
-        // Data rows
         const colorMap = {
             work: '#ffffff', rest: '#fef9c3', designated: '#f3e8ff',
             duty: '#fecaca', swap: '#e5e7eb', leave: '#d1fae5',
@@ -1117,7 +937,6 @@
             xls += '</tr>';
         });
 
-        // Stats row
         xls += '<tr><td style="font-weight:bold;background:#f0fdf4;">上班人数</td>';
         for (let d = 1; d <= daysInMonth; d++) {
             let count = 0;
@@ -1132,7 +951,6 @@
 
         xls += '</table></body></html>';
 
-        // Download
         const blob = new Blob([xls], { type: 'application/vnd.ms-excel' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');

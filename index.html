@@ -215,22 +215,8 @@
     }
 
     function checkAdminAccess() {
+        // 每次点击都弹窗验证，不再使用 current_operator 记忆
         const admins = getAdminList();
-        const savedOperator = localStorage.getItem('current_operator');
-
-        // 如果已有记忆的操作人
-        if (savedOperator) {
-            if (admins.includes(savedOperator)) {
-                // 已知是管理员，直接跳转
-                window.location.href = '排班表生成.html';
-            } else {
-                // 已知不是管理员，直接提示
-                alert('⚠️ 你不是管理员，无法进入排班表生成功能');
-            }
-            return;
-        }
-
-        // 还没选过，弹窗选择
         const employees = getEmployeeList();
         const select = document.getElementById('adminSelect');
         select.innerHTML = '<option value="">-- 请选择 --</option>';
@@ -251,8 +237,6 @@
             alert('请选择你的身份');
             return;
         }
-        // 保存到 localStorage
-        localStorage.setItem('current_operator', selected);
 
         const admins = getAdminList();
         if (admins.includes(selected)) {

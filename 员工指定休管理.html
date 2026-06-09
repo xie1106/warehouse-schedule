@@ -90,41 +90,6 @@
             transition: all 0.2s;
         }
         .btn-back:hover { background: var(--bg); }
-        .operator-bar {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
-            padding: 12px 16px;
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border);
-            font-size: 14px;
-        }
-        .operator-bar .operator-name {
-            font-weight: 600;
-            color: var(--text);
-        }
-        .operator-bar .admin-badge {
-            font-size: 12px;
-            color: var(--warning);
-            font-weight: 600;
-        }
-        .operator-bar .switch-btn {
-            padding: 4px 10px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 12px;
-            cursor: pointer;
-            background: white;
-            color: var(--text-light);
-            transition: all 0.2s;
-        }
-        .operator-bar .switch-btn:hover {
-            background: var(--bg);
-            color: var(--text);
-        }
         .layout {
             display: grid;
             grid-template-columns: 1fr 320px;
@@ -454,18 +419,10 @@
     </style>
 </head>
 <body>
-    <!-- 当前操作人展示（记忆式） -->
-    <div class="operator-bar" id="operatorBar">
-        <span>👤 当前操作人：</span>
-        <span class="operator-name" id="operatorName">未选择</span>
-        <span class="admin-badge" id="adminBadge" style="display:none;">⭐ 管理员</span>
-        <button class="switch-btn" onclick="switchOperator()">切换</button>
-    </div>
-
     <div class="header">
         <h1>📅 员工指定休管理</h1>
         <div class="header-actions">
-            <button class="btn btn-outline" id="empManageBtn" onclick="openEmployeeModal()" style="display:none;">👥 员工管理</button>
+            <button class="btn btn-outline" id="empManageBtn" onclick="openEmployeeModal()">👥 员工管理</button>
             <a href="index.html" class="btn-back">← 返回首页</a>
         </div>
     </div>
@@ -490,8 +447,8 @@
 
                 <div class="rest-config" id="restConfigArea">
                     <span>本月应休天数：</span>
-                    <span id="restDaysDisplay" style="display:none;font-weight:600;"></span>
-                    <input type="number" id="totalRestDays" min="0" max="15" value="4" onchange="saveTotalRestDays()" style="display:none;">
+                    <span id="restDaysDisplay" style="font-weight:600;"></span>
+                    <input type="number" id="totalRestDays" min="0" max="15" value="4" onchange="saveTotalRestDays()">
                     <span id="restDaysUnit">天（指定休不超过此数）</span>
                 </div>
 
@@ -556,20 +513,6 @@
             </div>
             <div class="modal-actions">
                 <button class="btn btn-outline" onclick="closeEmployeeModal()">关闭</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 操作人选择弹窗 -->
-    <div class="modal-overlay" id="operatorModal">
-        <div class="modal">
-            <h3>👤 请选择你是谁</h3>
-            <p style="margin-bottom:16px;color:var(--text-light);font-size:13px;">首次使用需要选择身份，之后会自动记住</p>
-            <select id="operatorModalSelect" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;margin-bottom:16px;">
-                <option value="">-- 请选择 --</option>
-            </select>
-            <div class="modal-actions">
-                <button class="btn btn-primary" onclick="confirmOperatorSelection()">确认</button>
             </div>
         </div>
     </div>
@@ -653,64 +596,14 @@
     let currentEmployee = '';
     let currentYear = 0;
     let currentMonth = 0;
-    let currentOperator = '';
 
     // === Init ===
     function init() {
         loadEmployees();
-        initOperator();
         populateEmployeeSelect();
-        restoreSelectedEmployee();
         setDefaultMonth();
+        restoreSelectedEmployee();
         updateStats();
-        updateAdminUI();
-    }
-
-    // === 操作人记忆系统 ===
-    function initOperator() {
-        const saved = localStorage.getItem('current_operator');
-        if (saved) {
-            // 已有记忆，直接使用
-            currentOperator = saved;
-            updateOperatorDisplay();
-        } else {
-            // 第一次打开，弹窗选择
-            showOperatorModal();
-        }
-    }
-
-    function showOperatorModal() {
-        const select = document.getElementById('operatorModalSelect');
-        select.innerHTML = '<option value="">-- 请选择 --</option>';
-        employees.forEach(emp => {
-            const adminMark = isAdmin(emp.name) ? ' ⭐' : '';
-            select.innerHTML += `<option value="${emp.name}">${emp.name}（${emp.group}）${adminMark}</option>`;
-        });
-        document.getElementById('operatorModal').classList.add('active');
-    }
-
-    function confirmOperatorSelection() {
-        const selected = document.getElementById('operatorModalSelect').value;
-        if (!selected) {
-            showToast('请选择你的身份', 'error');
-            return;
-        }
-        currentOperator = selected;
-        localStorage.setItem('current_operator', selected);
-        document.getElementById('operatorModal').classList.remove('active');
-        updateOperatorDisplay();
-        updateAdminUI();
-    }
-
-    function switchOperator() {
-        showOperatorModal();
-    }
-
-    function updateOperatorDisplay() {
-        const nameEl = document.getElementById('operatorName');
-        const badgeEl = document.getElementById('adminBadge');
-        nameEl.textContent = currentOperator || '未选择';
-        badgeEl.style.display = (currentOperator && isAdmin(currentOperator)) ? 'inline' : 'none';
     }
 
     function loadEmployees() {
@@ -733,26 +626,6 @@
         localStorage.setItem('employee_groups', JSON.stringify(groups));
     }
 
-    function updateAdminUI() {
-        const isAdminUser = currentOperator && isAdmin(currentOperator);
-        const empManageBtn = document.getElementById('empManageBtn');
-        const totalRestInput = document.getElementById('totalRestDays');
-        const restDaysDisplay = document.getElementById('restDaysDisplay');
-
-        // Show/hide employee manage button
-        empManageBtn.style.display = isAdminUser ? 'inline-flex' : 'none';
-
-        // Show/hide rest days editing
-        if (isAdminUser) {
-            totalRestInput.style.display = 'inline';
-            restDaysDisplay.style.display = 'none';
-        } else {
-            totalRestInput.style.display = 'none';
-            restDaysDisplay.style.display = 'inline';
-            restDaysDisplay.textContent = totalRestInput.value;
-        }
-    }
-
     function populateEmployeeSelect() {
         const select = document.getElementById('empSelect');
         select.innerHTML = '<option value="">-- 请选择 --</option>';
@@ -762,9 +635,9 @@
         });
     }
 
-    // === 员工选择记忆 ===
+    // === 员工选择记忆（变更2） ===
     function restoreSelectedEmployee() {
-        const saved = localStorage.getItem('selected_employee');
+        const saved = localStorage.getItem('last_selected_employee');
         if (saved) {
             const select = document.getElementById('empSelect');
             // 确认员工还在列表中
@@ -772,56 +645,55 @@
             if (exists) {
                 select.value = saved;
                 currentEmployee = saved;
+                // 自动加载该员工的已有数据
+                loadExistingDates();
+                renderCalendar();
             }
         }
     }
 
-    function setDefaultMonth() {
+    // === 默认月份选择逻辑（变更3） ===
+    function getDefaultTargetMonth() {
         const now = new Date();
-        // 计算当前可以提交的下一个月
-        // 规则：N月的指定休，截止日期是 N-1月的25号
-        // 如果当前还没过 N-1月的25号，则N月可提交
-        let year = now.getFullYear();
-        let month = now.getMonth() + 1; // 当前月
+        const currentDay = now.getDate();
+        const currentMonthNow = now.getMonth() + 1; // 1-12
+        const currentYearNow = now.getFullYear();
 
-        // 检查"下个月"是否还可提交
-        // 下个月的截止日 = 当前月的25号
-        let nextMonth = month + 1;
-        let nextYear = year;
-        if (nextMonth > 12) { nextMonth = 1; nextYear++; }
-
-        // 截止日 = 当前月25号
-        const deadlineForNext = new Date(year, month - 1, 25, 23, 59, 59);
-
-        if (now <= deadlineForNext) {
-            // 下个月还可以提交
-            currentYear = nextYear;
-            currentMonth = nextMonth;
+        // 如果当前日期 <= 25号，那么下个月的指定休还可以提交
+        // 如果当前日期 > 25号，那么下个月指定休已截止，目标是下下个月
+        let targetMonth, targetYear;
+        if (currentDay <= 25) {
+            // 可以提交下个月的指定休
+            targetMonth = currentMonthNow + 1;
+            targetYear = currentYearNow;
         } else {
-            // 下个月已截止，默认选下下个月
-            let monthAfterNext = month + 2;
-            let yearAfterNext = year;
-            if (monthAfterNext > 12) { monthAfterNext -= 12; yearAfterNext++; }
-            currentYear = yearAfterNext;
-            currentMonth = monthAfterNext;
+            // 下个月截止了，目标是下下个月
+            targetMonth = currentMonthNow + 2;
+            targetYear = currentYearNow;
         }
+        if (targetMonth > 12) {
+            targetMonth -= 12;
+            targetYear++;
+        }
+        return { year: targetYear, month: targetMonth };
+    }
+
+    function setDefaultMonth() {
+        const target = getDefaultTargetMonth();
+        currentYear = target.year;
+        currentMonth = target.month;
 
         document.getElementById('monthSelect').value = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
         loadTotalRestDays();
         checkDeadline();
-        // 如果有记忆的员工，加载数据
-        if (currentEmployee) {
-            loadExistingDates();
-            renderCalendar();
-        }
     }
 
     // === Event Handlers ===
     function onEmployeeChange() {
         currentEmployee = document.getElementById('empSelect').value;
-        // 保存到 localStorage
+        // 保存到 localStorage（变更2）
         if (currentEmployee) {
-            localStorage.setItem('selected_employee', currentEmployee);
+            localStorage.setItem('last_selected_employee', currentEmployee);
         }
         loadExistingDates();
         renderCalendar();
@@ -841,26 +713,23 @@
         }
     }
 
+    // === 截止时间判断（变更3） ===
     function checkDeadline() {
         const now = new Date();
         const notice = document.getElementById('deadlineNotice');
-        // 规则：N月的指定休，截止日期是 N-1月的25号
-        const targetMonth = currentMonth;
-        const targetYear = currentYear;
 
-        // 计算截止日期：目标月份的上个月25号
-        let deadlineMonth = targetMonth - 1;
-        let deadlineYear = targetYear;
+        // 规则：N月的指定休，截止日期是 N-1月的25号
+        let deadlineMonth = currentMonth - 1;
+        let deadlineYear = currentYear;
         if (deadlineMonth <= 0) {
             deadlineMonth = 12;
             deadlineYear--;
         }
         const deadline = new Date(deadlineYear, deadlineMonth - 1, 25, 23, 59, 59);
 
-        // 如果当前时间超过截止日，则不能提交
         if (now > deadline) {
             notice.style.display = 'block';
-            notice.innerHTML = `⚠️ ${targetYear}年${targetMonth}月的指定休收集已截止（截止日期：${deadlineYear}年${deadlineMonth}月25日），无法提交`;
+            notice.innerHTML = `⚠️ ${currentYear}年${currentMonth}月的指定休收集已截止（截止日期：${deadlineYear}年${deadlineMonth}月25日），无法提交`;
         } else {
             notice.style.display = 'none';
         }
@@ -868,12 +737,15 @@
 
     function isAfterDeadline() {
         const now = new Date();
+        // 目标月份为 currentYear/currentMonth
+        // 截止日为上个月25号
         let deadlineMonth = currentMonth - 1;
         let deadlineYear = currentYear;
         if (deadlineMonth <= 0) {
             deadlineMonth = 12;
             deadlineYear--;
         }
+        // 截止时间：上个月25号当天结束（23:59:59）
         const deadline = new Date(deadlineYear, deadlineMonth - 1, 25, 23, 59, 59);
         return now > deadline;
     }
@@ -887,11 +759,6 @@
     }
 
     function saveTotalRestDays() {
-        if (!currentOperator || !isAdmin(currentOperator)) {
-            showToast('只有管理员能修改应休天数', 'error');
-            loadTotalRestDays();
-            return;
-        }
         const key = `total_rest_days_${currentYear}_${currentMonth}`;
         const val = document.getElementById('totalRestDays').value;
         localStorage.setItem(key, val);
@@ -1051,10 +918,6 @@
 
     // === Employee Management ===
     function openEmployeeModal() {
-        if (!currentOperator || !isAdmin(currentOperator)) {
-            showToast('只有管理员能管理员工', 'error');
-            return;
-        }
         document.getElementById('empModal').classList.add('active');
         renderEmployeeManageList();
     }
@@ -1083,10 +946,6 @@
     }
 
     function toggleAdmin(name, setAsAdmin) {
-        if (!currentOperator || !isAdmin(currentOperator)) {
-            showToast('只有管理员能操作', 'error');
-            return;
-        }
         let adminList = getAdminList();
         if (setAsAdmin) {
             if (!adminList.includes(name)) {
@@ -1094,7 +953,6 @@
             }
             showToast(`${name} 已设为管理员`, 'success');
         } else {
-            // Prevent removing last admin
             if (adminList.length <= 1) {
                 showToast('至少保留一个管理员', 'error');
                 return;
@@ -1106,15 +964,9 @@
         renderEmployeeManageList();
         populateEmployeeSelect();
         updateStats();
-        updateAdminUI();
-        updateOperatorDisplay();
     }
 
     function addEmployee() {
-        if (!currentOperator || !isAdmin(currentOperator)) {
-            showToast('只有管理员能添加员工', 'error');
-            return;
-        }
         const name = document.getElementById('newEmpName').value.trim();
         const group = document.getElementById('newEmpGroup').value;
         if (!name) {
@@ -1135,17 +987,12 @@
     }
 
     function removeEmployee(idx) {
-        if (!currentOperator || !isAdmin(currentOperator)) {
-            showToast('只有管理员能删除员工', 'error');
-            return;
-        }
         const name = employees[idx].name;
         if (confirm(`确定删除 ${name}？`)) {
             employees.splice(idx, 1);
-            // Also remove from admin list if present
             let adminList = getAdminList();
             adminList = adminList.filter(n => n !== name);
-            if (adminList.length === 0) adminList = ['谢焕君']; // Fallback
+            if (adminList.length === 0) adminList = ['谢焕君'];
             saveAdminList(adminList);
             saveEmployees();
             populateEmployeeSelect();
