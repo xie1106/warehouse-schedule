@@ -59,6 +59,7 @@
             transition: all 0.2s;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
         }
         .btn-primary { background: var(--primary); color: white; }
@@ -174,7 +175,7 @@
             align-items: center;
             justify-content: center;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 14px;
             cursor: pointer;
             transition: all 0.15s;
             position: relative;
@@ -187,6 +188,7 @@
         .calendar-grid .day.selected {
             background: var(--primary);
             color: white;
+            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
         }
         .calendar-grid .day.holiday {
             color: var(--danger);
@@ -246,6 +248,7 @@
             background: var(--primary-bg);
             border-radius: 8px;
             font-size: 13px;
+            flex-wrap: wrap;
         }
         .rest-config input {
             width: 50px;
@@ -321,6 +324,7 @@
             font-size: 11px;
             padding: 2px 8px;
             border-radius: 4px;
+            white-space: nowrap;
         }
         .emp-item .status.done { background: #d1fae5; color: #065f46; }
         .emp-item .status.pending { background: #fef3c7; color: #92400e; }
@@ -366,6 +370,7 @@
             gap: 8px;
             padding: 8px 0;
             border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
         }
         .emp-manage-item:last-child { border: none; }
         .emp-manage-item .name { flex: 1; font-size: 13px; }
@@ -404,17 +409,172 @@
             transform: translateY(-20px);
             opacity: 0;
             transition: all 0.3s;
+            max-width: calc(100vw - 40px);
         }
         .toast.show { transform: translateY(0); opacity: 1; }
         .toast.success { background: var(--success); }
         .toast.error { background: var(--danger); }
-        /* Responsive */
-        @media (max-width: 768px) {
+        /* Responsive - Tablet */
+        @media (max-width: 900px) {
             .layout {
                 grid-template-columns: 1fr;
             }
-            .selection-row { flex-direction: column; align-items: stretch; }
-            .form-group select, .form-group input { min-width: unset; width: 100%; }
+        }
+        /* Responsive - Mobile */
+        @media (max-width: 768px) {
+            body {
+                padding: 12px;
+            }
+            .header {
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+            }
+            .header h1 {
+                font-size: 18px;
+            }
+            .header-actions {
+                width: 100%;
+            }
+            .header-actions .btn,
+            .header-actions .btn-back {
+                flex: 1;
+                justify-content: center;
+            }
+            .layout {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            .card {
+                padding: 16px;
+            }
+            .card-title {
+                font-size: 14px;
+                margin-bottom: 12px;
+            }
+            .selection-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            .form-group {
+                width: 100%;
+            }
+            .form-group select,
+            .form-group input {
+                min-width: unset;
+                width: 100%;
+                padding: 10px 12px;
+                font-size: 16px; /* prevent iOS zoom */
+            }
+            .selection-row .btn {
+                width: 100%;
+                padding: 12px 16px;
+                font-size: 15px;
+            }
+            .rest-config {
+                padding: 10px;
+                font-size: 13px;
+                gap: 6px;
+            }
+            .rest-config input {
+                width: 48px;
+                padding: 6px;
+                font-size: 14px;
+            }
+            .calendar-grid {
+                gap: 3px;
+            }
+            .calendar-grid .weekday {
+                font-size: 11px;
+                padding: 4px 0;
+            }
+            .calendar-grid .day {
+                font-size: 14px;
+                border-radius: 6px;
+                min-width: 40px;
+                min-height: 40px;
+            }
+            .calendar-legend {
+                gap: 10px;
+                font-size: 11px;
+                flex-wrap: wrap;
+            }
+            .selected-dates {
+                padding: 10px;
+            }
+            .selected-dates .label {
+                font-size: 11px;
+            }
+            .date-tag {
+                font-size: 11px;
+                padding: 3px 8px;
+            }
+            .stats-grid {
+                gap: 8px;
+            }
+            .stat-item {
+                padding: 10px;
+            }
+            .stat-item .num {
+                font-size: 18px;
+            }
+            .employee-list {
+                max-height: 250px;
+            }
+            .emp-item {
+                padding: 8px;
+                font-size: 12px;
+            }
+            /* Modal mobile */
+            .modal {
+                padding: 16px;
+                margin: 12px;
+                max-height: 90vh;
+            }
+            .modal h3 {
+                font-size: 15px;
+            }
+            .emp-manage-item {
+                gap: 6px;
+                padding: 6px 0;
+            }
+            .emp-manage-item .btn {
+                padding: 4px 6px;
+                font-size: 10px;
+            }
+            .add-emp-form {
+                flex-direction: column;
+            }
+            .add-emp-form input,
+            .add-emp-form select {
+                width: 100%;
+            }
+            .add-emp-form .btn {
+                width: 100%;
+                padding: 10px;
+            }
+        }
+        /* Extra small screens */
+        @media (max-width: 375px) {
+            body {
+                padding: 8px;
+            }
+            .header h1 {
+                font-size: 16px;
+            }
+            .card {
+                padding: 12px;
+            }
+            .calendar-grid .day {
+                font-size: 13px;
+                min-width: 36px;
+                min-height: 36px;
+                border-radius: 6px;
+            }
+            .calendar-grid {
+                gap: 2px;
+            }
         }
     </style>
 </head>
@@ -447,7 +607,6 @@
 
                 <div class="rest-config" id="restConfigArea">
                     <span>本月应休天数：</span>
-                    <span id="restDaysDisplay" style="font-weight:600;"></span>
                     <input type="number" id="totalRestDays" min="0" max="15" value="4" onchange="saveTotalRestDays()">
                     <span id="restDaysUnit">天（指定休不超过此数）</span>
                 </div>
@@ -755,14 +914,12 @@
         const saved = localStorage.getItem(key);
         const val = saved || 4;
         document.getElementById('totalRestDays').value = val;
-        document.getElementById('restDaysDisplay').textContent = val;
     }
 
     function saveTotalRestDays() {
         const key = `total_rest_days_${currentYear}_${currentMonth}`;
         const val = document.getElementById('totalRestDays').value;
         localStorage.setItem(key, val);
-        document.getElementById('restDaysDisplay').textContent = val;
     }
 
     function loadExistingDates() {
