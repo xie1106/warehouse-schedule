@@ -1022,10 +1022,6 @@
             showToast('请先选择员工', 'error');
             return;
         }
-        if (selectedDates.length === 0) {
-            showToast('请至少选择一天指定休', 'error');
-            return;
-        }
 
         const isDeadlinePassed = isAfterDeadline();
         if (isDeadlinePassed) {
@@ -1034,8 +1030,14 @@
         }
 
         const key = `schedule_${currentYear}_${currentMonth}_${currentEmployee}`;
-        localStorage.setItem(key, JSON.stringify(selectedDates));
-        showToast(`${currentEmployee} 的指定休已保存`, 'success');
+        if (selectedDates.length === 0) {
+            // 取消指定休：清空记录，提交详情同步更新
+            localStorage.removeItem(key);
+            showToast(`${currentEmployee} 的指定休已取消`, 'success');
+        } else {
+            localStorage.setItem(key, JSON.stringify(selectedDates));
+            showToast(`${currentEmployee} 的指定休已保存`, 'success');
+        }
         updateStats();
     }
 
