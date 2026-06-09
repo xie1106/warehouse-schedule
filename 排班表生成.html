@@ -102,26 +102,30 @@
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             border: 1px solid var(--border);
-        }
-        .operator-bar label {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text);
-        }
-        .operator-bar select {
-            padding: 6px 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
             font-size: 14px;
-            outline: none;
         }
-        .operator-bar select:focus {
-            border-color: var(--primary);
+        .operator-bar .operator-name {
+            font-weight: 600;
+            color: var(--text);
         }
         .operator-bar .admin-badge {
             font-size: 12px;
             color: var(--warning);
             font-weight: 600;
+        }
+        .operator-bar .switch-btn {
+            padding: 4px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            background: white;
+            color: var(--text-light);
+            transition: all 0.2s;
+        }
+        .operator-bar .switch-btn:hover {
+            background: var(--bg);
+            color: var(--text);
         }
         .card {
             background: var(--card-bg);
@@ -291,6 +295,16 @@
             font-size: 12px;
             margin-left: 16px;
         }
+        /* Deadline notice */
+        .deadline-notice {
+            display: none;
+            padding: 10px 16px;
+            background: #fef2f2;
+            border-radius: 8px;
+            color: #991b1b;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
         /* Toast */
         .toast {
             position: fixed;
@@ -309,6 +323,37 @@
         .toast.show { transform: translateY(0); opacity: 1; }
         .toast.success { background: var(--success); }
         .toast.error { background: var(--danger); }
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: white;
+            border-radius: var(--radius);
+            padding: 24px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal h3 {
+            margin-bottom: 16px;
+            font-size: 16px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
         /* Responsive */
         @media (max-width: 768px) {
             body { padding: 12px; }
@@ -320,13 +365,12 @@
     </style>
 </head>
 <body>
-    <!-- 当前操作人选择 -->
-    <div class="operator-bar">
-        <label>👤 当前操作人：</label>
-        <select id="operatorSelect" onchange="onOperatorChange()">
-            <option value="">-- 请选择 --</option>
-        </select>
+    <!-- 当前操作人展示（记忆式） -->
+    <div class="operator-bar" id="operatorBar">
+        <span>👤 当前操作人：</span>
+        <span class="operator-name" id="operatorName">未选择</span>
         <span class="admin-badge" id="adminBadge" style="display:none;">⭐ 管理员</span>
+        <button class="switch-btn" onclick="switchOperator()">切换</button>
     </div>
 
     <div class="header">
@@ -343,6 +387,10 @@
             <button class="btn btn-success" id="confirmBtn" onclick="confirmSchedule()">✓ 确认排班</button>
             <button class="btn btn-warning" id="exportBtn" onclick="exportExcel()">📥 导出Excel</button>
             <button class="btn btn-danger" id="unlockBtn" onclick="unlockSchedule()" style="display:none">🔓 解锁编辑</button>
+        </div>
+
+        <div class="deadline-notice" id="deadlineNotice">
+            ⚠️ 该月份排班已过截止日期，不能再生成/编辑
         </div>
 
         <div class="legend">
@@ -375,6 +423,20 @@
 
     <!-- Cell edit dropdown -->
     <div class="cell-dropdown" id="cellDropdown"></div>
+
+    <!-- 操作人选择弹窗 -->
+    <div class="modal-overlay" id="operatorModal">
+        <div class="modal">
+            <h3>👤 请选择你是谁</h3>
+            <p style="margin-bottom:16px;color:var(--text-light);font-size:13px;">首次使用需要选择身份，之后会自动记住</p>
+            <select id="operatorModalSelect" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;margin-bottom:16px;">
+                <option value="">-- 请选择 --</option>
+            </select>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="confirmOperatorSelection()">确认</button>
+            </div>
+        </div>
+    </div>
 
     <div class="toast" id="toast"></div>
 
@@ -471,7 +533,7 @@
     // === Init ===
     function init() {
         loadEmployees();
-        populateOperatorSelect();
+        initOperator();
         setDefaultMonth();
         loadScheduleIfExists();
         updateAdminUI();
@@ -480,6 +542,51 @@
                 hideDropdown();
             }
         });
+    }
+
+    // === 操作人记忆系统 ===
+    function initOperator() {
+        const saved = localStorage.getItem('current_operator');
+        if (saved) {
+            currentOperator = saved;
+            updateOperatorDisplay();
+        } else {
+            showOperatorModal();
+        }
+    }
+
+    function showOperatorModal() {
+        const select = document.getElementById('operatorModalSelect');
+        select.innerHTML = '<option value="">-- 请选择 --</option>';
+        employees.forEach(emp => {
+            const adminMark = isAdmin(emp.name) ? ' ⭐' : '';
+            select.innerHTML += `<option value="${emp.name}">${emp.name}（${emp.group}）${adminMark}</option>`;
+        });
+        document.getElementById('operatorModal').classList.add('active');
+    }
+
+    function confirmOperatorSelection() {
+        const selected = document.getElementById('operatorModalSelect').value;
+        if (!selected) {
+            showToast('请选择你的身份', 'error');
+            return;
+        }
+        currentOperator = selected;
+        localStorage.setItem('current_operator', selected);
+        document.getElementById('operatorModal').classList.remove('active');
+        updateOperatorDisplay();
+        updateAdminUI();
+    }
+
+    function switchOperator() {
+        showOperatorModal();
+    }
+
+    function updateOperatorDisplay() {
+        const nameEl = document.getElementById('operatorName');
+        const badgeEl = document.getElementById('adminBadge');
+        nameEl.textContent = currentOperator || '未选择';
+        badgeEl.style.display = (currentOperator && isAdmin(currentOperator)) ? 'inline' : 'none';
     }
 
     function loadEmployees() {
@@ -491,27 +598,8 @@
         }
     }
 
-    function populateOperatorSelect() {
-        const select = document.getElementById('operatorSelect');
-        select.innerHTML = '<option value="">-- 请选择 --</option>';
-        employees.forEach(emp => {
-            const adminMark = isAdmin(emp.name) ? ' ⭐' : '';
-            select.innerHTML += `<option value="${emp.name}">${emp.name}（${emp.group}）${adminMark}</option>`;
-        });
-    }
-
-    function onOperatorChange() {
-        currentOperator = document.getElementById('operatorSelect').value;
-        updateAdminUI();
-    }
-
     function updateAdminUI() {
         const isAdminUser = currentOperator && isAdmin(currentOperator);
-        const adminBadge = document.getElementById('adminBadge');
-
-        // Show/hide admin badge
-        adminBadge.style.display = isAdminUser ? 'inline' : 'none';
-
         // Update button states with admin check
         updateButtonStates();
     }
@@ -555,22 +643,35 @@
         }
     }
 
-    function updateButtonStates() {
-        const isPast = isPastMonth();
-        const isAdminUser = currentOperator && isAdmin(currentOperator);
-
-        // Generate, confirm, unlock require admin
-        document.getElementById('generateBtn').disabled = isPast || isLocked || !isAdminUser;
-        document.getElementById('confirmBtn').disabled = isPast || isLocked || Object.keys(scheduleData).length === 0 || !isAdminUser;
-        document.getElementById('exportBtn').disabled = Object.keys(scheduleData).length === 0;
-        document.getElementById('unlockBtn').style.display = (isLocked && isAdminUser) ? 'inline-flex' : 'none';
+    // 判断某月排班是否已过截止（不能再生成/编辑）
+    // 规则：N月的排班表，必须在 N-1月的最后一天前完成
+    function isScheduleDeadlinePassed() {
+        const now = new Date();
+        // 目标月份的上个月最后一天是截止日
+        const lastDayOfPrevMonth = new Date(currentYear, currentMonth - 1, 0); // 上个月最后一天
+        // 设置到当天23:59:59
+        lastDayOfPrevMonth.setHours(23, 59, 59, 999);
+        return now > lastDayOfPrevMonth;
     }
 
-    function isPastMonth() {
-        const now = new Date();
-        const nowY = now.getFullYear();
-        const nowM = now.getMonth() + 1;
-        return (currentYear < nowY) || (currentYear === nowY && currentMonth < nowM);
+    function updateButtonStates() {
+        const deadlinePassed = isScheduleDeadlinePassed();
+        const isAdminUser = currentOperator && isAdmin(currentOperator);
+        const deadlineNotice = document.getElementById('deadlineNotice');
+
+        // 显示截止提示
+        if (deadlinePassed && !isLocked) {
+            deadlineNotice.style.display = 'block';
+            deadlineNotice.innerHTML = `⚠️ ${currentYear}年${currentMonth}月的排班已过截止日期（截止日：${currentYear}年${currentMonth - 1 > 0 ? currentMonth - 1 : 12}月最后一天），不能再生成/编辑`;
+        } else {
+            deadlineNotice.style.display = 'none';
+        }
+
+        // Generate, confirm, unlock require admin + not past deadline
+        document.getElementById('generateBtn').disabled = deadlinePassed || isLocked || !isAdminUser;
+        document.getElementById('confirmBtn').disabled = deadlinePassed || isLocked || Object.keys(scheduleData).length === 0 || !isAdminUser;
+        document.getElementById('exportBtn').disabled = Object.keys(scheduleData).length === 0;
+        document.getElementById('unlockBtn').style.display = (isLocked && isAdminUser && !deadlinePassed) ? 'inline-flex' : 'none';
     }
 
     // === Generate Schedule ===
@@ -581,8 +682,8 @@
             return;
         }
 
-        if (isPastMonth()) {
-            showToast('过去月份不可生成排班', 'error');
+        if (isScheduleDeadlinePassed()) {
+            showToast('已过截止日期，不可生成排班', 'error');
             return;
         }
         if (isLocked) {
@@ -731,7 +832,6 @@
         });
 
         // 3.5 Post-validation: 规则A - ensure each group has at least 1 working person per day
-        // If violations found, swap rest days
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             if (holidays[dateStr]) continue; // Skip holidays
@@ -744,12 +844,10 @@
                 );
 
                 if (workingMembers.length === 0 && groupMembers.length > 0) {
-                    // Find a resting member in this group to force work
                     const restingMembers = groupMembers.filter(e =>
                         scheduleData[e.name] && scheduleData[e.name][d - 1] === 'rest'
                     );
                     if (restingMembers.length > 0) {
-                        // Pick the one with the most rest days already assigned
                         restingMembers.sort((a, b) => {
                             const aRest = scheduleData[a.name].filter(s => s === 'rest').length;
                             const bRest = scheduleData[b.name].filter(s => s === 'rest').length;
@@ -768,7 +866,6 @@
                 const fuWorking = (fuStatus === 'work' || fuStatus === 'duty');
 
                 if (!chenWorking && !fuWorking) {
-                    // Force one of them to work - pick the one with more rest days
                     const chenRest = scheduleData['陈文童'].filter(s => s === 'rest').length;
                     const fuRest = scheduleData['付新远'].filter(s => s === 'rest').length;
                     if (chenRest >= fuRest) {
@@ -789,7 +886,6 @@
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             if (holidays[dateStr]) continue; // No duty on holidays
 
-            // Find someone working that day to assign duty
             let assigned = false;
             for (let attempt = 0; attempt < dutyEligible.length; attempt++) {
                 const person = dutyEligible[dutyIdx % dutyEligible.length];
@@ -802,7 +898,6 @@
                 dutyIdx++;
             }
 
-            // If no eligible person found, assign 林镇兴
             if (!assigned && scheduleData['林镇兴'] && scheduleData['林镇兴'][d - 1] === 'work') {
                 scheduleData['林镇兴'][d - 1] = 'duty';
             }
@@ -820,6 +915,7 @@
         const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
         const wrapper = document.getElementById('tableWrapper');
         const isAdminUser = currentOperator && isAdmin(currentOperator);
+        const deadlinePassed = isScheduleDeadlinePassed();
 
         let html = '<table class="schedule-table"><thead><tr><th class="name-col">姓名</th>';
 
@@ -829,7 +925,6 @@
             const dow = new Date(currentYear, currentMonth - 1, d).getDay();
             const dowLabels = ['日', '一', '二', '三', '四', '五', '六'];
             const isHoliday = !!holidays[dateStr];
-            const isWeekend = dow === 0 || dow === 6;
 
             html += `<th class="${isHoliday ? 'holiday-col' : ''}" title="${holidays[dateStr] || ''}">${d}<br><span style="font-size:9px;font-weight:400;">${dowLabels[dow]}</span></th>`;
         }
@@ -843,8 +938,8 @@
             for (let d = 1; d <= daysInMonth; d++) {
                 const status = scheduleData[emp.name][d - 1] || 'work';
                 const statusInfo = STATUS_TYPES.find(s => s.key === status) || STATUS_TYPES[0];
-                // Only admin can edit cells when not locked
-                const canEdit = !isLocked && isAdminUser;
+                // Only admin can edit cells when not locked and not past deadline
+                const canEdit = !isLocked && isAdminUser && !deadlinePassed;
                 const cellClass = `status-${status}${canEdit ? ' editable' : ' locked'}`;
 
                 html += `<td class="${cellClass}" data-name="${emp.name}" data-day="${d}" data-status="${status}"
@@ -876,6 +971,10 @@
         if (isLocked) return;
         if (!currentOperator || !isAdmin(currentOperator)) {
             showToast('只有管理员能编辑排班', 'error');
+            return;
+        }
+        if (isScheduleDeadlinePassed()) {
+            showToast('已过截止日期，无法编辑', 'error');
             return;
         }
         event.stopPropagation();
@@ -926,6 +1025,10 @@
     function confirmSchedule() {
         if (!currentOperator || !isAdmin(currentOperator)) {
             showToast('只有管理员能确认排班', 'error');
+            return;
+        }
+        if (isScheduleDeadlinePassed()) {
+            showToast('已过截止日期，无法确认', 'error');
             return;
         }
         if (Object.keys(scheduleData).length === 0) {

@@ -133,6 +133,26 @@
             .container { padding: 32px 24px; }
             .nav-link { padding: 16px 20px; }
         }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 12px;
+            padding: 28px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+        .modal h3 { font-size: 18px; margin-bottom: 8px; }
     </style>
 </head>
 <body>
@@ -173,29 +193,6 @@
         </div>
     </div>
 
-    <style>
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.4);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .modal-overlay.active { display: flex; }
-        .modal {
-            background: white;
-            border-radius: 12px;
-            padding: 28px;
-            max-width: 400px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-        }
-        .modal h3 { font-size: 18px; margin-bottom: 8px; }
-    </style>
-
     <script>
     function getAdminList() {
         const saved = localStorage.getItem('admin_list');
@@ -219,6 +216,21 @@
 
     function checkAdminAccess() {
         const admins = getAdminList();
+        const savedOperator = localStorage.getItem('current_operator');
+
+        // 如果已有记忆的操作人
+        if (savedOperator) {
+            if (admins.includes(savedOperator)) {
+                // 已知是管理员，直接跳转
+                window.location.href = '排班表生成.html';
+            } else {
+                // 已知不是管理员，直接提示
+                alert('⚠️ 你不是管理员，无法进入排班表生成功能');
+            }
+            return;
+        }
+
+        // 还没选过，弹窗选择
         const employees = getEmployeeList();
         const select = document.getElementById('adminSelect');
         select.innerHTML = '<option value="">-- 请选择 --</option>';
@@ -239,6 +251,9 @@
             alert('请选择你的身份');
             return;
         }
+        // 保存到 localStorage
+        localStorage.setItem('current_operator', selected);
+
         const admins = getAdminList();
         if (admins.includes(selected)) {
             window.location.href = '排班表生成.html';
