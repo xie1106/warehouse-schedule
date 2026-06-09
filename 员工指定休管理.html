@@ -717,8 +717,13 @@
 
     function setDefaultMonth() {
         const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth() + 1;
+        // 默认选择下个月（25号前提交下个月的指定休）
+        let year = now.getFullYear();
+        let month = now.getMonth() + 2; // 下个月
+        if (month > 12) {
+            month = 1;
+            year++;
+        }
         document.getElementById('monthSelect').value = `${year}-${String(month).padStart(2, '0')}`;
         currentYear = year;
         currentMonth = month;
@@ -750,13 +755,40 @@
     function checkDeadline() {
         const now = new Date();
         const notice = document.getElementById('deadlineNotice');
-        if (now.getFullYear() === currentYear && now.getMonth() + 1 === currentMonth && now.getDate() > 25) {
+        // 规则：25号前可提交下个月的指定休
+        // 目标月份的上个月25号是截止日
+        // 例：提交7月指定休，截止日是6月25号
+        const targetMonth = currentMonth;
+        const targetYear = currentYear;
+        
+        // 计算截止日期：目标月份的上个月25号
+        let deadlineMonth = targetMonth - 1;
+        let deadlineYear = targetYear;
+        if (deadlineMonth <= 0) {
+            deadlineMonth = 12;
+            deadlineYear--;
+        }
+        const deadline = new Date(deadlineYear, deadlineMonth - 1, 25, 23, 59, 59);
+        
+        // 如果当前时间超过截止日，或目标月份已过，则不能提交
+        if (now > deadline) {
             notice.style.display = 'block';
-        } else if (now.getFullYear() > currentYear || (now.getFullYear() === currentYear && now.getMonth() + 1 > currentMonth)) {
-            notice.style.display = 'block';
+            notice.innerHTML = `⚠️ ${targetYear}年${targetMonth}月的指定休收集已截止（截止日期：${deadlineMonth}月25日），无法提交`;
         } else {
             notice.style.display = 'none';
         }
+    }
+
+    function isAfterDeadline() {
+        const now = new Date();
+        let deadlineMonth = currentMonth - 1;
+        let deadlineYear = currentYear;
+        if (deadlineMonth <= 0) {
+            deadlineMonth = 12;
+            deadlineYear--;
+        }
+        const deadline = new Date(deadlineYear, deadlineMonth - 1, 25, 23, 59, 59);
+        return now > deadline;
     }
 
     function loadTotalRestDays() {
@@ -815,8 +847,7 @@
         }
 
         const now = new Date();
-        const isDeadlinePassed = (now.getFullYear() === currentYear && now.getMonth() + 1 === currentMonth && now.getDate() > 25) ||
-            (now.getFullYear() > currentYear) || (now.getFullYear() === currentYear && now.getMonth() + 1 > currentMonth);
+        const isDeadlinePassed = isAfterDeadline();
 
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -839,9 +870,7 @@
             return;
         }
 
-        const now = new Date();
-        const isDeadlinePassed = (now.getFullYear() === currentYear && now.getMonth() + 1 === currentMonth && now.getDate() > 25) ||
-            (now.getFullYear() > currentYear) || (now.getFullYear() === currentYear && now.getMonth() + 1 > currentMonth);
+        const isDeadlinePassed = isAfterDeadline();
 
         if (isDeadlinePassed) {
             showToast('已过截止日期，无法修改', 'error');
@@ -888,9 +917,7 @@
             return;
         }
 
-        const now = new Date();
-        const isDeadlinePassed = (now.getFullYear() === currentYear && now.getMonth() + 1 === currentMonth && now.getDate() > 25) ||
-            (now.getFullYear() > currentYear) || (now.getFullYear() === currentYear && now.getMonth() + 1 > currentMonth);
+        const isDeadlinePassed = isAfterDeadline();
         if (isDeadlinePassed) {
             showToast('已过截止日期，无法提交', 'error');
             return;
