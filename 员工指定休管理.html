@@ -432,6 +432,19 @@
         .toast.show { transform: translateY(0); opacity: 1; }
         .toast.success { background: var(--success); }
         .toast.error { background: var(--danger); }
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            font-size: 16px;
+            color: var(--text-light);
+        }
+        .loading-overlay.hidden { display: none; }
         /* Responsive - Tablet */
         @media (max-width: 900px) {
             .layout {
@@ -610,6 +623,8 @@
     </style>
 </head>
 <body>
+    <div class="loading-overlay" id="loadingOverlay">加载中...</div>
+
     <div class="header">
         <h1>📅 员工指定休管理</h1>
         <div class="header-actions">
@@ -711,6 +726,29 @@
     <div class="toast" id="toast"></div>
 
     <script>
+    // === Supabase Config ===
+    const SUPABASE_URL = 'https://elyfxyrdbuykyklfjfdr.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg';
+
+    async function supaFetch(table, options = {}) {
+        const { method = 'GET', query = '', body = null, headers = {} } = options;
+        const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
+        const opts = {
+            method,
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': method === 'POST' ? 'resolution=merge-duplicates,return=minimal' : (method === 'DELETE' ? 'return=minimal' : ''),
+                ...headers
+            }
+        };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(url, opts);
+        if (method === 'GET') return res.json();
+        return res;
+    }
+
     // === Holiday Data 2025-2026 ===
     const holidays = {
         '2025-01-01': '元旦',
@@ -773,22 +811,31 @@
 
     // === Admin System ===
     const DEFAULT_ADMINS = ['谢焕君'];
+    let adminList = [...DEFAULT_ADMINS];
 
-    function getAdminList() {
-        const saved = localStorage.getItem('admin_list');
-        if (saved) {
-            return JSON.parse(saved);
+    async function getAdminList() {
+        try {
+            const data = await supaFetch('settings', { query: '?key=eq.admin_list&select=value' });
+            if (data.length > 0) {
+                adminList = data[0].value;
+                return adminList;
+            }
+        } catch (e) {
+            console.error('Failed to load admin list:', e);
         }
-        localStorage.setItem('admin_list', JSON.stringify(DEFAULT_ADMINS));
-        return [...DEFAULT_ADMINS];
+        return adminList;
     }
 
-    function saveAdminList(list) {
-        localStorage.setItem('admin_list', JSON.stringify(list));
+    async function saveAdminList(list) {
+        adminList = list;
+        await supaFetch('settings', {
+            method: 'POST',
+            body: { key: 'admin_list', value: list, updated_at: new Date().toISOString() }
+        });
     }
 
     function isAdmin(name) {
-        return getAdminList().includes(name);
+        return adminList.includes(name);
     }
 
     // === State ===
@@ -799,32 +846,40 @@
     let currentMonth = 0;
 
     // === Init ===
-    function init() {
-        loadEmployees();
-        populateEmployeeSelect();
-        setDefaultMonth();
-        restoreSelectedEmployee();
-        updateStats();
+    async function init() {
+        try {
+            await getAdminList();
+            await loadEmployees();
+            populateEmployeeSelect();
+            setDefaultMonth();
+            await restoreSelectedEmployee();
+            await updateStats();
+        } catch (e) {
+            console.error('Init error:', e);
+        }
+        document.getElementById('loadingOverlay').classList.add('hidden');
     }
 
-    function loadEmployees() {
-        const saved = localStorage.getItem('employee_list');
-        if (saved) {
-            employees = JSON.parse(saved);
-        } else {
+    async function loadEmployees() {
+        try {
+            const data = await supaFetch('settings', { query: '?key=eq.employee_list&select=value' });
+            if (data.length > 0 && data[0].value) {
+                employees = data[0].value;
+            } else {
+                employees = [...DEFAULT_EMPLOYEES];
+                await saveEmployees();
+            }
+        } catch (e) {
+            console.error('Failed to load employees:', e);
             employees = [...DEFAULT_EMPLOYEES];
-            saveEmployees();
         }
     }
 
-    function saveEmployees() {
-        localStorage.setItem('employee_list', JSON.stringify(employees));
-        const groups = {};
-        employees.forEach(e => {
-            if (!groups[e.group]) groups[e.group] = [];
-            groups[e.group].push(e.name);
+    async function saveEmployees() {
+        await supaFetch('settings', {
+            method: 'POST',
+            body: { key: 'employee_list', value: employees, updated_at: new Date().toISOString() }
         });
-        localStorage.setItem('employee_groups', JSON.stringify(groups));
     }
 
     function populateEmployeeSelect() {
@@ -837,7 +892,7 @@
     }
 
     // === 员工选择记忆（变更2） ===
-    function restoreSelectedEmployee() {
+    async function restoreSelectedEmployee() {
         const saved = localStorage.getItem('last_selected_employee');
         if (saved) {
             const select = document.getElementById('empSelect');
@@ -847,9 +902,9 @@
                 select.value = saved;
                 currentEmployee = saved;
                 // 自动加载该员工的已有数据
-                loadExistingDates();
+                await loadExistingDates();
                 renderCalendar();
-                updateCancelButton();
+                await updateCancelButton();
             }
         }
     }
@@ -891,29 +946,29 @@
     }
 
     // === Event Handlers ===
-    function onEmployeeChange() {
+    async function onEmployeeChange() {
         currentEmployee = document.getElementById('empSelect').value;
         // 保存到 localStorage（变更2）
         if (currentEmployee) {
             localStorage.setItem('last_selected_employee', currentEmployee);
         }
-        loadExistingDates();
+        await loadExistingDates();
         renderCalendar();
-        updateCancelButton();
+        await updateCancelButton();
     }
 
-    function onMonthChange() {
+    async function onMonthChange() {
         const val = document.getElementById('monthSelect').value;
         if (val) {
             const [y, m] = val.split('-').map(Number);
             currentYear = y;
             currentMonth = m;
-            loadTotalRestDays();
+            await loadTotalRestDays();
             checkDeadline();
-            loadExistingDates();
+            await loadExistingDates();
             renderCalendar();
-            updateStats();
-            updateCancelButton();
+            await updateStats();
+            await updateCancelButton();
         }
     }
 
@@ -954,27 +1009,47 @@
         return now > deadline;
     }
 
-    function loadTotalRestDays() {
+    async function loadTotalRestDays() {
         const key = `total_rest_days_${currentYear}_${currentMonth}`;
-        const saved = localStorage.getItem(key);
-        const val = saved || 4;
-        document.getElementById('totalRestDays').value = val;
+        try {
+            const data = await supaFetch('settings', { query: `?key=eq.${encodeURIComponent(key)}&select=value` });
+            if (data.length > 0 && data[0].value !== null) {
+                document.getElementById('totalRestDays').value = data[0].value;
+            } else {
+                document.getElementById('totalRestDays').value = 4;
+            }
+        } catch (e) {
+            document.getElementById('totalRestDays').value = 4;
+        }
     }
 
-    function saveTotalRestDays() {
+    async function saveTotalRestDays() {
         const key = `total_rest_days_${currentYear}_${currentMonth}`;
-        const val = document.getElementById('totalRestDays').value;
-        localStorage.setItem(key, val);
+        const val = parseInt(document.getElementById('totalRestDays').value) || 4;
+        await supaFetch('settings', {
+            method: 'POST',
+            body: { key: key, value: val, updated_at: new Date().toISOString() }
+        });
     }
 
-    function loadExistingDates() {
+    async function loadExistingDates() {
         if (!currentEmployee || !currentYear || !currentMonth) {
             selectedDates = [];
             return;
         }
-        const key = `schedule_${currentYear}_${currentMonth}_${currentEmployee}`;
-        const saved = localStorage.getItem(key);
-        selectedDates = saved ? JSON.parse(saved) : [];
+        try {
+            const data = await supaFetch('designated_rest', {
+                query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}&select=days`
+            });
+            if (data.length > 0 && data[0].days) {
+                selectedDates = data[0].days;
+            } else {
+                selectedDates = [];
+            }
+        } catch (e) {
+            console.error('Failed to load existing dates:', e);
+            selectedDates = [];
+        }
         updateSelectedDatesDisplay();
     }
 
@@ -1074,36 +1149,47 @@
     }
 
     // === Cancel Submit ===
-    function cancelSubmit() {
+    async function cancelSubmit() {
         if (!currentEmployee) return;
         const isDeadlinePassed = isAfterDeadline();
         if (isDeadlinePassed) {
             showToast('已过截止日期，无法操作', 'error');
             return;
         }
-        const key = `schedule_${currentYear}_${currentMonth}_${currentEmployee}`;
-        localStorage.removeItem(key);
-        selectedDates = [];
-        renderCalendar();
-        updateSelectedDatesDisplay();
-        updateStats();
-        updateCancelButton();
-        showToast(`${currentEmployee} 的指定休已取消`, 'success');
+        try {
+            await supaFetch('designated_rest', {
+                method: 'DELETE',
+                query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}`
+            });
+            selectedDates = [];
+            renderCalendar();
+            updateSelectedDatesDisplay();
+            await updateStats();
+            await updateCancelButton();
+            showToast(`${currentEmployee} 的指定休已取消`, 'success');
+        } catch (e) {
+            showToast('取消失败', 'error');
+        }
     }
 
-    function updateCancelButton() {
+    async function updateCancelButton() {
         const btn = document.getElementById('cancelSubmitBtn');
         if (!currentEmployee) {
             btn.style.display = 'none';
             return;
         }
-        const key = `schedule_${currentYear}_${currentMonth}_${currentEmployee}`;
-        const saved = localStorage.getItem(key);
-        btn.style.display = (saved && JSON.parse(saved).length > 0) ? 'inline-flex' : 'none';
+        try {
+            const data = await supaFetch('designated_rest', {
+                query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}&select=days`
+            });
+            btn.style.display = (data.length > 0 && data[0].days && data[0].days.length > 0) ? 'inline-flex' : 'none';
+        } catch (e) {
+            btn.style.display = 'none';
+        }
     }
 
     // === Submit ===
-    function submitSchedule() {
+    async function submitSchedule() {
         if (!currentEmployee) {
             showToast('请先选择员工', 'error');
             return;
@@ -1115,47 +1201,84 @@
             return;
         }
 
-        const key = `schedule_${currentYear}_${currentMonth}_${currentEmployee}`;
-        if (selectedDates.length === 0) {
-            // 取消指定休：清空记录，提交详情同步更新
-            localStorage.removeItem(key);
-            showToast(`${currentEmployee} 的指定休已取消`, 'success');
-        } else {
-            localStorage.setItem(key, JSON.stringify(selectedDates));
-            showToast(`${currentEmployee} 的指定休已保存`, 'success');
+        try {
+            if (selectedDates.length === 0) {
+                // 取消指定休：删除记录
+                await supaFetch('designated_rest', {
+                    method: 'DELETE',
+                    query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}`
+                });
+                showToast(`${currentEmployee} 的指定休已取消`, 'success');
+            } else {
+                // Upsert 指定休
+                await supaFetch('designated_rest', {
+                    method: 'POST',
+                    body: {
+                        employee_name: currentEmployee,
+                        year: currentYear,
+                        month: currentMonth,
+                        days: selectedDates,
+                        submitted_at: new Date().toISOString()
+                    }
+                });
+                showToast(`${currentEmployee} 的指定休已保存`, 'success');
+            }
+            await updateStats();
+            await updateCancelButton();
+        } catch (e) {
+            showToast('提交失败', 'error');
         }
-        updateStats();
-        updateCancelButton();
     }
 
     // === Stats ===
-    function updateStats() {
+    async function updateStats() {
         let submitted = 0;
         let pending = 0;
         let listHtml = '';
 
-        employees.forEach(emp => {
-            const key = `schedule_${currentYear}_${currentMonth}_${emp.name}`;
-            const data = localStorage.getItem(key);
-            const adminMark = isAdmin(emp.name) ? '⭐ ' : '';
-            if (data) {
-                submitted++;
-                const dates = JSON.parse(data);
-                listHtml += `<div class="emp-item">
-                    <div>
+        try {
+            // 读取当月所有 designated_rest 记录
+            const data = await supaFetch('designated_rest', {
+                query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=employee_name,days`
+            });
+
+            const submittedMap = {};
+            data.forEach(record => {
+                if (record.days && record.days.length > 0) {
+                    submittedMap[record.employee_name] = record.days;
+                }
+            });
+
+            employees.forEach(emp => {
+                const adminMark = isAdmin(emp.name) ? '⭐ ' : '';
+                if (submittedMap[emp.name]) {
+                    submitted++;
+                    const dates = submittedMap[emp.name];
+                    listHtml += `<div class="emp-item">
+                        <div>
+                            <div>${adminMark}${emp.name}</div>
+                            <div class="emp-dates">${dates.map(d => d + '日').join('、')}</div>
+                        </div>
+                        <span class="status done">已提交</span>
+                    </div>`;
+                } else {
+                    pending++;
+                    listHtml += `<div class="emp-item">
                         <div>${adminMark}${emp.name}</div>
-                        <div class="emp-dates">${dates.map(d => d + '日').join('、')}</div>
-                    </div>
-                    <span class="status done">已提交</span>
-                </div>`;
-            } else {
+                        <span class="status pending">未提交</span>
+                    </div>`;
+                }
+            });
+        } catch (e) {
+            console.error('Failed to update stats:', e);
+            employees.forEach(emp => {
                 pending++;
                 listHtml += `<div class="emp-item">
-                    <div>${adminMark}${emp.name}</div>
+                    <div>${emp.name}</div>
                     <span class="status pending">未提交</span>
                 </div>`;
-            }
-        });
+            });
+        }
 
         document.getElementById('submittedCount').textContent = submitted;
         document.getElementById('pendingCount').textContent = pending;
@@ -1183,7 +1306,6 @@
     }
 
     function renderEmployeeManageList() {
-        const adminList = getAdminList();
         const container = document.getElementById('empManageList');
         container.innerHTML = employees.map((emp, idx) => {
             const isEmpAdmin = adminList.includes(emp.name);
@@ -1201,28 +1323,28 @@
         `}).join('');
     }
 
-    function toggleAdmin(name, setAsAdmin) {
-        let adminList = getAdminList();
+    async function toggleAdmin(name, setAsAdmin) {
+        let list = [...adminList];
         if (setAsAdmin) {
-            if (!adminList.includes(name)) {
-                adminList.push(name);
+            if (!list.includes(name)) {
+                list.push(name);
             }
             showToast(`${name} 已设为管理员`, 'success');
         } else {
-            if (adminList.length <= 1) {
+            if (list.length <= 1) {
                 showToast('至少保留一个管理员', 'error');
                 return;
             }
-            adminList = adminList.filter(n => n !== name);
+            list = list.filter(n => n !== name);
             showToast(`${name} 已取消管理员`, 'success');
         }
-        saveAdminList(adminList);
+        await saveAdminList(list);
         renderEmployeeManageList();
         populateEmployeeSelect();
-        updateStats();
+        await updateStats();
     }
 
-    function addEmployee() {
+    async function addEmployee() {
         const name = document.getElementById('newEmpName').value.trim();
         const group = document.getElementById('newEmpGroup').value;
         if (!name) {
@@ -1234,27 +1356,27 @@
             return;
         }
         employees.push({ name, group });
-        saveEmployees();
+        await saveEmployees();
         populateEmployeeSelect();
         renderEmployeeManageList();
         document.getElementById('newEmpName').value = '';
         showToast(`已添加 ${name}`, 'success');
-        updateStats();
+        await updateStats();
     }
 
-    function removeEmployee(idx) {
+    async function removeEmployee(idx) {
         const name = employees[idx].name;
         if (confirm(`确定删除 ${name}？`)) {
             employees.splice(idx, 1);
-            let adminList = getAdminList();
-            adminList = adminList.filter(n => n !== name);
-            if (adminList.length === 0) adminList = ['谢焕君'];
-            saveAdminList(adminList);
-            saveEmployees();
+            let list = [...adminList];
+            list = list.filter(n => n !== name);
+            if (list.length === 0) list = ['谢焕君'];
+            await saveAdminList(list);
+            await saveEmployees();
             populateEmployeeSelect();
             renderEmployeeManageList();
             showToast(`已删除 ${name}`, 'success');
-            updateStats();
+            await updateStats();
         }
     }
 

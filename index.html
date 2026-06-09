@@ -129,6 +129,18 @@
             color: var(--text-light);
             font-size: 12px;
         }
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            font-size: 16px;
+            color: var(--text-light);
+        }
+        .loading-overlay.hidden { display: none; }
         @media (max-width: 480px) {
             .container { padding: 32px 24px; }
             .nav-link { padding: 16px 20px; }
@@ -136,6 +148,7 @@
     </style>
 </head>
 <body>
+    <div class="loading-overlay" id="loadingOverlay">加载中...</div>
     <div class="container">
         <div class="logo">📋</div>
         <h1>仓库排班管理系统</h1>
@@ -160,28 +173,57 @@
     </div>
 
     <script>
+    // === Supabase Config ===
+    const SUPABASE_URL = 'https://elyfxyrdbuykyklfjfdr.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg';
+
+    async function supaFetch(table, options = {}) {
+        const { method = 'GET', query = '', body = null, headers = {} } = options;
+        const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
+        const opts = {
+            method,
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': method === 'POST' ? 'resolution=merge-duplicates,return=minimal' : (method === 'DELETE' ? 'return=minimal' : ''),
+                ...headers
+            }
+        };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(url, opts);
+        if (method === 'GET') return res.json();
+        return res;
+    }
+
+    // === State ===
+    let adminList = ['谢焕君'];
+
+    async function init() {
+        try {
+            const data = await supaFetch('settings', { query: '?key=eq.admin_list&select=value' });
+            if (data.length > 0) adminList = data[0].value;
+        } catch (e) {
+            console.error('Failed to load admin list:', e);
+        }
+        document.getElementById('loadingOverlay').classList.add('hidden');
+    }
+
     function goToSchedule() {
-        // 检查是否已有登录记录
         const savedEmployee = localStorage.getItem('last_selected_employee');
         if (!savedEmployee) {
-            // 第一次使用，先去指定休页面选名字
             alert('请先在"指定休收集"页面选择你是谁');
             window.location.href = '员工指定休管理.html';
             return;
         }
-        // 有记录，检查是否管理员
-        const admins = getAdminList();
-        if (admins.includes(savedEmployee)) {
+        if (adminList.includes(savedEmployee)) {
             window.location.href = '排班表生成.html';
         } else {
             alert('⚠️ ' + savedEmployee + ' 不是管理员，无法进入排班表生成功能');
         }
     }
 
-    function getAdminList() {
-        const saved = localStorage.getItem('admin_list');
-        return saved ? JSON.parse(saved) : ['谢焕君'];
-    }
+    init();
     </script>
 </body>
 </html>

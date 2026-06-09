@@ -290,6 +290,19 @@
         .toast.show { transform: translateY(0); opacity: 1; }
         .toast.success { background: var(--success); }
         .toast.error { background: var(--danger); }
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            font-size: 16px;
+            color: var(--text-light);
+        }
+        .loading-overlay.hidden { display: none; }
         /* Responsive */
         @media (max-width: 768px) {
             body { padding: 12px; }
@@ -301,6 +314,8 @@
     </style>
 </head>
 <body>
+    <div class="loading-overlay" id="loadingOverlay">加载中...</div>
+
     <div class="header">
         <h1>⚙️ 排班表生成</h1>
         <div class="header-actions">
@@ -355,6 +370,29 @@
     <div class="toast" id="toast"></div>
 
     <script>
+    // === Supabase Config ===
+    const SUPABASE_URL = 'https://elyfxyrdbuykyklfjfdr.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg';
+
+    async function supaFetch(table, options = {}) {
+        const { method = 'GET', query = '', body = null, headers = {} } = options;
+        const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
+        const opts = {
+            method,
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': method === 'POST' ? 'resolution=merge-duplicates,return=minimal' : (method === 'DELETE' ? 'return=minimal' : ''),
+                ...headers
+            }
+        };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(url, opts);
+        if (method === 'GET') return res.json();
+        return res;
+    }
+
     // === Holiday Data ===
     const holidays = {
         '2025-01-01': '元旦',
@@ -419,22 +457,6 @@
         { name: '崔斯欣', group: '发货' }
     ];
 
-    // === Admin System ===
-    const DEFAULT_ADMINS = ['谢焕君'];
-
-    function getAdminList() {
-        const saved = localStorage.getItem('admin_list');
-        if (saved) {
-            return JSON.parse(saved);
-        }
-        localStorage.setItem('admin_list', JSON.stringify(DEFAULT_ADMINS));
-        return [...DEFAULT_ADMINS];
-    }
-
-    function isAdmin(name) {
-        return getAdminList().includes(name);
-    }
-
     // === State ===
     let employees = [];
     let currentYear = 0;
@@ -444,10 +466,15 @@
     let activeDropdown = null;
 
     // === Init ===
-    function init() {
-        loadEmployees();
-        setDefaultMonth();
-        loadScheduleIfExists();
+    async function init() {
+        try {
+            await loadEmployees();
+            setDefaultMonth();
+            await loadScheduleIfExists();
+        } catch (e) {
+            console.error('Init error:', e);
+        }
+        document.getElementById('loadingOverlay').classList.add('hidden');
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.cell-dropdown') && !e.target.closest('.editable')) {
                 hideDropdown();
@@ -455,11 +482,16 @@
         });
     }
 
-    function loadEmployees() {
-        const saved = localStorage.getItem('employee_list');
-        if (saved) {
-            employees = JSON.parse(saved);
-        } else {
+    async function loadEmployees() {
+        try {
+            const data = await supaFetch('settings', { query: '?key=eq.employee_list&select=value' });
+            if (data.length > 0 && data[0].value) {
+                employees = data[0].value;
+            } else {
+                employees = [...DEFAULT_EMPLOYEES];
+            }
+        } catch (e) {
+            console.error('Failed to load employees:', e);
             employees = [...DEFAULT_EMPLOYEES];
         }
     }
@@ -471,34 +503,39 @@
         document.getElementById('monthInput').value = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
     }
 
-    function onMonthChange() {
+    async function onMonthChange() {
         const val = document.getElementById('monthInput').value;
         if (val) {
             const [y, m] = val.split('-').map(Number);
             currentYear = y;
             currentMonth = m;
-            loadScheduleIfExists();
+            await loadScheduleIfExists();
         }
     }
 
-    function loadScheduleIfExists() {
-        const confirmedKey = `final_confirmed_schedule_${currentYear}_${currentMonth}`;
-        const schedKey = `final_schedule_${currentYear}_${currentMonth}`;
-
-        if (localStorage.getItem(confirmedKey)) {
-            isLocked = true;
-            scheduleData = JSON.parse(localStorage.getItem(confirmedKey));
-            renderTable();
-            updateButtonStates();
-        } else if (localStorage.getItem(schedKey)) {
-            isLocked = false;
-            scheduleData = JSON.parse(localStorage.getItem(schedKey));
-            renderTable();
-            updateButtonStates();
-        } else {
+    async function loadScheduleIfExists() {
+        try {
+            const data = await supaFetch('schedules', {
+                query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=data,locked`
+            });
+            if (data.length > 0) {
+                scheduleData = data[0].data || {};
+                isLocked = data[0].locked || false;
+                renderTable();
+                updateButtonStates();
+            } else {
+                scheduleData = {};
+                isLocked = false;
+                document.getElementById('tableWrapper').innerHTML =
+                    '<p style="text-align:center;padding:40px;color:var(--text-light);">选择月份后点击"一键生成排班"</p>';
+                updateButtonStates();
+            }
+        } catch (e) {
+            console.error('Failed to load schedule:', e);
             scheduleData = {};
+            isLocked = false;
             document.getElementById('tableWrapper').innerHTML =
-                '<p style="text-align:center;padding:40px;color:var(--text-light);">选择月份后点击"一键生成排班"</p>';
+                '<p style="text-align:center;padding:40px;color:var(--text-light);">加载失败，请刷新重试</p>';
             updateButtonStates();
         }
     }
@@ -536,7 +573,7 @@
     }
 
     // === Generate Schedule ===
-    function generateSchedule() {
+    async function generateSchedule() {
         if (isScheduleDeadlinePassed()) {
             showToast('已过截止日期，不可生成排班', 'error');
             return;
@@ -547,8 +584,33 @@
         }
 
         const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-        const totalRestKey = `total_rest_days_${currentYear}_${currentMonth}`;
-        const totalRest = parseInt(localStorage.getItem(totalRestKey)) || 4;
+
+        // Load totalRest from settings
+        let totalRest = 4;
+        try {
+            const totalRestKey = `total_rest_days_${currentYear}_${currentMonth}`;
+            const restData = await supaFetch('settings', { query: `?key=eq.${encodeURIComponent(totalRestKey)}&select=value` });
+            if (restData.length > 0 && restData[0].value !== null) {
+                totalRest = parseInt(restData[0].value) || 4;
+            }
+        } catch (e) {
+            console.error('Failed to load total rest days:', e);
+        }
+
+        // Load designated rest from Supabase
+        let designatedRestMap = {};
+        try {
+            const drData = await supaFetch('designated_rest', {
+                query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=employee_name,days`
+            });
+            drData.forEach(record => {
+                if (record.days && record.days.length > 0) {
+                    designatedRestMap[record.employee_name] = record.days;
+                }
+            });
+        } catch (e) {
+            console.error('Failed to load designated rest:', e);
+        }
 
         // Initialize schedule
         scheduleData = {};
@@ -566,12 +628,10 @@
             }
         }
 
-        // 2. Apply designated rest from localStorage
+        // 2. Apply designated rest from Supabase
         employees.forEach(emp => {
-            const key = `schedule_${currentYear}_${currentMonth}_${emp.name}`;
-            const saved = localStorage.getItem(key);
-            if (saved) {
-                const days = JSON.parse(saved);
+            const days = designatedRestMap[emp.name];
+            if (days) {
                 days.forEach(d => {
                     if (d <= daysInMonth) {
                         scheduleData[emp.name][d - 1] = 'designated';
@@ -581,9 +641,7 @@
         });
 
         // 2.5 规则C：谢焕君无指定休时默认每周日休息
-        const xieKey = `schedule_${currentYear}_${currentMonth}_谢焕君`;
-        const xieSaved = localStorage.getItem(xieKey);
-        const xieHasDesignated = xieSaved && JSON.parse(xieSaved).length > 0;
+        const xieHasDesignated = designatedRestMap['谢焕君'] && designatedRestMap['谢焕君'].length > 0;
 
         if (!xieHasDesignated && scheduleData['谢焕君']) {
             const sundays = [];
@@ -747,11 +805,29 @@
             }
         }
 
-        // Save draft
-        localStorage.setItem(`final_schedule_${currentYear}_${currentMonth}`, JSON.stringify(scheduleData));
+        // Save draft to Supabase
+        await saveScheduleToSupabase(false);
         renderTable();
         updateButtonStates();
         showToast('排班表已生成', 'success');
+    }
+
+    async function saveScheduleToSupabase(locked) {
+        try {
+            await supaFetch('schedules', {
+                method: 'POST',
+                body: {
+                    year: currentYear,
+                    month: currentMonth,
+                    data: scheduleData,
+                    locked: locked,
+                    created_at: new Date().toISOString()
+                }
+            });
+        } catch (e) {
+            console.error('Failed to save schedule:', e);
+            showToast('保存失败', 'error');
+        }
     }
 
     // === Render Table ===
@@ -848,15 +924,15 @@
         activeDropdown = null;
     }
 
-    function setCellStatus(name, day, status) {
+    async function setCellStatus(name, day, status) {
         scheduleData[name][day - 1] = status;
-        localStorage.setItem(`final_schedule_${currentYear}_${currentMonth}`, JSON.stringify(scheduleData));
+        await saveScheduleToSupabase(false);
         hideDropdown();
         renderTable();
     }
 
     // === Confirm / Lock ===
-    function confirmSchedule() {
+    async function confirmSchedule() {
         if (isScheduleDeadlinePassed()) {
             showToast('已过截止日期，无法确认', 'error');
             return;
@@ -867,18 +943,16 @@
         }
         if (!confirm('确认排班后将锁定不可编辑，是否继续？')) return;
 
-        const key = `final_confirmed_schedule_${currentYear}_${currentMonth}`;
-        localStorage.setItem(key, JSON.stringify(scheduleData));
+        await saveScheduleToSupabase(true);
         isLocked = true;
         renderTable();
         updateButtonStates();
         showToast('排班已确认并锁定', 'success');
     }
 
-    function unlockSchedule() {
+    async function unlockSchedule() {
         if (!confirm('解锁后可重新编辑排班表，是否继续？')) return;
-        const key = `final_confirmed_schedule_${currentYear}_${currentMonth}`;
-        localStorage.removeItem(key);
+        await saveScheduleToSupabase(false);
         isLocked = false;
         renderTable();
         updateButtonStates();
