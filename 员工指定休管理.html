@@ -657,7 +657,8 @@
 
     <!-- Employee Management Modal -->
     <div class="modal-overlay" id="empModal">
-        <div class="modal">
+        <div class="modal" style="position:relative;">
+            <button onclick="closeEmployeeModal()" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-light);line-height:1;">✕</button>
             <h3>👥 员工管理</h3>
             <div id="empManageList"></div>
             <div class="add-emp-form">
@@ -669,9 +670,6 @@
                     <option value="发货">发货</option>
                 </select>
                 <button class="btn btn-primary" onclick="addEmployee()">添加</button>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-outline" onclick="closeEmployeeModal()">关闭</button>
             </div>
         </div>
     </div>
@@ -1077,6 +1075,16 @@
 
     // === Employee Management ===
     function openEmployeeModal() {
+        // 验证管理员权限：使用当前选中的员工作为身份
+        const currentUser = localStorage.getItem('last_selected_employee') || currentEmployee;
+        if (!currentUser) {
+            showToast('请先选择员工', 'error');
+            return;
+        }
+        if (!isAdmin(currentUser)) {
+            showToast('⚠️ 只有管理员才能操作员工管理', 'error');
+            return;
+        }
         document.getElementById('empModal').classList.add('active');
         renderEmployeeManageList();
     }
