@@ -507,7 +507,6 @@
         <h1>⚙️ 排班表生成</h1>
         <div class="header-actions">
             <button class="btn btn-outline" onclick="toggleOrientation()" id="orientBtn">🔄 竖屏</button>
-            <button class="btn btn-outline" onclick="saveAsImage()">📷 保存图片</button>
             <a href="index.html" class="btn-back">← 首页</a>
         </div>
     </div>
@@ -1704,17 +1703,15 @@
             wrapper.style.border = '2px solid #1e3a5f';
             wrapper.style.transformOrigin = 'top left';
             wrapper.style.transform = 'rotate(90deg)';
-            // 计算缩放让表格完全铺满
+            // 计算缩放让表格完全铺满（分别缩放宽高以填满屏幕）
             setTimeout(() => {
                 if (table) {
                     const tableW = table.scrollWidth;
                     const tableH = table.scrollHeight;
-                    // 缩放到填满整个容器
                     const scaleX = vh / tableW;
                     const scaleY = vw / tableH;
-                    const scale = Math.min(scaleX, scaleY);
-                    // 用CSS缩放表格本身，而不是wrapper
-                    table.style.transform = 'scale(' + scale + ')';
+                    // 分别缩放X和Y轴，让表格完全铺满容器
+                    table.style.transform = 'scale(' + scaleX + ',' + scaleY + ')';
                     table.style.transformOrigin = 'top left';
                     table.style.width = tableW + 'px';
                     table.style.height = tableH + 'px';
