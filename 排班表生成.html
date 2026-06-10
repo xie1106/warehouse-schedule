@@ -572,13 +572,18 @@
     async function supaFetch(table, options = {}) {
         const { method = 'GET', query = '', body = null, headers = {} } = options;
         const url = `${SUPABASE_URL}/rest/v1/${table}${query}`;
+        const preferMap = {
+            'POST': 'resolution=merge-duplicates,return=minimal',
+            'PATCH': 'return=minimal',
+            'DELETE': 'return=minimal'
+        };
         const opts = {
             method,
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': `Bearer ${SUPABASE_KEY}`,
                 'Content-Type': 'application/json',
-                'Prefer': method === 'POST' ? 'resolution=merge-duplicates,return=minimal' : (method === 'DELETE' ? 'return=minimal' : ''),
+                'Prefer': preferMap[method] || '',
                 ...headers
             }
         };
@@ -1603,8 +1608,8 @@
             console.error('Failed to unlock schedule:', e);
         }
         isLocked = false;
-        renderTable();
-        updateButtonStates();
+        // 重新从数据库加载数据确保表格显示
+        await loadScheduleIfExists();
         showToast('已解锁，可以编辑排班', 'success');
     }
 
