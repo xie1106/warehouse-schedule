@@ -498,8 +498,20 @@
 
     function setDefaultMonth() {
         const now = new Date();
-        currentYear = now.getFullYear();
-        currentMonth = now.getMonth() + 1;
+        const currentDay = now.getDate();
+        let year = now.getFullYear();
+        let month = now.getMonth() + 1; // 当前月
+
+        // 默认显示下个月（排班一般是提前排下月的）
+        // 如果已过当月最后一天（即排班截止日），显示下个月
+        month += 1;
+        if (month > 12) {
+            month = 1;
+            year += 1;
+        }
+
+        currentYear = year;
+        currentMonth = month;
         document.getElementById('monthInput').value = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
     }
 
@@ -526,8 +538,12 @@
             } else {
                 scheduleData = {};
                 isLocked = false;
+                const deadlinePassed = isScheduleDeadlinePassed();
+                const msg = deadlinePassed
+                    ? `${currentYear}年${currentMonth}月暂无排班记录`
+                    : '选择月份后点击"一键生成排班"';
                 document.getElementById('tableWrapper').innerHTML =
-                    '<p style="text-align:center;padding:40px;color:var(--text-light);">选择月份后点击"一键生成排班"</p>';
+                    `<p style="text-align:center;padding:40px;color:var(--text-light);">${msg}</p>`;
                 updateButtonStates();
             }
         } catch (e) {
