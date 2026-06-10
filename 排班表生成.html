@@ -1276,6 +1276,71 @@
             }
         }
 
+        // 3.6 强制修复：连续上班不超过6天
+        // 扫描所有人，如果有连续>6天的段，在中间强制插入休息
+        for (let pass = 0; pass < 3; pass++) { // 最多3轮修复
+            let anyFixed = false;
+            for (const emp of employees) {
+                let streak = 0;
+                let streakStart = 0;
+                for (let d = 1; d <= daysInMonth + 1; d++) {
+                    const s = d <= daysInMonth ? scheduleData[emp.name][d - 1] : 'rest';
+                    if (s === 'work' || s === 'duty') {
+                        if (streak === 0) streakStart = d;
+                        streak++;
+                    } else {
+                        if (streak > 6) {
+                            // 在连续段中间找最佳位置插入休息
+                            // 优先选周二~周六中间位置，避开周一
+                            let bestDay = -1;
+                            let bestScore = -Infinity;
+                            const mid = streakStart + Math.floor(streak / 2);
+                            for (let rd = streakStart; rd < streakStart + streak; rd++) {
+                                if (rd > daysInMonth) break;
+                                const rdow = new Date(currentYear, currentMonth - 1, rd).getDay();
+                                if (rdow === 1) continue; // 不在周一休
+                                const dateStr2 = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(rd).padStart(2, '0')}`;
+                                if (holidays[dateStr2]) continue;
+                                // 当天状态必须是work才能改（不能改duty）
+                                if (scheduleData[emp.name][rd - 1] !== 'work') continue;
+                                // 检查组约束
+                                const empGroup = employees.find(e => e.name === emp.name)?.group;
+                                let groupOk = true;
+                                if (empGroup) {
+                                    const sameGroupMembers = employees.filter(e => e.group === empGroup && e.name !== emp.name);
+                                    if (sameGroupMembers.length > 0) {
+                                        const working = sameGroupMembers.filter(e =>
+                                            scheduleData[e.name] && (scheduleData[e.name][rd - 1] === 'work' || scheduleData[e.name][rd - 1] === 'duty')
+                                        ).length;
+                                        if (working === 0) groupOk = false;
+                                    }
+                                }
+                                if (!groupOk) continue;
+                                // 陈文童付新远互斥
+                                if (emp.name === '陈文童' && scheduleData['付新远'] &&
+                                    scheduleData['付新远'][rd - 1] !== 'work' && scheduleData['付新远'][rd - 1] !== 'duty') continue;
+                                if (emp.name === '付新远' && scheduleData['陈文童'] &&
+                                    scheduleData['陈文童'][rd - 1] !== 'work' && scheduleData['陈文童'][rd - 1] !== 'duty') continue;
+
+                                // 评分：越靠近中间越好
+                                let score = -Math.abs(rd - mid);
+                                if (score > bestScore) {
+                                    bestScore = score;
+                                    bestDay = rd;
+                                }
+                            }
+                            if (bestDay > 0) {
+                                scheduleData[emp.name][bestDay - 1] = 'rest';
+                                anyFixed = true;
+                            }
+                        }
+                        streak = 0;
+                    }
+                }
+            }
+            if (!anyFixed) break;
+        }
+
         // 4. 值班分配（连续轮值 v4）
         // 规则：每人值班必须是连续的上班日，中间不能有休息日隔断
         // 不值班：谢焕君、陈文童、付新远、陈安然、黄丽情、崔斯欣
