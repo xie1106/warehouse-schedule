@@ -1463,14 +1463,19 @@
         const dropdown = document.getElementById('cellDropdown');
         const rect = event.target.getBoundingClientRect();
 
-        let top = rect.bottom + 4;
-        let left = rect.left;
-
-        if (top + 280 > window.innerHeight) {
-            top = rect.top - 280;
-        }
-        if (left + 120 > window.innerWidth) {
-            left = window.innerWidth - 130;
+        let top, left;
+        if (isVertical) {
+            // 竖屏模式下，dropdown跟随手指点击位置
+            const touch = event.changedTouches ? event.changedTouches[0] : event;
+            top = (touch.clientY || rect.top) + 4;
+            left = (touch.clientX || rect.left) + 4;
+            if (top + 280 > window.innerHeight) top = window.innerHeight - 290;
+            if (left + 120 > window.innerWidth) left = window.innerWidth - 130;
+        } else {
+            top = rect.bottom + 4;
+            left = rect.left;
+            if (top + 280 > window.innerHeight) top = rect.top - 280;
+            if (left + 120 > window.innerWidth) left = window.innerWidth - 130;
         }
 
         dropdown.style.top = Math.max(4, top) + 'px';
@@ -1687,18 +1692,17 @@
             document.body.classList.add('vertical-mode');
             const vw = window.innerWidth;
             const vh = window.innerHeight;
-            // 先设置旋转，让表格展开
-            wrapper.style.transform = 'rotate(90deg)';
-            wrapper.style.transformOrigin = 'top left';
             wrapper.style.position = 'fixed';
             wrapper.style.top = '0';
             wrapper.style.left = vw + 'px';
             wrapper.style.width = vh + 'px';
             wrapper.style.height = vw + 'px';
             wrapper.style.maxHeight = 'none';
-            wrapper.style.overflow = 'hidden';
+            wrapper.style.overflow = 'auto';
             wrapper.style.zIndex = '998';
             wrapper.style.background = '#fff';
+            wrapper.style.transformOrigin = 'top left';
+            wrapper.style.transform = 'rotate(90deg)';
             // 计算缩放比例让表格完全可见
             setTimeout(() => {
                 if (table) {
@@ -1708,7 +1712,6 @@
                     const scaleY = vw / tableH;
                     const scale = Math.min(scaleX, scaleY, 1);
                     wrapper.style.transform = 'rotate(90deg) scale(' + scale + ')';
-                    wrapper.style.transformOrigin = 'top left';
                 }
             }, 50);
             btn.textContent = '🔄 横屏';
