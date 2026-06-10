@@ -1710,22 +1710,23 @@
         isVertical = !isVertical;
         const btn = document.getElementById('orientBtn');
         const wrapper = document.getElementById('tableWrapper');
-        const table = wrapper.querySelector('.schedule-table');
-        if (!table) { showToast('请先生成排班表', 'error'); isVertical = false; return; }
         if (isVertical) {
             document.body.classList.add('vertical-mode');
-            const screenW = window.innerWidth - 16;
-            const tableW = table.scrollWidth;
-            const scale = Math.min(1, screenW / tableW);
-            wrapper.style.transform = 'scale(' + scale + ')';
+            wrapper.style.transform = 'rotate(90deg)';
             wrapper.style.transformOrigin = 'top left';
-            wrapper.style.width = (100 / scale) + '%';
+            wrapper.style.position = 'absolute';
+            wrapper.style.left = '100%';
+            wrapper.style.width = '100vh';
+            wrapper.style.maxHeight = 'none';
             btn.textContent = '🔄 横屏';
         } else {
             document.body.classList.remove('vertical-mode');
             wrapper.style.transform = '';
             wrapper.style.transformOrigin = '';
+            wrapper.style.position = '';
+            wrapper.style.left = '';
             wrapper.style.width = '';
+            wrapper.style.maxHeight = '';
             btn.textContent = '🔄 竖屏';
         }
     }
@@ -1741,37 +1742,99 @@
         const labelMap = {};
         STATUS_TYPES.forEach(st => { colorMap[st.key] = st.color; labelMap[st.key] = st.label; });
 
-        let html = '<table style="border-collapse:collapse;font-family:sans-serif;font-size:11px;">';
-        html += '<tr style="background:#1e3a5f;color:#fff;font-weight:bold;">';
-        html += '<td style="border:1px solid #ccc;padding:4px 6px;">姓名</td>';
-        html += '<td style="border:1px solid #ccc;padding:4px 6px;">休</td>';
+        const empList = employees.filter(emp => scheduleData[emp.name]);
+        const cols = daysInMonth + 2; // name + rest + days
+        const rows = empList.length + 1; // header + data
+
+        const cellW = 36;
+        const cellH = 26;
+        const nameW = 60;
+        const restW = 30;
+        const totalW = nameW + restW + daysInMonth * cellW;
+        const totalH = rows * cellH;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = totalW * 2;
+        canvas.height = totalH * 2;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(2, 2);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, totalW, totalH);
+
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Header
+        ctx.fillStyle = '#1e3a5f';
+        ctx.fillRect(0, 0, totalW, cellH);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText('姓名', nameW / 2, cellH / 2);
+        ctx.fillText('休', nameW + restW / 2, cellH / 2);
+        const dowLabels = ['日','一','二','三','四','五','六'];
         for (let d = 1; d <= daysInMonth; d++) {
             const dow = new Date(currentYear, currentMonth - 1, d).getDay();
-            const dowLabels = ['日','一','二','三','四','五','六'];
-            html += '<td style="border:1px solid #ccc;padding:4px 3px;text-align:center;">' + d + '(' + dowLabels[dow] + ')</td>';
+            const x = nameW + restW + (d - 1) * cellW + cellW / 2;
+            ctx.fillText(d + '(' + dowLabels[dow] + ')', x, cellH / 2);
         }
-        html += '</tr>';
-        employees.forEach(emp => {
-            if (!scheduleData[emp.name]) return;
+
+        // Data rows
+        empList.forEach((emp, ri) => {
+            const y = (ri + 1) * cellH;
             const restTotal = scheduleData[emp.name].filter(s => s !== 'work' && s !== 'duty').length;
-            html += '<tr>';
-            html += '<td style="border:1px solid #ccc;padding:4px 6px;font-weight:bold;">' + emp.name + '</td>';
-            html += '<td style="border:1px solid #ccc;padding:4px 6px;text-align:center;font-weight:bold;">' + restTotal + '</td>';
+
+            // Name cell
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, y, nameW, cellH);
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.fillText(emp.name, nameW / 2, y + cellH / 2);
+
+            // Rest count
+            ctx.fillStyle = '#f0fdf4';
+            ctx.fillRect(nameW, y, restW, cellH);
+            ctx.fillStyle = '#166534';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.fillText(String(restTotal), nameW + restW / 2, y + cellH / 2);
+
+            // Day cells
             for (let d = 1; d <= daysInMonth; d++) {
                 const status = scheduleData[emp.name][d - 1] || 'work';
                 const bg = colorMap[status] || '#fff';
                 const label = labelMap[status] || '';
-                html += '<td style="border:1px solid #eee;padding:4px 3px;text-align:center;background:' + bg + ';font-weight:' + (status === 'work' ? '400' : '700') + ';">' + label + '</td>';
-            }
-            html += '</tr>';
-        });
-        html += '</table>';
+                const x = nameW + restW + (d - 1) * cellW;
 
-        const fullHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>排班表_' + currentYear + '年' + currentMonth + '月</title></head><body style="margin:0;padding:8px;">' + html + '</body></html>';
-        const blob = new Blob([fullHtml], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        showToast('已在新页面打开，长按表格可保存图片', 'success');
+                ctx.fillStyle = bg;
+                ctx.fillRect(x, y, cellW, cellH);
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.strokeRect(x, y, cellW, cellH);
+
+                ctx.fillStyle = status === 'work' ? '#6b7280' : '#1e293b';
+                ctx.font = (status === 'work' ? '' : 'bold ') + '9px sans-serif';
+                ctx.fillText(label, x + cellW / 2, y + cellH / 2);
+            }
+        });
+
+        // Grid lines
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 0.5;
+        for (let r = 0; r <= rows; r++) {
+            ctx.beginPath();
+            ctx.moveTo(0, r * cellH);
+            ctx.lineTo(totalW, r * cellH);
+            ctx.stroke();
+        }
+
+        // Convert to image and download
+        const dataUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = '排班表_' + currentYear + '年' + currentMonth + '月.png';
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('图片已保存', 'success');
     }
 
     // === Start ===
