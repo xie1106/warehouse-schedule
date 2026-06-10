@@ -6,93 +6,102 @@
     <title>员工指定休管理</title>
     <style>
         :root {
-            --primary: #4f46e5;
-            --primary-light: #818cf8;
-            --primary-bg: #eef2ff;
-            --secondary: #ec4899;
+            --primary: #1e3a5f;
+            --primary-light: #2d5a8e;
+            --primary-lighter: #3b7dd8;
+            --primary-bg: #edf2f9;
+            --accent: #4f8fda;
+            --secondary: #6366f1;
+            --secondary-light: #818cf8;
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --bg: #f8fafc;
+            --bg: #f0f2f5;
             --card-bg: #ffffff;
-            --text: #1e293b;
-            --text-light: #64748b;
-            --border: #e2e8f0;
-            --shadow: 0 4px 24px rgba(0,0,0,0.06);
-            --radius: 12px;
+            --text: #1a1d23;
+            --text-light: #6b7280;
+            --border: #e5e7eb;
+            --shadow: 0 2px 8px rgba(30, 58, 95, 0.06), 0 8px 32px rgba(30, 58, 95, 0.08);
+            --shadow-sm: 0 1px 3px rgba(30, 58, 95, 0.04), 0 4px 12px rgba(30, 58, 95, 0.06);
+            --radius: 16px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Microsoft YaHei", sans-serif;
             background: var(--bg);
             color: var(--text);
             min-height: 100vh;
-            padding: 20px;
+            padding: 24px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
         .header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 24px;
+            margin-bottom: 28px;
             flex-wrap: wrap;
             gap: 12px;
         }
         .header h1 {
-            font-size: 22px;
+            font-size: 24px;
             font-weight: 700;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            letter-spacing: -0.3px;
+            color: var(--primary);
         }
         .header-actions {
             display: flex;
-            gap: 8px;
+            gap: 10px;
             flex-wrap: wrap;
         }
         .btn {
-            padding: 8px 16px;
+            padding: 10px 20px;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
             min-height: 44px;
         }
+        .btn:active { transform: scale(0.97); }
         .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:hover { background: #4338ca; }
+        .btn-primary:hover { background: var(--primary-light); box-shadow: 0 4px 12px rgba(30, 58, 95, 0.25); }
         .btn-success { background: var(--success); color: white; }
-        .btn-success:hover { background: #059669; }
+        .btn-success:hover { background: #059669; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25); }
         .btn-danger { background: var(--danger); color: white; }
-        .btn-danger:hover { background: #dc2626; }
+        .btn-danger:hover { background: #dc2626; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25); }
         .btn-warning { background: var(--warning); color: white; }
-        .btn-warning:hover { background: #d97706; }
+        .btn-warning:hover { background: #d97706; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25); }
         .btn-outline {
             background: white;
             color: var(--text);
             border: 1px solid var(--border);
         }
-        .btn-outline:hover { background: var(--bg); }
+        .btn-outline:hover { background: var(--bg); border-color: var(--primary-light); }
         .btn-back {
             background: white;
             color: var(--text-light);
             border: 1px solid var(--border);
             text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 8px;
+            padding: 10px 20px;
+            border-radius: 10px;
             font-size: 13px;
             font-weight: 500;
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            transition: all 0.2s;
+            transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             min-height: 44px;
         }
-        .btn-back:hover { background: var(--bg); }
+        .btn-back:hover { background: var(--bg); border-color: var(--primary-light); color: var(--primary); }
         /* Touch optimization */
         .btn, .day, select, input {
             touch-action: manipulation;
@@ -101,7 +110,7 @@
         .layout {
             display: grid;
             grid-template-columns: 1fr 320px;
-            gap: 20px;
+            gap: 24px;
             max-width: 1200px;
             margin: 0 auto;
         }
@@ -109,16 +118,17 @@
             background: var(--card-bg);
             border-radius: var(--radius);
             box-shadow: var(--shadow);
-            padding: 24px;
-            border: 1px solid var(--border);
+            padding: 28px;
+            border: 1px solid rgba(30, 58, 95, 0.04);
         }
         .card-title {
             font-size: 15px;
             font-weight: 600;
-            margin-bottom: 16px;
+            margin-bottom: 18px;
             display: flex;
             align-items: center;
             gap: 8px;
+            color: var(--primary);
         }
         /* Selection area */
         .selection-row {
@@ -131,7 +141,7 @@
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 6px;
         }
         .form-group label {
             font-size: 12px;
@@ -139,17 +149,19 @@
             font-weight: 500;
         }
         .form-group select, .form-group input {
-            padding: 8px 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
+            padding: 10px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
             font-size: 14px;
             min-width: 140px;
             outline: none;
-            transition: border-color 0.2s;
+            transition: all 0.2s;
             min-height: 44px;
+            background: white;
         }
         .form-group select:focus, .form-group input:focus {
-            border-color: var(--primary);
+            border-color: var(--primary-lighter);
+            box-shadow: 0 0 0 3px rgba(59, 125, 216, 0.1);
         }
         /* Submit buttons row */
         .submit-row {
@@ -165,45 +177,48 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
         }
         .calendar-header h3 {
-            font-size: 15px;
+            font-size: 16px;
             font-weight: 600;
+            color: var(--primary);
         }
         .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            gap: 4px;
+            gap: 5px;
         }
         .calendar-grid .weekday {
             text-align: center;
             font-size: 12px;
             color: var(--text-light);
-            font-weight: 500;
-            padding: 6px 0;
+            font-weight: 600;
+            padding: 8px 0;
         }
         .calendar-grid .day {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 52px;
+            min-height: 54px;
             padding: 4px 2px;
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
-            transition: all 0.15s;
+            transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             position: relative;
             font-weight: 500;
         }
         .calendar-grid .day:hover:not(.empty):not(.disabled) {
             background: var(--primary-bg);
+            transform: scale(1.05);
         }
         .calendar-grid .day.empty { cursor: default; }
         .calendar-grid .day.selected {
             background: var(--primary);
             color: white;
-            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+            box-shadow: 0 3px 10px rgba(30, 58, 95, 0.3);
+            transform: scale(1.02);
         }
         .calendar-grid .day.selected .day-label {
             color: rgba(255,255,255,0.85);
@@ -212,7 +227,7 @@
             color: var(--danger);
         }
         .calendar-grid .day.workday {
-            color: var(--primary);
+            color: var(--primary-lighter);
         }
         .calendar-grid .day.disabled {
             opacity: 0.3;
@@ -239,55 +254,56 @@
         .calendar-legend {
             display: flex;
             gap: 16px;
-            margin-top: 12px;
+            margin-top: 14px;
             font-size: 12px;
             color: var(--text-light);
         }
         .calendar-legend span {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
         }
         .legend-dot {
-            width: 8px;
-            height: 8px;
+            width: 9px;
+            height: 9px;
             border-radius: 50%;
         }
         .legend-dot.holiday { background: var(--danger); }
-        .legend-dot.workday { background: var(--primary); }
+        .legend-dot.workday { background: var(--primary-lighter); }
         .legend-dot.selected { background: var(--primary); }
         /* Rest days config */
         .rest-config {
             display: flex;
             align-items: center;
             gap: 8px;
-            margin: 12px 0;
-            padding: 12px;
+            margin: 14px 0;
+            padding: 14px 16px;
             background: var(--primary-bg);
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 13px;
             flex-wrap: wrap;
         }
         .rest-config input {
             width: 50px;
-            padding: 4px 8px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
+            padding: 6px 8px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
             text-align: center;
             font-size: 13px;
+            background: white;
         }
         /* Selected dates display */
         .selected-dates {
-            margin-top: 12px;
-            padding: 12px;
+            margin-top: 14px;
+            padding: 14px 16px;
             background: #fefce8;
-            border-radius: 8px;
+            border-radius: 10px;
             min-height: 40px;
         }
         .selected-dates .label {
             font-size: 12px;
             color: var(--text-light);
-            margin-bottom: 6px;
+            margin-bottom: 8px;
         }
         .selected-dates .dates {
             display: flex;
@@ -297,32 +313,33 @@
         .date-tag {
             background: var(--primary);
             color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
+            padding: 4px 10px;
+            border-radius: 6px;
             font-size: 12px;
+            font-weight: 500;
         }
         /* Sidebar */
-        .sidebar { display: flex; flex-direction: column; gap: 16px; }
+        .sidebar { display: flex; flex-direction: column; gap: 20px; }
         .stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
+            gap: 10px;
         }
         .stat-item {
-            padding: 12px;
+            padding: 16px;
             background: var(--bg);
-            border-radius: 8px;
+            border-radius: 12px;
             text-align: center;
         }
         .stat-item .num {
-            font-size: 20px;
+            font-size: 22px;
             font-weight: 700;
             color: var(--primary);
         }
         .stat-item .desc {
             font-size: 11px;
             color: var(--text-light);
-            margin-top: 2px;
+            margin-top: 4px;
         }
         .employee-list {
             max-height: 300px;
@@ -332,17 +349,18 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 8px 12px;
-            border-radius: 6px;
+            padding: 10px 12px;
+            border-radius: 8px;
             font-size: 13px;
             transition: background 0.15s;
         }
         .emp-item:hover { background: var(--bg); }
         .emp-item .status {
             font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 4px;
+            padding: 3px 10px;
+            border-radius: 6px;
             white-space: nowrap;
+            font-weight: 500;
         }
         .emp-item .status.done { background: #d1fae5; color: #065f46; }
         .emp-item .status.pending { background: #fef3c7; color: #92400e; }
@@ -361,20 +379,23 @@
             align-items: center;
             justify-content: center;
             padding: 20px;
+            backdrop-filter: blur(4px);
         }
         .modal-overlay.active { display: flex; }
         .modal {
             background: white;
             border-radius: var(--radius);
-            padding: 24px;
+            padding: 28px;
             max-width: 500px;
             width: 100%;
             max-height: 80vh;
             overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(30, 58, 95, 0.2);
         }
         .modal h3 {
-            margin-bottom: 16px;
-            font-size: 16px;
+            margin-bottom: 18px;
+            font-size: 17px;
+            color: var(--primary);
         }
         .modal-actions {
             display: flex;
@@ -386,31 +407,31 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 0;
+            padding: 10px 0;
             border-bottom: 1px solid var(--border);
             flex-wrap: wrap;
         }
         .emp-manage-item:last-child { border: none; }
-        .emp-manage-item .name { flex: 1; font-size: 13px; }
+        .emp-manage-item .name { flex: 1; font-size: 13px; font-weight: 500; }
         .emp-manage-item .group {
             font-size: 11px;
             color: var(--text-light);
             background: var(--bg);
-            padding: 2px 6px;
-            border-radius: 4px;
+            padding: 3px 8px;
+            border-radius: 6px;
         }
-        .emp-manage-item .btn { padding: 4px 8px; font-size: 11px; min-height: unset; }
+        .emp-manage-item .btn { padding: 5px 10px; font-size: 11px; min-height: unset; }
         /* Add employee form */
         .add-emp-form {
             display: flex;
             gap: 8px;
-            margin-top: 12px;
+            margin-top: 14px;
             flex-wrap: wrap;
         }
         .add-emp-form input, .add-emp-form select {
-            padding: 6px 10px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
+            padding: 8px 12px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
             font-size: 13px;
         }
         /* Toast */
@@ -420,14 +441,16 @@
             right: 20px;
             background: var(--text);
             color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
+            padding: 14px 22px;
+            border-radius: 12px;
             font-size: 13px;
+            font-weight: 500;
             z-index: 2000;
             transform: translateY(-20px);
             opacity: 0;
-            transition: all 0.3s;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             max-width: calc(100vw - 40px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
         }
         .toast.show { transform: translateY(0); opacity: 1; }
         .toast.success { background: var(--success); }
@@ -436,13 +459,14 @@
         .loading-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(255,255,255,0.8);
+            background: rgba(240, 242, 245, 0.9);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 9999;
             font-size: 16px;
             color: var(--text-light);
+            backdrop-filter: blur(8px);
         }
         .loading-overlay.hidden { display: none; }
         /* Responsive - Tablet */
@@ -463,7 +487,7 @@
                 align-items: flex-start;
             }
             .header h1 {
-                font-size: 18px;
+                font-size: 20px;
             }
             .header-actions {
                 width: 100%;
@@ -478,11 +502,12 @@
                 gap: 16px;
             }
             .card {
-                padding: 16px;
+                padding: 20px;
+                border-radius: 14px;
             }
             .card-title {
                 font-size: 14px;
-                margin-bottom: 12px;
+                margin-bottom: 14px;
             }
             .selection-row {
                 flex-direction: column;
@@ -496,7 +521,7 @@
             .form-group input {
                 min-width: unset;
                 width: 100%;
-                padding: 10px 12px;
+                padding: 12px 14px;
                 font-size: 16px; /* prevent iOS zoom */
             }
             .submit-row {
@@ -508,7 +533,7 @@
                 font-size: 15px;
             }
             .rest-config {
-                padding: 10px;
+                padding: 12px;
                 font-size: 13px;
                 gap: 6px;
             }
@@ -525,8 +550,8 @@
                 padding: 4px 0;
             }
             .calendar-grid .day {
-                border-radius: 6px;
-                min-height: 44px;
+                border-radius: 8px;
+                min-height: 46px;
                 padding: 3px 1px;
             }
             .day-num {
@@ -541,7 +566,7 @@
                 flex-wrap: wrap;
             }
             .selected-dates {
-                padding: 10px;
+                padding: 12px;
             }
             .selected-dates .label {
                 font-size: 11px;
@@ -554,7 +579,7 @@
                 gap: 8px;
             }
             .stat-item {
-                padding: 10px;
+                padding: 12px;
             }
             .stat-item .num {
                 font-size: 18px;
@@ -568,19 +593,20 @@
             }
             /* Modal mobile */
             .modal {
-                padding: 16px;
+                padding: 20px;
                 margin: 12px;
                 max-height: 90vh;
+                border-radius: 14px;
             }
             .modal h3 {
                 font-size: 15px;
             }
             .emp-manage-item {
                 gap: 6px;
-                padding: 6px 0;
+                padding: 8px 0;
             }
             .emp-manage-item .btn {
-                padding: 4px 6px;
+                padding: 5px 8px;
                 font-size: 10px;
             }
             .add-emp-form {
@@ -601,10 +627,10 @@
                 padding: 8px;
             }
             .header h1 {
-                font-size: 16px;
+                font-size: 18px;
             }
             .card {
-                padding: 12px;
+                padding: 16px;
             }
             .calendar-grid .day {
                 min-height: 44px;
@@ -640,7 +666,7 @@
                 <div class="card-title">选择员工和月份</div>
                 <div class="selection-row">
                     <div class="form-group">
-                        <label>选择员工 <a href="javascript:void(0)" onclick="resetIdentity()" style="font-size:11px;color:var(--primary);font-weight:400;margin-left:4px;">切换身份</a></label>
+                        <label>选择员工 <a href="javascript:void(0)" onclick="resetIdentity()" style="font-size:11px;color:var(--primary-lighter);font-weight:400;margin-left:4px;">切换身份</a></label>
                         <select id="empSelect" onchange="onEmployeeChange()">
                             <option value="">-- 请选择 --</option>
                         </select>
@@ -661,7 +687,7 @@
                     <span id="restDaysUnit">天（指定休不超过此数）</span>
                 </div>
 
-                <div id="deadlineNotice" style="display:none; padding:10px; background:#fef2f2; border-radius:8px; color:#991b1b; font-size:13px; margin-bottom:12px;">
+                <div id="deadlineNotice" style="display:none; padding:12px 16px; background:#fef2f2; border-radius:10px; color:#991b1b; font-size:13px; margin-bottom:14px;">
                     ⚠️ 本月已过截止日，无法提交指定休
                 </div>
 
@@ -708,7 +734,7 @@
     <!-- Employee Management Modal -->
     <div class="modal-overlay" id="empModal">
         <div class="modal" style="position:relative;">
-            <button onclick="closeEmployeeModal()" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-light);line-height:1;">✕</button>
+            <button onclick="closeEmployeeModal()" style="position:absolute;top:14px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-light);line-height:1;">✕</button>
             <h3>👥 员工管理</h3>
             <div id="empManageList"></div>
             <div class="add-emp-form">
