@@ -1682,11 +1682,12 @@
         isVertical = !isVertical;
         const btn = document.getElementById('orientBtn');
         const wrapper = document.getElementById('tableWrapper');
+        const table = wrapper.querySelector('.schedule-table');
         if (isVertical) {
             document.body.classList.add('vertical-mode');
-            // 旋转90度，宽度=屏幕高度，高度=屏幕宽度
             const vw = window.innerWidth;
             const vh = window.innerHeight;
+            // 先设置旋转，让表格展开
             wrapper.style.transform = 'rotate(90deg)';
             wrapper.style.transformOrigin = 'top left';
             wrapper.style.position = 'fixed';
@@ -1694,9 +1695,22 @@
             wrapper.style.left = vw + 'px';
             wrapper.style.width = vh + 'px';
             wrapper.style.height = vw + 'px';
-            wrapper.style.maxHeight = vw + 'px';
+            wrapper.style.maxHeight = 'none';
+            wrapper.style.overflow = 'hidden';
             wrapper.style.zIndex = '998';
             wrapper.style.background = '#fff';
+            // 计算缩放比例让表格完全可见
+            setTimeout(() => {
+                if (table) {
+                    const tableW = table.scrollWidth;
+                    const tableH = table.scrollHeight;
+                    const scaleX = vh / tableW;
+                    const scaleY = vw / tableH;
+                    const scale = Math.min(scaleX, scaleY, 1);
+                    wrapper.style.transform = 'rotate(90deg) scale(' + scale + ')';
+                    wrapper.style.transformOrigin = 'top left';
+                }
+            }, 50);
             btn.textContent = '🔄 横屏';
         } else {
             document.body.classList.remove('vertical-mode');
@@ -1708,6 +1722,7 @@
             wrapper.style.width = '';
             wrapper.style.height = '';
             wrapper.style.maxHeight = '';
+            wrapper.style.overflow = '';
             wrapper.style.zIndex = '';
             wrapper.style.background = '';
             btn.textContent = '🔄 竖屏';
