@@ -1121,6 +1121,13 @@
                                     if (rd > daysInMonth) continue;
                                     const rdow = new Date(currentYear, currentMonth - 1, rd).getDay();
                                     if (rdow === 1) continue; // 周一不休
+                                    // 周日不插入（保护8-9人上班）
+                                    if (rdow === 0) {
+                                        const sunWorking = employees.filter(e =>
+                                            scheduleData[e.name][rd - 1] === 'work' || scheduleData[e.name][rd - 1] === 'duty'
+                                        ).length;
+                                        if (sunWorking <= 9) continue;
+                                    }
                                     if (scheduleData[emp.name][rd - 1] !== 'work') continue;
                                     insertDay = rd;
                                     break;
