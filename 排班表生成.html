@@ -927,58 +927,76 @@
         }
         const totalDutyDays = dutyDays.length;
 
-        // 每人目标值班天数（平均分）
+        // 每人目标值班天数（尽量平均）
         const baseDuty = Math.floor(totalDutyDays / dutyEligible.length);
         const extraDuty = totalDutyDays % dutyEligible.length;
 
-        // 计算每人连续块大小
-        const dutyBlocks = []; // [{name, days}]
+        // 构建轮值队列：每人连续N天，循环
+        const dutyQueue = []; // [{name, target}]
         dutyEligible.forEach((name, idx) => {
-            dutyBlocks.push({ name, days: baseDuty + (idx < extraDuty ? 1 : 0) });
+            dutyQueue.push({ name, target: baseDuty + (idx < extraDuty ? 1 : 0), assigned: 0 });
         });
 
-        // 按日期顺序连续分配：A连续值N天 → B连续值N天 → C...
-        let blockIdx = 0;
-        let assignedInBlock = 0;
-        const skippedDays = []; // 当前人休息跳过的天
-
-        for (let i = 0; i < dutyDays.length && blockIdx < dutyBlocks.length; i++) {
+        // 按日期逐天分配值班
+        // 规则：当前轮到的人如果那天上班就值班，否则找下一个能值的人
+        // 当一个人完成目标天数后，切到下一个人
+        let queueIdx = 0;
+        for (let i = 0; i < dutyDays.length; i++) {
             const d = dutyDays[i];
-            const block = dutyBlocks[blockIdx];
-            const status = scheduleData[block.name][d - 1];
+            let assigned = false;
 
-            if (status === 'work') {
-                scheduleData[block.name][d - 1] = 'duty';
-                assignedInBlock++;
-                if (assignedInBlock >= block.days) {
-                    blockIdx++;
-                    assignedInBlock = 0;
+            // 尝试当前队列里的人
+            for (let attempt = 0; attempt < dutyQueue.length; attempt++) {
+                const current = dutyQueue[queueIdx % dutyQueue.length];
+                if (current.assigned >= current.target) {
+                    // 这人已完成，跳到下一人
+                    queueIdx++;
+                    continue;
                 }
-            } else {
-                // 这人当天休息，记录跳过
-                skippedDays.push(d);
+                const status = scheduleData[current.name][d - 1];
+                if (status === 'work') {
+                    scheduleData[current.name][d - 1] = 'duty';
+                    current.assigned++;
+                    assigned = true;
+                    // 如果完成目标，切到下一人
+                    if (current.assigned >= current.target) {
+                        queueIdx++;
+                    }
+                    break;
+                } else {
+                    // 这人今天休息，临时让下一个人值这一天
+                    // 但不改变轮值顺序，只是这一天找替补
+                    let found = false;
+                    for (let j = 1; j < dutyQueue.length; j++) {
+                        const alt = dutyQueue[(queueIdx + j) % dutyQueue.length];
+                        if (alt.assigned < alt.target && scheduleData[alt.name][d - 1] === 'work') {
+                            scheduleData[alt.name][d - 1] = 'duty';
+                            alt.assigned++;
+                            found = true;
+                            assigned = true;
+                            break;
+                        }
+                    }
+                    if (found) break;
+                    // 如果没找到替补，让林镇兴补
+                    if (scheduleData['林镇兴'] && scheduleData['林镇兴'][d - 1] === 'work') {
+                        scheduleData['林镇兴'][d - 1] = 'duty';
+                        assigned = true;
+                    }
+                    break;
+                }
+            }
+
+            // 最后兜底：如果还是没分配
+            if (!assigned) {
+                if (scheduleData['林镇兴'] && scheduleData['林镇兴'][d - 1] === 'work') {
+                    scheduleData['林镇兴'][d - 1] = 'duty';
+                } else {
+                    const candidate = dutyEligible.find(name => scheduleData[name][d - 1] === 'work');
+                    if (candidate) scheduleData[candidate][d - 1] = 'duty';
+                }
             }
         }
-
-        // 处理跳过的天 + 剩余未分配的天（给林镇兴或其他可用人）
-        const unassignedDutyDays = [];
-        for (const d of dutyDays) {
-            const hasDuty = employees.some(e => scheduleData[e.name][d - 1] === 'duty');
-            if (!hasDuty) unassignedDutyDays.push(d);
-        }
-
-        for (const d of unassignedDutyDays) {
-            if (scheduleData['林镇兴'] && scheduleData['林镇兴'][d - 1] === 'work') {
-                scheduleData['林镇兴'][d - 1] = 'duty';
-            } else {
-                // 找任意一个当天上班且可值班的人
-                const candidate = dutyEligible.find(name => scheduleData[name][d - 1] === 'work');
-                if (candidate) {
-                    scheduleData[candidate][d - 1] = 'duty';
-                }
-            }
-        }
-
 
         // 生成后不保存到数据库（只是草稿），确认后才保存
         renderTable();
