@@ -530,18 +530,20 @@
             const data = await supaFetch('schedules', {
                 query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=data,locked`
             });
-            if (data.length > 0) {
+            if (data.length > 0 && data[0].locked) {
+                // 只显示已确认的排班
                 scheduleData = data[0].data || {};
-                isLocked = data[0].locked || false;
+                isLocked = true;
                 renderTable();
                 updateButtonStates();
             } else {
+                // 未确认或不存在则不显示
                 scheduleData = {};
                 isLocked = false;
                 const deadlinePassed = isScheduleDeadlinePassed();
                 const msg = deadlinePassed
-                    ? `${currentYear}年${currentMonth}月暂无排班记录`
-                    : '选择月份后点击"一键生成排班"';
+                    ? `${currentYear}年${currentMonth}月暂无已确认的排班`
+                    : '点击"一键生成排班"生成后确认即可发布';
                 document.getElementById('tableWrapper').innerHTML =
                     `<p style="text-align:center;padding:40px;color:var(--text-light);">${msg}</p>`;
                 updateButtonStates();
@@ -1013,11 +1015,10 @@
             }
         }
 
-        // Save draft to Supabase
-        await saveScheduleToSupabase(false);
+        // 生成后不保存到数据库（只是草稿），确认后才保存
         renderTable();
         updateButtonStates();
-        showToast('排班表已生成', 'success');
+        showToast('排班表已生成（草稿），请检查后点击"确认排班"', 'success');
     }
 
     async function saveScheduleToSupabase(locked) {
@@ -1134,7 +1135,7 @@
 
     async function setCellStatus(name, day, status) {
         scheduleData[name][day - 1] = status;
-        await saveScheduleToSupabase(false);
+        // 草稿状态不保存到数据库，确认后才保存
         hideDropdown();
         renderTable();
     }
@@ -1159,12 +1160,22 @@
     }
 
     async function unlockSchedule() {
-        if (!confirm('解锁后可重新编辑排班表，是否继续？')) return;
-        await saveScheduleToSupabase(false);
+        if (!confirm('取消确认后排班将不再显示，需重新生成。是否继续？')) return;
+        // 删除数据库中的排班记录
+        try {
+            await supaFetch('schedules', {
+                method: 'DELETE',
+                query: `?year=eq.${currentYear}&month=eq.${currentMonth}`
+            });
+        } catch (e) {
+            console.error('Failed to delete schedule:', e);
+        }
+        scheduleData = {};
         isLocked = false;
-        renderTable();
+        document.getElementById('tableWrapper').innerHTML =
+            '<p style="text-align:center;padding:40px;color:var(--text-light);">点击"一键生成排班"生成后确认即可发布</p>';
         updateButtonStates();
-        showToast('排班表已解锁', 'success');
+        showToast('排班已取消，可重新生成', 'success');
     }
 
     // === Export Excel ===
