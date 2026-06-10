@@ -1043,6 +1043,13 @@
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             if (dow === 1) return false;
             if (workDays[dateStr]) return false; // 补班日不休
+            // 周日硬性约束：至少8人上班
+            if (dow === 0) {
+                const workingCount = employees.filter(e =>
+                    scheduleData[e.name][d - 1] === 'work' || scheduleData[e.name][d - 1] === 'duty'
+                ).length;
+                if (workingCount <= 8) return false; // 已经只有8人上班了，不能再休
+            }
             // 陈文童付新远
             if (empName === '陈文童' && scheduleData['付新远'] &&
                 scheduleData['付新远'][d - 1] !== 'work' && scheduleData['付新远'][d - 1] !== 'duty') return false;
@@ -1062,20 +1069,20 @@
             return true;
         }
 
-        // 阶段一：周日排满（目标每个周日7人休息）
-        const sundayTarget = 8; // 16人-8休=8人上班（周日至少8人上班）
+        // 阶段一：周日排休（硬性约束：周日上班8-9人，即最多休8人）
+        const sundayMaxRest = 8; // 周日最多8人休 = 至少8人上班
         for (let d = 1; d <= daysInMonth; d++) {
             const dow = new Date(currentYear, currentMonth - 1, d).getDay();
             if (dow !== 0) continue;
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             if (workDays[dateStr]) continue; // 补班日的周日跳过
 
-            // 当天已有多少人休息
+            // 当天已有多少人休息（含谢焕君的指定休等）
             let currentResting = employees.filter(e =>
                 scheduleData[e.name][d - 1] === 'rest' || scheduleData[e.name][d - 1] === 'designated'
             ).length;
 
-            while (currentResting < sundayTarget) {
+            while (currentResting < sundayMaxRest) {
                 // 找还需要休息且能在这天休的人，优先间隔最大的（同分随机）
                 const candidates = employees
                     .filter(emp => restNeeded[emp.name] > 0 && canRest(emp.name, d))
@@ -1284,6 +1291,13 @@
                                 if (rd > daysInMonth) break;
                                 const rdow = new Date(currentYear, currentMonth - 1, rd).getDay();
                                 if (rdow === 1) continue; // 不在周一休
+                                // 周日不能再加休息（硬性8人上班）
+                                if (rdow === 0) {
+                                    const sunWorking = employees.filter(e =>
+                                        scheduleData[e.name][rd - 1] === 'work' || scheduleData[e.name][rd - 1] === 'duty'
+                                    ).length;
+                                    if (sunWorking <= 8) continue;
+                                }
                                 // 当天状态必须是work才能改（不能改duty）
                                 if (scheduleData[emp.name][rd - 1] !== 'work') continue;
                                 // 检查组约束
