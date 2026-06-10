@@ -445,8 +445,37 @@
             .schedule-table .name-col { min-width: 50px; font-size: 10px; }
             .schedule-table .rest-col { min-width: 28px; font-size: 10px; left: 50px; }
             .schedule-table thead th.rest-col { left: 50px; }
-            .header-actions { width: 100%; }
-            .header-actions .btn-back { width: 100%; justify-content: center; }
+            .header-actions { width: 100%; display: flex; gap: 6px; }
+            .header-actions .btn-back, .header-actions .btn { flex: 1; justify-content: center; font-size: 11px; padding: 8px 6px; }
+        }
+        /* Vertical mode - shrink table to fit screen width */
+        body.vertical-mode .table-wrapper {
+            max-height: none;
+            overflow: visible;
+        }
+        body.vertical-mode .schedule-table {
+            min-width: unset;
+            width: 100%;
+            font-size: 8px;
+        }
+        body.vertical-mode .schedule-table th,
+        body.vertical-mode .schedule-table td {
+            padding: 2px 1px;
+            min-width: unset;
+            height: 22px;
+            font-size: 8px;
+            white-space: nowrap;
+        }
+        body.vertical-mode .schedule-table .name-col {
+            min-width: 40px;
+            font-size: 9px;
+        }
+        body.vertical-mode .schedule-table .rest-col {
+            min-width: 20px;
+            left: 40px;
+        }
+        body.vertical-mode .schedule-table thead th.rest-col {
+            left: 40px;
         }
     </style>
 </head>
@@ -457,7 +486,8 @@
         <h1>⚙️ 排班表生成</h1>
         <div class="header-actions">
             <button class="btn btn-outline" onclick="toggleOrientation()" id="orientBtn">🔄 竖屏</button>
-            <a href="index.html" class="btn-back">← 返回首页</a>
+            <button class="btn btn-outline" onclick="saveAsImage()">📷 保存图片</button>
+            <a href="index.html" class="btn-back">← 首页</a>
         </div>
     </div>
 
@@ -1636,24 +1666,65 @@
     let isVertical = false;
     function toggleOrientation() {
         isVertical = !isVertical;
-        const wrapper = document.getElementById('tableWrapper');
+        const card = document.querySelector('.card');
         const btn = document.getElementById('orientBtn');
         if (isVertical) {
-            wrapper.style.transform = 'rotate(90deg)';
-            wrapper.style.transformOrigin = 'top left';
-            wrapper.style.width = '100vh';
-            wrapper.style.position = 'absolute';
-            wrapper.style.left = '100%';
-            wrapper.style.maxHeight = 'none';
+            document.body.classList.add('vertical-mode');
             btn.textContent = '🔄 横屏';
         } else {
-            wrapper.style.transform = '';
-            wrapper.style.transformOrigin = '';
-            wrapper.style.width = '';
-            wrapper.style.position = '';
-            wrapper.style.left = '';
-            wrapper.style.maxHeight = '80vh';
+            document.body.classList.remove('vertical-mode');
             btn.textContent = '🔄 竖屏';
+        }
+    }
+
+    // === Save as Image ===
+    async function saveAsImage() {
+        if (Object.keys(scheduleData).length === 0) {
+            showToast('没有排班数据', 'error');
+            return;
+        }
+        showToast('正在生成图片...', 'success');
+        // Dynamically load html2canvas
+        if (!window.html2canvas) {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+            document.head.appendChild(script);
+            await new Promise((resolve, reject) => {
+                script.onload = resolve;
+                script.onerror = reject;
+            });
+        }
+        const wrapper = document.getElementById('tableWrapper');
+        // Temporarily expand to full size for capture
+        const origMaxH = wrapper.style.maxHeight;
+        const origOverflow = wrapper.style.overflow;
+        wrapper.style.maxHeight = 'none';
+        wrapper.style.overflow = 'visible';
+
+        try {
+            const canvas = await html2canvas(wrapper, {
+                scale: 2,
+                backgroundColor: '#ffffff',
+                scrollX: 0,
+                scrollY: 0,
+                windowWidth: wrapper.scrollWidth,
+                windowHeight: wrapper.scrollHeight
+            });
+            // Restore
+            wrapper.style.maxHeight = origMaxH;
+            wrapper.style.overflow = origOverflow;
+
+            // Download
+            const link = document.createElement('a');
+            link.download = `排班表_${currentYear}年${currentMonth}月.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            showToast('图片已保存', 'success');
+        } catch(e) {
+            wrapper.style.maxHeight = origMaxH;
+            wrapper.style.overflow = origOverflow;
+            showToast('生成图片失败', 'error');
+            console.error(e);
         }
     }
 
