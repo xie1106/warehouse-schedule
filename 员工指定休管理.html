@@ -640,7 +640,7 @@
                 <div class="card-title">选择员工和月份</div>
                 <div class="selection-row">
                     <div class="form-group">
-                        <label>选择员工 <a href="index.html" style="font-size:11px;color:var(--primary);font-weight:400;margin-left:4px;">切换身份</a></label>
+                        <label>选择员工 <a href="javascript:void(0)" onclick="resetIdentity()" style="font-size:11px;color:var(--primary);font-weight:400;margin-left:4px;">切换身份</a></label>
                         <select id="empSelect" onchange="onEmployeeChange()">
                             <option value="">-- 请选择 --</option>
                         </select>
@@ -889,14 +889,19 @@
         const currentUser = localStorage.getItem('last_selected_employee');
         const userIsAdmin = currentUser && isAdmin(currentUser);
 
-        if (userIsAdmin) {
+        if (!currentUser) {
+            // 第一次使用：显示所有员工让用户选自己是谁
+            employees.forEach(emp => {
+                select.innerHTML += `<option value="${emp.name}">${emp.name}（${emp.group}）</option>`;
+            });
+        } else if (userIsAdmin) {
             // 管理员看到所有员工
             employees.forEach(emp => {
                 const adminMark = isAdmin(emp.name) ? ' ⭐' : '';
                 select.innerHTML += `<option value="${emp.name}">${emp.name}（${emp.group}）${adminMark}</option>`;
             });
         } else {
-            // 普通员工只看到自己
+            // 已记住身份的普通员工：只看到自己
             const me = employees.find(e => e.name === currentUser);
             if (me) {
                 select.innerHTML = `<option value="${me.name}">${me.name}（${me.group}）</option>`;
@@ -961,6 +966,13 @@
     }
 
     // === Event Handlers ===
+    function resetIdentity() {
+        localStorage.removeItem('last_selected_employee');
+        currentEmployee = '';
+        populateEmployeeSelect();
+        renderCalendar();
+    }
+
     async function onEmployeeChange() {
         currentEmployee = document.getElementById('empSelect').value;
         // 保存到 localStorage（变更2）
