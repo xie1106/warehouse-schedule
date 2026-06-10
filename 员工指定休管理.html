@@ -1002,6 +1002,7 @@
 
         document.getElementById('monthSelect').value = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
         loadTotalRestDays();
+        checkScheduleConfirmed();
         checkDeadline();
     }
 
@@ -1043,12 +1044,31 @@
             currentYear = y;
             currentMonth = m;
             await loadTotalRestDays();
+            await checkScheduleConfirmed();
             checkDeadline();
             await loadExistingDates();
             renderCalendar();
             await updateStats();
             await updateCancelButton();
         }
+    }
+
+    // === 检查排班是否已确认 ===
+    let scheduleConfirmed = false;
+    async function checkScheduleConfirmed() {
+        const notice = document.getElementById('deadlineNotice');
+        try {
+            const data = await supaFetch('schedules', {
+                query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=locked`
+            });
+            if (data.length > 0 && data[0].locked) {
+                scheduleConfirmed = true;
+                notice.style.display = 'block';
+                notice.innerHTML = `✅ ${currentYear}年${currentMonth}月的排班已确认，指定休收集已停止`;
+                return;
+            }
+        } catch (e) {}
+        scheduleConfirmed = false;
     }
 
     // === 截止时间判断（变更3） ===
@@ -1230,6 +1250,10 @@
     // === Cancel Submit ===
     async function cancelSubmit() {
         if (!currentEmployee) return;
+        if (scheduleConfirmed) {
+            showToast('本月排班已确认，无法修改指定休', 'error');
+            return;
+        }
         const isDeadlinePassed = isAfterDeadline();
         if (isDeadlinePassed) {
             showToast('已过截止日期，无法操作', 'error');
@@ -1271,6 +1295,11 @@
     async function submitSchedule() {
         if (!currentEmployee) {
             showToast('请先选择员工', 'error');
+            return;
+        }
+
+        if (scheduleConfirmed) {
+            showToast('本月排班已确认，无法修改指定休', 'error');
             return;
         }
 

@@ -1596,21 +1596,23 @@
     }
 
     async function unlockSchedule() {
-        if (!confirm('解锁后可以编辑排班，是否继续？')) return;
-        // 只解锁，不删除数据，保留当前排班继续编辑
+        if (!confirm('解锁后将清除当前排班，需要重新生成，是否继续？')) return;
+        // 解锁并清空数据，需要重新生成排班
         try {
             await supaFetch('schedules', {
                 method: 'PATCH',
                 query: `?year=eq.${currentYear}&month=eq.${currentMonth}`,
-                body: { locked: false }
+                body: { locked: false, data: {} }
             });
         } catch (e) {
             console.error('Failed to unlock schedule:', e);
         }
         isLocked = false;
-        // 重新从数据库加载数据确保表格显示
-        await loadScheduleIfExists();
-        showToast('已解锁，可以编辑排班', 'success');
+        scheduleData = {};
+        document.getElementById('tableWrapper').innerHTML =
+            '<p style="text-align:center;padding:40px;color:var(--text-light);">排班已解锁，请重新点击"一键生成排班"</p>';
+        updateButtonStates();
+        showToast('已解锁，请重新生成排班', 'success');
     }
 
     // === Export Excel ===
