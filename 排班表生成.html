@@ -913,9 +913,10 @@
             }
         }
 
-        // 4. 值班分配（连续轮值：按日期顺序，每人连续值几天再换下一个）
+        // 4. 值班分配（连续轮值 v4）
+        // 规则：每人值班必须是连续的上班日，中间不能有休息日隔断
         // 不值班：谢焕君、陈文童、付新远、陈安然、黄丽情、崔斯欣
-        // 林镇兴：补尾（别人分完有剩余天数才分给他）
+        // 林镇兴：补尾
         const dutyExclude = ['谢焕君', '付新远', '陈文童', '陈安然', '黄丽情', '崔斯欣', '林镇兴'];
         const dutyEligible = employees.filter(e => !dutyExclude.includes(e.name)).map(e => e.name);
 
@@ -927,68 +928,80 @@
         }
         const totalDutyDays = dutyDays.length;
 
-        // 每人目标值班天数（尽量平均）
+        // 每人目标值班天数
         const baseDuty = Math.floor(totalDutyDays / dutyEligible.length);
         const extraDuty = totalDutyDays % dutyEligible.length;
 
-        // 构建轮值队列：每人连续N天，循环
-        const dutyQueue = []; // [{name, target}]
-        dutyEligible.forEach((name, idx) => {
-            dutyQueue.push({ name, target: baseDuty + (idx < extraDuty ? 1 : 0), assigned: 0 });
-        });
-
-        // 按日期逐天分配值班
-        // 规则：当前轮到的人如果那天上班就值班，否则找下一个能值的人
-        // 当一个人完成目标天数后，切到下一个人
-        let queueIdx = 0;
-        for (let i = 0; i < dutyDays.length; i++) {
-            const d = dutyDays[i];
-            let assigned = false;
-
-            // 尝试当前队列里的人
-            for (let attempt = 0; attempt < dutyQueue.length; attempt++) {
-                const current = dutyQueue[queueIdx % dutyQueue.length];
-                if (current.assigned >= current.target) {
-                    // 这人已完成，跳到下一人
-                    queueIdx++;
-                    continue;
-                }
-                const status = scheduleData[current.name][d - 1];
-                if (status === 'work') {
-                    scheduleData[current.name][d - 1] = 'duty';
-                    current.assigned++;
-                    assigned = true;
-                    // 如果完成目标，切到下一人
-                    if (current.assigned >= current.target) {
-                        queueIdx++;
-                    }
-                    break;
+        // 找每个人的连续上班段（中间不含休息/假日）
+        function getWorkStreaks(empName) {
+            const streaks = [];
+            let start = -1;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const s = scheduleData[empName][d - 1];
+                if (s === 'work' || s === 'duty') {
+                    if (start === -1) start = d;
                 } else {
-                    // 这人今天休息，临时让下一个人值这一天
-                    // 但不改变轮值顺序，只是这一天找替补
-                    let found = false;
-                    for (let j = 1; j < dutyQueue.length; j++) {
-                        const alt = dutyQueue[(queueIdx + j) % dutyQueue.length];
-                        if (alt.assigned < alt.target && scheduleData[alt.name][d - 1] === 'work') {
-                            scheduleData[alt.name][d - 1] = 'duty';
-                            alt.assigned++;
-                            found = true;
-                            assigned = true;
-                            break;
-                        }
+                    if (start !== -1) {
+                        streaks.push({ start, end: d - 1, length: d - start });
+                        start = -1;
                     }
-                    if (found) break;
-                    // 如果没找到替补，让林镇兴补
-                    if (scheduleData['林镇兴'] && scheduleData['林镇兴'][d - 1] === 'work') {
-                        scheduleData['林镇兴'][d - 1] = 'duty';
-                        assigned = true;
-                    }
-                    break;
                 }
             }
+            if (start !== -1) streaks.push({ start, end: daysInMonth, length: daysInMonth - start + 1 });
+            return streaks;
+        }
 
-            // 最后兜底：如果还是没分配
-            if (!assigned) {
+        // 给每人分配目标天数
+        const dutyTargets = {};
+        dutyEligible.forEach((name, idx) => {
+            dutyTargets[name] = baseDuty + (idx < extraDuty ? 1 : 0);
+        });
+
+        // 按日期顺序分配：遍历所有值班天，找当前应该值班的人
+        // 关键规则：一个人开始值班后，必须连续值到他的目标天数完成
+        //           如果中间碰到这个人的休息日，就说明他的连续段不够长，换下一个人
+        const dutyAssigned = {}; // name -> count
+        dutyEligible.forEach(name => { dutyAssigned[name] = 0; });
+
+        // 策略：按每人最长连续段排序，优先把长段的人排前面
+        const eligibleWithStreaks = dutyEligible.map(name => ({
+            name,
+            streaks: getWorkStreaks(name).sort((a, b) => b.length - a.length),
+            target: dutyTargets[name]
+        }));
+
+        // 标记哪些天已分配值班
+        const dutyOccupied = new Set();
+
+        // 按顺序给每人在最长连续段中分配连续值班
+        for (const emp of eligibleWithStreaks) {
+            let remaining = emp.target;
+            for (const streak of emp.streaks) {
+                if (remaining <= 0) break;
+                // 在这个连续段中找还没被占用的连续天
+                const available = [];
+                for (let d = streak.start; d <= streak.end; d++) {
+                    if (!dutyOccupied.has(d) && dutyDays.includes(d)) {
+                        available.push(d);
+                    } else {
+                        // 连续性断了
+                        if (available.length >= remaining) break;
+                        available.length = 0; // 重新开始找
+                    }
+                }
+                // 取前remaining个连续天
+                const take = Math.min(remaining, available.length);
+                for (let i = 0; i < take; i++) {
+                    scheduleData[emp.name][available[i] - 1] = 'duty';
+                    dutyOccupied.add(available[i]);
+                    remaining--;
+                }
+            }
+        }
+
+        // 处理还没分配值班的天（给林镇兴或其他人）
+        for (const d of dutyDays) {
+            if (!dutyOccupied.has(d)) {
                 if (scheduleData['林镇兴'] && scheduleData['林镇兴'][d - 1] === 'work') {
                     scheduleData['林镇兴'][d - 1] = 'duty';
                 } else {
