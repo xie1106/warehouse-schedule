@@ -1093,7 +1093,7 @@
         // 阶段二：剩余休息分配到非周一非周日的工作日
         // 核心约束：
         // 1. 每人连续上班不超过6天
-        // 2. 周二到周六每天都要有人休息，休息人数尽量平均
+        // 2. 每天休息人数尽量平均（按目标值分配）
         // 3. 周一全员不休
 
         const dailyRestCount = {};
@@ -1118,10 +1118,11 @@
 
         let totalRemaining = 0;
         employees.forEach(emp => { totalRemaining += restNeeded[emp.name]; });
-        // 每天目标休息人数
-        const avgPerDay = phase2Days.length > 0 ? totalRemaining / phase2Days.length : 0;
 
-        // 计算某人到某天为止已经连续上班几天
+        // 每天目标休息人数（向上取整保证分配到位）
+        const targetPerDay = phase2Days.length > 0 ? Math.ceil(totalRemaining / phase2Days.length) : 0;
+
+        // 辅助函数
         function getConsecutiveWorkBefore(empName, toDay) {
             let count = 0;
             for (let d = toDay; d >= 1; d--) {
@@ -1132,7 +1133,6 @@
             return count;
         }
 
-        // 计算某人从某天起连续上班几天
         function getConsecutiveWork(empName, fromDay) {
             let count = 0;
             for (let d = fromDay; d <= daysInMonth; d++) {
@@ -1143,7 +1143,6 @@
             return count;
         }
 
-        // 计算某人最长连续上班天数
         function getMaxConsecutiveWork(empName) {
             let maxStreak = 0, current = 0;
             for (let d = 1; d <= daysInMonth; d++) {
@@ -1158,62 +1157,57 @@
             return maxStreak;
         }
 
-        // 多轮分配
-        let maxIterations = totalRest * employees.length * 2;
+        // 按天遍历分配，确保每天都能分到人
+        // 多轮分配：每轮给每个未达标的天分配一个人
+        let maxIterations = totalRest * employees.length * 3;
         let iteration = 0;
 
         while (iteration < maxIterations) {
             iteration++;
             let anyAssigned = false;
 
+            // 找还有余额的人数
             const needRest = employees.filter(emp => restNeeded[emp.name] > 0);
             if (needRest.length === 0) break;
 
-            // 优先处理连续上班超长的人（同分随机）
-            needRest.sort((a, b) => {
-                const aMaxStreak = getMaxConsecutiveWork(a.name);
-                const bMaxStreak = getMaxConsecutiveWork(b.name);
-                if (bMaxStreak !== aMaxStreak) return bMaxStreak - aMaxStreak;
-                if (restNeeded[b.name] !== restNeeded[a.name]) return restNeeded[b.name] - restNeeded[a.name];
-                return Math.random() - 0.5;
+            // 按天排序：优先给休息人数最少的天分配
+            const sortedDays = [...phase2Days].sort((a, b) => {
+                return (dailyRestCount[a] || 0) - (dailyRestCount[b] || 0);
             });
 
-            for (const emp of needRest) {
-                if (restNeeded[emp.name] <= 0) continue;
+            for (const d of sortedDays) {
+                // 如果这天已经达到目标，跳过
+                if ((dailyRestCount[d] || 0) >= targetPerDay) continue;
 
-                let bestDay = -1;
+                // 在需要休息的人中找最佳人选
+                let bestEmp = null;
                 let bestScore = -Infinity;
 
-                for (let d = 1; d <= daysInMonth; d++) {
+                for (const emp of needRest) {
+                    if (restNeeded[emp.name] <= 0) continue;
                     if (!canRest(emp.name, d)) continue;
-                    const dow = new Date(currentYear, currentMonth - 1, d).getDay();
-                    if (dow === 0) continue; // 周日已处理
 
-                    // 评分：综合考虑均匀分配 + 打断连续上班
+                    // 评分：优先连续上班最长的人
                     const workBefore = getConsecutiveWorkBefore(emp.name, d);
                     const workAfter = getConsecutiveWork(emp.name, d) - 1;
                     const totalStreak = workBefore + 1 + workAfter;
 
                     let score = 0;
-                    // 核心：优先分配到当天休息人数少的天（均匀）
-                    score -= (dailyRestCount[d] || 0) * 30;
-                    // 打断长连续段
-                    score += totalStreak * 10;
-                    // 中间位置加分
-                    score += Math.min(workBefore, workAfter) * 3;
-                    // 少许随机
-                    score += Math.random() * 2;
+                    score += totalStreak * 10; // 打断长连续段
+                    score += restNeeded[emp.name] * 5; // 剩余休息多的优先
+                    score += Math.min(workBefore, workAfter) * 3; // 中间位置加分
+                    score += Math.random() * 2; // 少许随机
 
                     if (score > bestScore) {
                         bestScore = score;
-                        bestDay = d;
+                        bestEmp = emp;
                     }
                 }
 
-                if (bestDay > 0) {
-                    scheduleData[emp.name][bestDay - 1] = 'rest';
-                    dailyRestCount[bestDay] = (dailyRestCount[bestDay] || 0) + 1;
-                    restNeeded[emp.name]--;
+                if (bestEmp) {
+                    scheduleData[bestEmp.name][d - 1] = 'rest';
+                    dailyRestCount[d] = (dailyRestCount[d] || 0) + 1;
+                    restNeeded[bestEmp.name]--;
                     anyAssigned = true;
                 }
             }
