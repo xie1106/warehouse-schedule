@@ -1000,7 +1000,17 @@
     }
 
     async function onEmployeeChange() {
-        currentEmployee = document.getElementById('empSelect').value;
+        const selected = document.getElementById('empSelect').value;
+        // 如果选择的是管理员，需要密码验证
+        if (selected && isAdmin(selected)) {
+            const pwd = prompt('请输入管理员密码：');
+            if (pwd !== '8888') {
+                alert('密码错误');
+                document.getElementById('empSelect').value = currentEmployee || '';
+                return;
+            }
+        }
+        currentEmployee = selected;
         // 保存到 localStorage（变更2）
         if (currentEmployee) {
             localStorage.setItem('last_selected_employee', currentEmployee);
