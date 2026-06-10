@@ -1327,8 +1327,31 @@
                                 }
                             }
                             if (bestDay > 0) {
-                                scheduleData[emp.name][bestDay - 1] = 'rest';
-                                anyFixed = true;
+                                // 检查是否会超出应休天数
+                                const empRest = scheduleData[emp.name].filter(s => s === 'rest' || s === 'designated').length;
+                                if (empRest >= totalRest) {
+                                    // 已经休够了，用交换：把bestDay设rest，同时把另一天rest改回work
+                                    // 找一个不在当前连续段内的rest天来交换（优先靠近其他休息天的）
+                                    let swapDay = -1;
+                                    for (let sd = 1; sd <= daysInMonth; sd++) {
+                                        if (sd >= streakStart && sd < streakStart + streak) continue; // 不能换当前段内的
+                                        if (scheduleData[emp.name][sd - 1] !== 'rest') continue;
+                                        const sdow = new Date(currentYear, currentMonth - 1, sd).getDay();
+                                        if (sdow === 0) continue; // 周日的rest不要拿走（保持周日8人约束）
+                                        // 检查这天改回work后不会导致其他问题
+                                        swapDay = sd;
+                                        break;
+                                    }
+                                    if (swapDay > 0) {
+                                        scheduleData[emp.name][bestDay - 1] = 'rest';
+                                        scheduleData[emp.name][swapDay - 1] = 'work';
+                                        anyFixed = true;
+                                    }
+                                    // 如果找不到可交换的天，不插入（保持应休天数不变）
+                                } else {
+                                    scheduleData[emp.name][bestDay - 1] = 'rest';
+                                    anyFixed = true;
+                                }
                             }
                         }
                         streak = 0;
@@ -1384,6 +1407,32 @@
                 }
             }
             if (!anyFixed) break;
+        }
+
+        // 3.8 最终校准：确保每人休息天数严格等于应休天数
+        for (const emp of employees) {
+            const restDays = [];
+            for (let d = 1; d <= daysInMonth; d++) {
+                const s = scheduleData[emp.name][d - 1];
+                if (s === 'rest' || s === 'designated') restDays.push(d);
+            }
+            const excess = restDays.length - totalRest;
+            if (excess > 0) {
+                // 超了，把多余的rest改回work（优先改非周日的rest）
+                const removable = restDays
+                    .filter(d => scheduleData[emp.name][d - 1] === 'rest') // 只改rest，不动designated
+                    .sort((a, b) => {
+                        const aDow = new Date(currentYear, currentMonth - 1, a).getDay();
+                        const bDow = new Date(currentYear, currentMonth - 1, b).getDay();
+                        // 优先去掉非周日的
+                        if (aDow === 0 && bDow !== 0) return 1;
+                        if (aDow !== 0 && bDow === 0) return -1;
+                        return 0;
+                    });
+                for (let i = 0; i < excess && i < removable.length; i++) {
+                    scheduleData[emp.name][removable[i] - 1] = 'work';
+                }
+            }
         }
 
         // 4. 值班分配（连续轮值 v4）
