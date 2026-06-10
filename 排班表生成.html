@@ -779,8 +779,10 @@
         }
 
         // 阶段二：剩余休息分配到非周一非周日的工作日
-        // 核心约束：每人连续上班不超过6天
-        // 不限制每天休息人数（可以超过3人），灵活分配
+        // 核心约束：
+        // 1. 每人连续上班不超过6天
+        // 2. 周二到周六每天都要有人休息，休息人数尽量平均
+        // 3. 周一全员不休
 
         const dailyRestCount = {};
         for (let d = 1; d <= daysInMonth; d++) {
@@ -790,6 +792,32 @@
                 if (s === 'rest' || s === 'designated') count++;
             });
             dailyRestCount[d] = count;
+        }
+
+        // 计算目标：剩余休息天数均匀分到可用天
+        const phase2Days = []; // 周二~周六的非假日天
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dow = new Date(currentYear, currentMonth - 1, d).getDay();
+            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            if (holidays[dateStr]) continue;
+            if (dow === 0 || dow === 1) continue; // 跳过周日周一
+            phase2Days.push(d);
+        }
+
+        let totalRemaining = 0;
+        employees.forEach(emp => { totalRemaining += restNeeded[emp.name]; });
+        // 每天目标休息人数
+        const avgPerDay = phase2Days.length > 0 ? totalRemaining / phase2Days.length : 0;
+
+        // 计算某人到某天为止已经连续上班几天
+        function getConsecutiveWorkBefore(empName, toDay) {
+            let count = 0;
+            for (let d = toDay; d >= 1; d--) {
+                const s = scheduleData[empName][d - 1];
+                if (s === 'work' || s === 'duty') count++;
+                else break;
+            }
+            return count;
         }
 
         // 计算某人从某天起连续上班几天
@@ -803,19 +831,23 @@
             return count;
         }
 
-        // 计算某人到某天为止已经连续上班几天
-        function getConsecutiveWorkBefore(empName, toDay) {
-            let count = 0;
-            for (let d = toDay; d >= 1; d--) {
+        // 计算某人最长连续上班天数
+        function getMaxConsecutiveWork(empName) {
+            let maxStreak = 0, current = 0;
+            for (let d = 1; d <= daysInMonth; d++) {
                 const s = scheduleData[empName][d - 1];
-                if (s === 'work' || s === 'duty') count++;
-                else break;
+                if (s === 'work' || s === 'duty') {
+                    current++;
+                    if (current > maxStreak) maxStreak = current;
+                } else {
+                    current = 0;
+                }
             }
-            return count;
+            return maxStreak;
         }
 
-        // 多轮分配：优先给连续上班天数已经很长的人安排休息
-        let maxIterations = totalRest * employees.length;
+        // 多轮分配
+        let maxIterations = totalRest * employees.length * 2;
         let iteration = 0;
 
         while (iteration < maxIterations) {
@@ -825,20 +857,18 @@
             const needRest = employees.filter(emp => restNeeded[emp.name] > 0);
             if (needRest.length === 0) break;
 
-            // 找出有连续上班超过6天风险的人，优先处理
-            // 评分：当前最长连续上班段越长，越优先安排休息（同分随机）
+            // 优先处理连续上班超长的人（同分随机）
             needRest.sort((a, b) => {
                 const aMaxStreak = getMaxConsecutiveWork(a.name);
                 const bMaxStreak = getMaxConsecutiveWork(b.name);
                 if (bMaxStreak !== aMaxStreak) return bMaxStreak - aMaxStreak;
                 if (restNeeded[b.name] !== restNeeded[a.name]) return restNeeded[b.name] - restNeeded[a.name];
-                return Math.random() - 0.5; // 同分随机
+                return Math.random() - 0.5;
             });
 
             for (const emp of needRest) {
                 if (restNeeded[emp.name] <= 0) continue;
 
-                // 找这人最长连续上班段，在其中间插入休息
                 let bestDay = -1;
                 let bestScore = -Infinity;
 
@@ -847,18 +877,20 @@
                     const dow = new Date(currentYear, currentMonth - 1, d).getDay();
                     if (dow === 0) continue; // 周日已处理
 
-                    // 评分：优先打断最长的连续上班段
+                    // 评分：综合考虑均匀分配 + 打断连续上班
                     const workBefore = getConsecutiveWorkBefore(emp.name, d);
-                    const workAfter = getConsecutiveWork(emp.name, d) - 1; // 不含自己
-                    const totalStreak = workBefore + 1 + workAfter; // 如果这天不休息的连续段长度
+                    const workAfter = getConsecutiveWork(emp.name, d) - 1;
+                    const totalStreak = workBefore + 1 + workAfter;
 
-                    // 越长的段越需要打断，在中间打断效果最好
-                    let score = totalStreak * 20; // 段越长分越高
-                    // 尽量在中间位置（让两边尽量平衡）
-                    const balance = Math.min(workBefore, workAfter);
-                    score += balance * 5;
-                    // 避免同一天太多人休息（但不硬限制）
-                    score -= (dailyRestCount[d] || 0) * 3;
+                    let score = 0;
+                    // 核心：优先分配到当天休息人数少的天（均匀）
+                    score -= (dailyRestCount[d] || 0) * 30;
+                    // 打断长连续段
+                    score += totalStreak * 10;
+                    // 中间位置加分
+                    score += Math.min(workBefore, workAfter) * 3;
+                    // 少许随机
+                    score += Math.random() * 2;
 
                     if (score > bestScore) {
                         bestScore = score;
@@ -875,21 +907,6 @@
             }
 
             if (!anyAssigned) break;
-        }
-
-        // 计算某人最长连续上班天数
-        function getMaxConsecutiveWork(empName) {
-            let maxStreak = 0, current = 0;
-            for (let d = 1; d <= daysInMonth; d++) {
-                const s = scheduleData[empName][d - 1];
-                if (s === 'work' || s === 'duty') {
-                    current++;
-                    if (current > maxStreak) maxStreak = current;
-                } else {
-                    current = 0;
-                }
-            }
-            return maxStreak;
         }
 
         // 3.5 Post-validation: 确保每组每天至少一人上班
