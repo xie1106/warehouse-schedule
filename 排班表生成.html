@@ -1063,7 +1063,7 @@
         }
 
         // 阶段一：周日排满（目标每个周日7人休息）
-        const sundayTarget = 7; // 16人-7休=9人上班
+        const sundayTarget = 8; // 16人-8休=8人上班（周日至少8人上班）
         for (let d = 1; d <= daysInMonth; d++) {
             const dow = new Date(currentYear, currentMonth - 1, d).getDay();
             if (dow !== 0) continue;
