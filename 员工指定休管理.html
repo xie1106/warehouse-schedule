@@ -640,7 +640,7 @@
                 <div class="card-title">选择员工和月份</div>
                 <div class="selection-row">
                     <div class="form-group">
-                        <label>选择员工</label>
+                        <label>选择员工 <a href="index.html" style="font-size:11px;color:var(--primary);font-weight:400;margin-left:4px;">切换身份</a></label>
                         <select id="empSelect" onchange="onEmployeeChange()">
                             <option value="">-- 请选择 --</option>
                         </select>
@@ -889,20 +889,21 @@
         const currentUser = localStorage.getItem('last_selected_employee');
         const userIsAdmin = currentUser && isAdmin(currentUser);
 
-        employees.forEach(emp => {
-            // 非管理员只能看到自己
-            if (!userIsAdmin && emp.name !== currentUser) return;
-            const adminMark = isAdmin(emp.name) ? ' ⭐' : '';
-            select.innerHTML += `<option value="${emp.name}">${emp.name}（${emp.group}）${adminMark}</option>`;
-        });
-
-        // 非管理员自动选中自己并锁定
-        if (!userIsAdmin && currentUser) {
-            select.value = currentUser;
-            select.disabled = true;
+        if (userIsAdmin) {
+            // 管理员看到所有员工
+            employees.forEach(emp => {
+                const adminMark = isAdmin(emp.name) ? ' ⭐' : '';
+                select.innerHTML += `<option value="${emp.name}">${emp.name}（${emp.group}）${adminMark}</option>`;
+            });
         } else {
-            select.disabled = false;
+            // 普通员工只看到自己
+            const me = employees.find(e => e.name === currentUser);
+            if (me) {
+                select.innerHTML = `<option value="${me.name}">${me.name}（${me.group}）</option>`;
+                select.value = me.name;
+            }
         }
+        select.disabled = false;
     }
 
     // === 员工选择记忆（变更2） ===
