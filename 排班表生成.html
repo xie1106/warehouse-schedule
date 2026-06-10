@@ -1085,7 +1085,7 @@
         const wrapper = document.getElementById('tableWrapper');
         const deadlinePassed = isScheduleDeadlinePassed();
 
-        let html = '<table class="schedule-table"><thead><tr><th class="name-col">姓名</th>';
+        let html = '<table class="schedule-table"><thead><tr><th class="name-col">姓名</th><th style="min-width:30px;font-size:11px;">休息</th>';
 
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -1101,7 +1101,9 @@
 
         employees.forEach(emp => {
             if (!scheduleData[emp.name]) return;
-            html += `<tr><td class="name-col">${emp.name}</td>`;
+            // 计算休息总天数（rest + designated）
+            const restTotal = scheduleData[emp.name].filter(s => s === 'rest' || s === 'designated').length;
+            html += `<tr><td class="name-col">${emp.name}</td><td style="text-align:center;font-weight:600;color:var(--primary);">${restTotal}</td>`;
 
             for (let d = 1; d <= daysInMonth; d++) {
                 const status = scheduleData[emp.name][d - 1] || 'work';
@@ -1118,7 +1120,7 @@
         });
 
         // Stats row
-        html += '<tr class="stats-row"><td class="name-col" style="background:#f0fdf4;">上班人数</td>';
+        html += '<tr class="stats-row"><td class="name-col" style="background:#f0fdf4;">上班人数</td><td></td>';
         for (let d = 1; d <= daysInMonth; d++) {
             let workCount = 0;
             employees.forEach(emp => {
