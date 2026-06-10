@@ -489,11 +489,25 @@
     let isLocked = false;
     let currentTotalRest = 4; // 当月应休天数（全局）
     let activeDropdown = null;
+    let isCurrentUserAdmin = false;
+
+    // === Admin Check ===
+    const DEFAULT_ADMINS = ['谢焕君'];
+    async function checkAdmin() {
+        const currentUser = localStorage.getItem('last_selected_employee');
+        let adminList = [...DEFAULT_ADMINS];
+        try {
+            const data = await supaFetch('settings', { query: '?key=eq.admin_list&select=value' });
+            if (data.length > 0) adminList = data[0].value;
+        } catch (e) {}
+        isCurrentUserAdmin = currentUser && adminList.includes(currentUser);
+    }
 
     // === Init ===
     async function init() {
         try {
             await loadEmployees();
+            await checkAdmin();
             setDefaultMonth();
             await loadScheduleIfExists();
         } catch (e) {
@@ -616,11 +630,12 @@
             deadlineNotice.style.display = 'none';
         }
 
-        // 所有进入的人都能操作（不再区分管理员），只看截止时间和锁定状态
-        document.getElementById('generateBtn').disabled = deadlinePassed || isLocked;
-        document.getElementById('confirmBtn').disabled = deadlinePassed || isLocked || Object.keys(scheduleData).length === 0;
+        // 非管理员不能操作生成、确认、解锁
+        const canOperate = isCurrentUserAdmin;
+        document.getElementById('generateBtn').disabled = !canOperate || deadlinePassed || isLocked;
+        document.getElementById('confirmBtn').disabled = !canOperate || deadlinePassed || isLocked || Object.keys(scheduleData).length === 0;
         document.getElementById('exportBtn').disabled = Object.keys(scheduleData).length === 0;
-        document.getElementById('unlockBtn').style.display = (isLocked && !deadlinePassed) ? 'inline-flex' : 'none';
+        document.getElementById('unlockBtn').style.display = (canOperate && isLocked && !deadlinePassed) ? 'inline-flex' : 'none';
     }
 
     // === Generate Schedule ===
@@ -1135,8 +1150,8 @@
             for (let d = 1; d <= daysInMonth; d++) {
                 const status = scheduleData[emp.name][d - 1] || 'work';
                 const statusInfo = STATUS_TYPES.find(s => s.key === status) || STATUS_TYPES[0];
-                // 所有人都能编辑，只看锁定和截止状态
-                const canEdit = !isLocked && !deadlinePassed;
+                // 只有管理员能编辑
+                const canEdit = isCurrentUserAdmin && !isLocked && !deadlinePassed;
                 const cellClass = `status-${status}${canEdit ? ' editable' : ' locked'}`;
 
                 html += `<td class="${cellClass}" data-name="${emp.name}" data-day="${d}" data-status="${status}"
