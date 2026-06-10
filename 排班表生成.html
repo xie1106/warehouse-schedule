@@ -1060,6 +1060,8 @@
         }
 
         // 分配：每次找休息人数最少的天，从还需要休息的人中随机选一个
+        // 硬约束：周二~周六每天最多3人休息
+        const weekdayMaxRest = 3;
         let totalRemaining = 0;
         employees.forEach(emp => { totalRemaining += restNeeded[emp.name]; });
 
@@ -1068,12 +1070,15 @@
             const needRest = employees.filter(emp => restNeeded[emp.name] > 0);
             if (needRest.length === 0) break;
 
-            // 找休息人数最少的可用天（随机打破平局）
+            // 找休息人数最少且未满的可用天（随机打破平局）
+            const openDays = availDays.filter(d => (dailyRestCount[d] || 0) < weekdayMaxRest);
+            if (openDays.length === 0) break; // 所有天都满了
+
             let minCount = Infinity;
-            availDays.forEach(d => {
+            openDays.forEach(d => {
                 if ((dailyRestCount[d] || 0) < minCount) minCount = dailyRestCount[d] || 0;
             });
-            const minDays = availDays.filter(d => (dailyRestCount[d] || 0) === minCount);
+            const minDays = openDays.filter(d => (dailyRestCount[d] || 0) === minCount);
             const targetDay = minDays[Math.floor(Math.random() * minDays.length)];
 
             // 从需要休息且当天是work的人中随机选一个
