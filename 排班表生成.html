@@ -665,15 +665,35 @@
             }
         });
 
-        // 2.5 谢焕君规则：没有指定休→所有非假日周日排休息；有指定休→按指定休
-        const xieHasDesignated = designatedRestMap['谢焕君'] && designatedRestMap['谢焕君'].length > 0;
-        if (!xieHasDesignated && scheduleData['谢焕君']) {
+        // 2.5 谢焕君规则：
+        // - 没有指定休→所有非假日周日排"休息"
+        // - 有指定休→指定休已排好，剩余应休天数优先排在周日
+        if (scheduleData['谢焕君']) {
+            const xieDesignatedCount = (designatedRestMap['谢焕君'] || []).length;
+            const xieCurrentRest = scheduleData['谢焕君'].filter(s => s === 'rest' || s === 'designated').length;
+            const xieRemaining = Math.max(0, totalRest - xieCurrentRest);
+
+            // 收集可用的非假日周日
+            const availableSundays = [];
             for (let d = 1; d <= daysInMonth; d++) {
                 const dow = new Date(currentYear, currentMonth - 1, d).getDay();
                 const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                if (dow === 0 && !holidays[dateStr]) {
-                    scheduleData['谢焕君'][d - 1] = 'rest';
+                if (dow === 0 && !holidays[dateStr] && scheduleData['谢焕君'][d - 1] === 'work') {
+                    availableSundays.push(d);
                 }
+            }
+
+            if (!xieDesignatedCount) {
+                // 没有指定休：所有周日都排休息
+                availableSundays.forEach(d => {
+                    scheduleData['谢焕君'][d - 1] = 'rest';
+                });
+            } else {
+                // 有指定休：剩余天数用周日补（不超过剩余需要的天数）
+                const sundaysToUse = availableSundays.slice(0, xieRemaining);
+                sundaysToUse.forEach(d => {
+                    scheduleData['谢焕君'][d - 1] = 'rest';
+                });
             }
         }
 
