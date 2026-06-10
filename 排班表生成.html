@@ -425,13 +425,28 @@
             min-width: 70px;
         }
         @media (max-width: 768px) {
-            body { padding: 12px; }
-            .header { flex-direction: column; align-items: flex-start; }
-            .header h1 { font-size: 20px; }
-            .controls { flex-direction: column; align-items: stretch; }
-            .legend { gap: 6px; }
-            .legend-item { font-size: 10px; }
-            .btn { padding: 8px 14px; font-size: 12px; }
+            body { padding: 8px; }
+            .header { flex-direction: column; align-items: flex-start; gap: 8px; }
+            .header h1 { font-size: 18px; }
+            .card { padding: 12px; border-radius: 12px; }
+            .controls { flex-direction: column; align-items: stretch; gap: 8px; }
+            .controls input, .controls .btn { width: 100%; }
+            .legend { gap: 4px; padding: 10px; }
+            .legend-item { font-size: 9px; }
+            .btn { padding: 8px 12px; font-size: 12px; }
+            .table-wrapper { border-radius: 8px; max-height: 70vh; }
+            .schedule-table { font-size: 10px; min-width: 600px; }
+            .schedule-table th, .schedule-table td {
+                padding: 3px 2px;
+                min-width: 32px;
+                height: 28px;
+                font-size: 10px;
+            }
+            .schedule-table .name-col { min-width: 50px; font-size: 10px; }
+            .schedule-table .rest-col { min-width: 28px; font-size: 10px; left: 50px; }
+            .schedule-table thead th.rest-col { left: 50px; }
+            .header-actions { width: 100%; }
+            .header-actions .btn-back { width: 100%; justify-content: center; }
         }
     </style>
 </head>
@@ -1365,9 +1380,9 @@
                 const statusInfo = STATUS_TYPES.find(s => s.key === status) || STATUS_TYPES[0];
                 // 只有管理员能编辑
                 const canEdit = isCurrentUserAdmin && !isLocked && !deadlinePassed;
-                const cellClass = `status-${status}${canEdit ? ' editable' : ' locked'}`;
+                const cellClass = canEdit ? 'editable' : 'locked';
 
-                html += `<td class="${cellClass}" data-name="${emp.name}" data-day="${d}" data-status="${status}"
+                html += `<td class="${cellClass}" style="background:${statusInfo.color} !important;font-weight:${status === 'work' ? '400' : '700'};" data-name="${emp.name}" data-day="${d}" data-status="${status}"
                     ${canEdit ? `onclick="openCellEdit(event, '${emp.name}', ${d})"` : ''}>
                     ${statusInfo.short}</td>`;
             }
