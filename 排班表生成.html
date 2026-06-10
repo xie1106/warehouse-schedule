@@ -459,6 +459,7 @@
         }
         body.vertical-mode {
             padding: 0;
+            overflow: hidden;
         }
         body.vertical-mode .card {
             padding: 0;
@@ -468,50 +469,31 @@
             border: none;
         }
         body.vertical-mode .table-wrapper {
-            max-height: 100vh;
+            max-height: none;
             border-radius: 0;
             border: none;
-        }
-        body.vertical-mode .schedule-table {
-            min-width: unset;
-            width: 100%;
-            font-size: 9px;
-        }
-        body.vertical-mode .schedule-table th,
-        body.vertical-mode .schedule-table td {
-            padding: 2px 1px;
-            min-width: unset;
-            height: 20px;
-            font-size: 9px;
-        }
-        body.vertical-mode .schedule-table .name-col {
-            min-width: 42px;
-            font-size: 9px;
-        }
-        body.vertical-mode .schedule-table .rest-col {
-            min-width: 20px;
-            left: 42px;
-            font-size: 9px;
-        }
-        body.vertical-mode .schedule-table thead th.rest-col {
-            left: 42px;
+            overflow: auto;
         }
         /* Floating exit button in vertical mode */
         .vertical-exit-btn {
             display: none;
             position: fixed;
-            bottom: 16px;
-            right: 16px;
-            z-index: 999;
-            background: var(--primary);
+            top: 6px;
+            left: 6px;
+            z-index: 9999;
+            background: rgba(0,0,0,0.5);
             color: white;
             border: none;
-            border-radius: 50px;
-            padding: 10px 16px;
-            font-size: 12px;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            font-size: 14px;
             font-weight: 600;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             cursor: pointer;
+            line-height: 32px;
+            text-align: center;
+            padding: 0;
         }
         body.vertical-mode .vertical-exit-btn {
             display: block;
@@ -567,7 +549,7 @@
     <div class="cell-dropdown" id="cellDropdown"></div>
 
     <!-- Vertical mode exit button -->
-    <button class="vertical-exit-btn" onclick="toggleOrientation()">✕ 退出竖屏</button>
+    <button class="vertical-exit-btn" onclick="toggleOrientation()">✕</button>
 
     <!-- Legend editor modal -->
     <div class="modal-overlay" id="legendModal">
@@ -1702,21 +1684,32 @@
         const wrapper = document.getElementById('tableWrapper');
         if (isVertical) {
             document.body.classList.add('vertical-mode');
+            // 旋转90度，宽度=屏幕高度，高度=屏幕宽度
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
             wrapper.style.transform = 'rotate(90deg)';
             wrapper.style.transformOrigin = 'top left';
-            wrapper.style.position = 'absolute';
-            wrapper.style.left = '100%';
-            wrapper.style.width = '100vh';
-            wrapper.style.maxHeight = 'none';
+            wrapper.style.position = 'fixed';
+            wrapper.style.top = '0';
+            wrapper.style.left = vw + 'px';
+            wrapper.style.width = vh + 'px';
+            wrapper.style.height = vw + 'px';
+            wrapper.style.maxHeight = vw + 'px';
+            wrapper.style.zIndex = '998';
+            wrapper.style.background = '#fff';
             btn.textContent = '🔄 横屏';
         } else {
             document.body.classList.remove('vertical-mode');
             wrapper.style.transform = '';
             wrapper.style.transformOrigin = '';
             wrapper.style.position = '';
+            wrapper.style.top = '';
             wrapper.style.left = '';
             wrapper.style.width = '';
+            wrapper.style.height = '';
             wrapper.style.maxHeight = '';
+            wrapper.style.zIndex = '';
+            wrapper.style.background = '';
             btn.textContent = '🔄 竖屏';
         }
     }
