@@ -1338,6 +1338,54 @@
             if (!anyFixed) break;
         }
 
+        // 3.7 补齐：确保每人休息总天数 = 应休天数
+        // post-validation可能改了一些rest为work，这里补回来（在值班分配前）
+        for (let pass = 0; pass < 5; pass++) {
+            let anyFixed = false;
+            for (const emp of employees) {
+                const currentRest = scheduleData[emp.name].filter(s => s === 'rest' || s === 'designated').length;
+                let deficit = totalRest - currentRest;
+                if (deficit <= 0) continue;
+
+                // 需要补 deficit 天休息
+                for (let d = 1; d <= daysInMonth && deficit > 0; d++) {
+                    if (scheduleData[emp.name][d - 1] !== 'work') continue;
+                    const dow = new Date(currentYear, currentMonth - 1, d).getDay();
+                    const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    if (dow === 1) continue; // 周一不休
+                    if (workDays[dateStr]) continue; // 补班日不休
+                    // 周日检查8人约束
+                    if (dow === 0) {
+                        const sunWorking = employees.filter(e =>
+                            scheduleData[e.name][d - 1] === 'work' || scheduleData[e.name][d - 1] === 'duty'
+                        ).length;
+                        if (sunWorking <= 8) continue;
+                    }
+                    // 组约束
+                    const empGroup = employees.find(e => e.name === emp.name)?.group;
+                    if (empGroup) {
+                        const sameGroupMembers = employees.filter(e => e.group === empGroup && e.name !== emp.name);
+                        if (sameGroupMembers.length > 0) {
+                            const working = sameGroupMembers.filter(e =>
+                                scheduleData[e.name] && (scheduleData[e.name][d - 1] === 'work' || scheduleData[e.name][d - 1] === 'duty')
+                            ).length;
+                            if (working === 0) continue;
+                        }
+                    }
+                    // 陈文童付新远互斥
+                    if (emp.name === '陈文童' && scheduleData['付新远'] &&
+                        scheduleData['付新远'][d - 1] !== 'work' && scheduleData['付新远'][d - 1] !== 'duty') continue;
+                    if (emp.name === '付新远' && scheduleData['陈文童'] &&
+                        scheduleData['陈文童'][d - 1] !== 'work' && scheduleData['陈文童'][d - 1] !== 'duty') continue;
+
+                    scheduleData[emp.name][d - 1] = 'rest';
+                    deficit--;
+                    anyFixed = true;
+                }
+            }
+            if (!anyFixed) break;
+        }
+
         // 4. 值班分配（连续轮值 v4）
         // 规则：每人值班必须是连续的上班日，中间不能有休息日隔断
         // 不值班：谢焕君、陈文童、付新远、陈安然、黄丽情、崔斯欣
@@ -1417,54 +1465,6 @@
                 );
                 if (candidate) scheduleData[candidate][d - 1] = 'duty';
             }
-        }
-
-        // 5. 最终补齐：确保每人休息总天数 = 应休天数
-        // 值班和post-validation可能改了一些rest为work/duty，这里补回来
-        for (let pass = 0; pass < 5; pass++) {
-            let anyFixed = false;
-            for (const emp of employees) {
-                const currentRest = scheduleData[emp.name].filter(s => s === 'rest' || s === 'designated').length;
-                let deficit = totalRest - currentRest;
-                if (deficit <= 0) continue;
-
-                // 需要补 deficit 天休息
-                for (let d = 1; d <= daysInMonth && deficit > 0; d++) {
-                    if (scheduleData[emp.name][d - 1] !== 'work') continue;
-                    const dow = new Date(currentYear, currentMonth - 1, d).getDay();
-                    const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                    if (dow === 1) continue; // 周一不休
-                    if (workDays[dateStr]) continue; // 补班日不休
-                    // 周日检查8人约束
-                    if (dow === 0) {
-                        const sunWorking = employees.filter(e =>
-                            scheduleData[e.name][d - 1] === 'work' || scheduleData[e.name][d - 1] === 'duty'
-                        ).length;
-                        if (sunWorking <= 8) continue;
-                    }
-                    // 组约束
-                    const empGroup = employees.find(e => e.name === emp.name)?.group;
-                    if (empGroup) {
-                        const sameGroupMembers = employees.filter(e => e.group === empGroup && e.name !== emp.name);
-                        if (sameGroupMembers.length > 0) {
-                            const working = sameGroupMembers.filter(e =>
-                                scheduleData[e.name] && (scheduleData[e.name][d - 1] === 'work' || scheduleData[e.name][d - 1] === 'duty')
-                            ).length;
-                            if (working === 0) continue;
-                        }
-                    }
-                    // 陈文童付新远互斥
-                    if (emp.name === '陈文童' && scheduleData['付新远'] &&
-                        scheduleData['付新远'][d - 1] !== 'work' && scheduleData['付新远'][d - 1] !== 'duty') continue;
-                    if (emp.name === '付新远' && scheduleData['陈文童'] &&
-                        scheduleData['陈文童'][d - 1] !== 'work' && scheduleData['陈文童'][d - 1] !== 'duty') continue;
-
-                    scheduleData[emp.name][d - 1] = 'rest';
-                    deficit--;
-                    anyFixed = true;
-                }
-            }
-            if (!anyFixed) break;
         }
 
         // 生成后不保存到数据库（只是草稿），确认后才保存
