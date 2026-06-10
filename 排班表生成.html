@@ -600,15 +600,37 @@
     }
 
     function openLegendEditor() {
-        const list = document.getElementById('legendEditorList');
-        list.innerHTML = STATUS_TYPES.map((st, i) => `
-            <div class="legend-edit-row">
-                <span class="key-label">${st.key}</span>
-                <input type="color" id="legendColor${i}" value="${st.color === '#ffffff' ? '#ffffff' : st.color}">
-                <input type="text" id="legendLabel${i}" value="${st.label}" placeholder="显示名称">
-            </div>
-        `).join('');
+        renderLegendEditorList();
         document.getElementById('legendModal').classList.add('active');
+    }
+
+    function renderLegendEditorList() {
+        const list = document.getElementById('legendEditorList');
+        // work/rest/designated/duty are core, cannot delete
+        const coreKeys = ['work', 'rest', 'designated', 'duty'];
+        list.innerHTML = STATUS_TYPES.map((st, i) => `
+            <div class="legend-edit-row" data-index="${i}">
+                <input type="color" id="legendColor${i}" value="${st.color === '#ffffff' ? '#ffffff' : st.color}">
+                <input type="text" id="legendLabel${i}" value="${st.label}" placeholder="显示名称" style="flex:1;">
+                ${coreKeys.includes(st.key) ? '<span style="font-size:10px;color:#aaa;min-width:40px;">核心</span>' : `<button class="btn btn-danger" onclick="deleteLegendItem(${i})" style="padding:4px 8px;font-size:11px;min-height:unset;">删除</button>`}
+            </div>
+        `).join('') + `
+            <div style="margin-top:12px;">
+                <button class="btn btn-outline" onclick="addLegendItem()" style="width:100%;padding:8px;font-size:13px;">＋ 新增状态</button>
+            </div>
+        `;
+    }
+
+    function addLegendItem() {
+        const newKey = 'custom_' + Date.now();
+        STATUS_TYPES.push({ key: newKey, label: '新状态', short: '新状态', color: '#e2e8f0' });
+        renderLegendEditorList();
+    }
+
+    function deleteLegendItem(index) {
+        if (!confirm('确定删除"' + STATUS_TYPES[index].label + '"？')) return;
+        STATUS_TYPES.splice(index, 1);
+        renderLegendEditorList();
     }
 
     function closeLegendEditor() {
@@ -616,10 +638,17 @@
     }
 
     async function saveLegendConfig() {
-        STATUS_TYPES.forEach((st, i) => {
-            st.color = document.getElementById('legendColor' + i).value;
-            st.label = document.getElementById('legendLabel' + i).value;
-            st.short = st.label;
+        // Read current values from inputs
+        const list = document.getElementById('legendEditorList');
+        const rows = list.querySelectorAll('.legend-edit-row');
+        rows.forEach((row, i) => {
+            const colorInput = row.querySelector('input[type="color"]');
+            const labelInput = row.querySelector('input[type="text"]');
+            if (colorInput && labelInput && STATUS_TYPES[i]) {
+                STATUS_TYPES[i].color = colorInput.value;
+                STATUS_TYPES[i].label = labelInput.value;
+                STATUS_TYPES[i].short = labelInput.value;
+            }
         });
         // Save to Supabase
         try {
