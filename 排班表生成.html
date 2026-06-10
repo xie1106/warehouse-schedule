@@ -1016,6 +1016,9 @@
             restNeeded[emp.name] = Math.max(0, totalRest - currentRestCount);
         });
 
+        // 3.1 如果有人指定休已经超过应休天数，不做额外处理（指定休优先）
+        // 但周日排休和平日排休时严格用restNeeded控制，不会给restNeeded=0的人加休
+
         // 4. 周日排休（目标8人休，谢焕君已排则算在内）
         const sundayMaxRest = 7; // 6-7人休 = 8-9人上班（15人）
         for (let d = 1; d <= daysInMonth; d++) {
@@ -1156,10 +1159,7 @@
                                     dailyRestCount[swapDay] = Math.max(0, (dailyRestCount[swapDay] || 0) - 1);
                                     anyFixed = true;
                                 } else {
-                                    // 没有可交换的rest天，直接加（极端情况）
-                                    scheduleData[emp.name][insertDay - 1] = 'rest';
-                                    dailyRestCount[insertDay] = (dailyRestCount[insertDay] || 0) + 1;
-                                    anyFixed = true;
+                                    // 没有可交换的rest天，不插入（保持应休天数不变）
                                 }
                             }
                         }
