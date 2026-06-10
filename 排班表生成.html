@@ -470,6 +470,7 @@
     let currentMonth = 0;
     let scheduleData = {}; // { name: [status for each day 1-31] }
     let isLocked = false;
+    let currentTotalRest = 4; // 当月应休天数（全局）
     let activeDropdown = null;
 
     // === Init ===
@@ -621,6 +622,7 @@
         } catch (e) {
             console.error('Failed to load total rest days:', e);
         }
+        currentTotalRest = totalRest; // 同步到全局
 
         // Load designated rest from Supabase
         let designatedRestMap = {};
@@ -1179,6 +1181,11 @@
 
     async function setCellStatus(name, day, status) {
         scheduleData[name][day - 1] = status;
+        // 检查休息总天数是否超过应休天数
+        const restCount = scheduleData[name].filter(s => s === 'rest' || s === 'designated').length;
+        if (restCount > currentTotalRest) {
+            showToast(`⚠️ ${name} 休息天数(${restCount})已超过应休天数(${currentTotalRest})`, 'error');
+        }
         // 草稿状态不保存到数据库，确认后才保存
         hideDropdown();
         renderTable();
