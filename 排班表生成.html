@@ -719,11 +719,13 @@
             // 每组至少一人上班
             const empGroup = employees.find(e => e.name === empName)?.group;
             if (empGroup) {
-                const working = employees.filter(e =>
-                    e.group === empGroup && e.name !== empName &&
-                    scheduleData[e.name] && (scheduleData[e.name][d - 1] === 'work' || scheduleData[e.name][d - 1] === 'duty')
-                ).length;
-                if (working === 0) return false;
+                const sameGroupMembers = employees.filter(e => e.group === empGroup && e.name !== empName);
+                if (sameGroupMembers.length > 0) { // 单人组不检查
+                    const working = sameGroupMembers.filter(e =>
+                        scheduleData[e.name] && (scheduleData[e.name][d - 1] === 'work' || scheduleData[e.name][d - 1] === 'duty')
+                    ).length;
+                    if (working === 0) return false;
+                }
             }
             return true;
         }
@@ -844,6 +846,7 @@
         }
 
         // 3.5 Post-validation: 确保每组每天至少一人上班
+        // 注意：经理组只有谢焕君一人，不适用此规则（否则她永远无法休息）
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             if (holidays[dateStr]) continue;
@@ -851,6 +854,7 @@
             const groups = [...new Set(employees.map(e => e.group))];
             groups.forEach(group => {
                 const groupMembers = employees.filter(e => e.group === group);
+                if (groupMembers.length <= 1) return; // 单人组不适用
                 const workingMembers = groupMembers.filter(e =>
                     scheduleData[e.name] && (scheduleData[e.name][d - 1] === 'work' || scheduleData[e.name][d - 1] === 'duty')
                 );
