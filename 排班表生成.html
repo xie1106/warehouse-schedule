@@ -668,43 +668,10 @@
             }
         }
 
-        // 3. 智能排休（按天分配算法）
-        // 规则：
-        // - 周一不安排休息（0人）
-        // - 周日休息6-7人（上班8-9人）
-        // - 其他时间每天休息2-3人
-        // - 均匀排休，间隔不超过7天
-        // - 每组至少一人上班
-        // - 陈文童和付新远不能同时休息
-
-        // 计算每天可以休息的名额
-        const dailyRestQuota = [];
-        for (let d = 1; d <= daysInMonth; d++) {
-            const dow = new Date(currentYear, currentMonth - 1, d).getDay();
-            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            if (holidays[dateStr]) {
-                dailyRestQuota[d] = employees.length; // 假日全休
-            } else if (workDays[dateStr]) {
-                dailyRestQuota[d] = 0; // 补班日不休
-            } else if (dow === 1) {
-                dailyRestQuota[d] = 0; // 周一不休
-            } else if (dow === 0) {
-                dailyRestQuota[d] = 7; // 周日休6-7人
-            } else {
-                dailyRestQuota[d] = 3; // 其他天休2-3人
-            }
-        }
-
-        // 统计每天已有多少人休息（指定休+假日+谢焕君周日）
-        const dailyRestCount = [];
-        for (let d = 1; d <= daysInMonth; d++) {
-            let count = 0;
-            employees.forEach(emp => {
-                const s = scheduleData[emp.name][d - 1];
-                if (s === 'rest' || s === 'designated') count++;
-            });
-            dailyRestCount[d] = count;
-        }
+        // 3. 智能排休（两阶段分配算法）
+        // 阶段一：先把周日排满（目标6-7人休息 = 8-9人上班）
+        // 阶段二：再把剩余休息天数均匀分到其他工作日（2-3人/天）
+        // 硬约束：周一不休、每组至少一人上班、陈文童付新远不能同时休
 
         // 计算每人还需要多少天休息
         const restNeeded = {};
@@ -713,105 +680,9 @@
             restNeeded[emp.name] = Math.max(0, totalRest - currentRestCount);
         });
 
-        // 按天循环分配（优先给间隔最大的人）
-        // 多轮分配直到所有人满足
-        let maxIterations = totalRest * employees.length;
-        let iteration = 0;
-
-        while (iteration < maxIterations) {
-            iteration++;
-            let anyAssigned = false;
-
-            // 找出还需要休息的人
-            const needRest = employees.filter(emp => restNeeded[emp.name] > 0);
-            if (needRest.length === 0) break;
-
-            // 对每个需要休息的人，找最佳天
-            // 按需求量降序+当前间隔降序排
-            needRest.sort((a, b) => {
-                if (restNeeded[b.name] !== restNeeded[a.name]) return restNeeded[b.name] - restNeeded[a.name];
-                // 间隔越大越优先
-                const gapA = getMaxGap(a.name);
-                const gapB = getMaxGap(b.name);
-                return gapB - gapA;
-            });
-
-            for (const emp of needRest) {
-                if (restNeeded[emp.name] <= 0) continue;
-
-                // 找这个人最佳的休息天
-                let bestDay = -1;
-                let bestScore = -Infinity;
-
-                for (let d = 1; d <= daysInMonth; d++) {
-                    if (scheduleData[emp.name][d - 1] !== 'work') continue;
-                    const dow = new Date(currentYear, currentMonth - 1, d).getDay();
-                    const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-
-                    // 硬约束
-                    if (dow === 1) continue;
-                    if (holidays[dateStr] || workDays[dateStr]) continue;
-                    if (dailyRestCount[d] >= dailyRestQuota[d]) continue;
-
-                    // 陈文童付新远不能同时休
-                    if (emp.name === '陈文童' && scheduleData['付新远'] &&
-                        scheduleData['付新远'][d - 1] !== 'work' && scheduleData['付新远'][d - 1] !== 'duty') continue;
-                    if (emp.name === '付新远' && scheduleData['陈文童'] &&
-                        scheduleData['陈文童'][d - 1] !== 'work' && scheduleData['陈文童'][d - 1] !== 'duty') continue;
-
-                    // 每组至少一人上班
-                    const empGroup = employees.find(e => e.name === emp.name)?.group;
-                    if (empGroup) {
-                        const sameGroupWorking = employees.filter(e =>
-                            e.group === empGroup && e.name !== emp.name &&
-                            scheduleData[e.name] && (scheduleData[e.name][d - 1] === 'work' || scheduleData[e.name][d - 1] === 'duty')
-                        ).length;
-                        if (sameGroupWorking === 0) continue;
-                    }
-
-                    // 评分：间隔越大分越高
-                    let score = 0;
-                    let lastRest = 0;
-                    for (let i = d - 1; i >= 1; i--) {
-                        const s = scheduleData[emp.name][i - 1];
-                        if (s === 'rest' || s === 'designated') { lastRest = i; break; }
-                    }
-                    let nextRest = daysInMonth + 1;
-                    for (let i = d + 1; i <= daysInMonth; i++) {
-                        const s = scheduleData[emp.name][i - 1];
-                        if (s === 'rest' || s === 'designated') { nextRest = i; break; }
-                    }
-                    const gapBefore = lastRest > 0 ? (d - lastRest) : d;
-                    const gapAfter = nextRest <= daysInMonth ? (nextRest - d) : (daysInMonth - d + 1);
-                    score = Math.min(gapBefore, gapAfter) * 10 + gapBefore;
-
-                    // 周日额外加分（鼓励周日多排人休息）
-                    if (dow === 0) score += 3;
-
-                    // 当天名额快满时减分（均匀到每天）
-                    score -= dailyRestCount[d] * 5;
-
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestDay = d;
-                    }
-                }
-
-                if (bestDay > 0) {
-                    scheduleData[emp.name][bestDay - 1] = 'rest';
-                    dailyRestCount[bestDay]++;
-                    restNeeded[emp.name]--;
-                    anyAssigned = true;
-                }
-            }
-
-            if (!anyAssigned) break; // 无法再分配
-        }
-
-        // 辅助函数：获取某人最大连续工作间隔
+        // 辅助函数
         function getMaxGap(empName) {
-            let maxGap = 0;
-            let lastRest = 0;
+            let maxGap = 0, lastRest = 0;
             for (let d = 1; d <= daysInMonth; d++) {
                 const s = scheduleData[empName][d - 1];
                 if (s === 'rest' || s === 'designated') {
@@ -825,12 +696,150 @@
             return maxGap;
         }
 
+        function canRest(empName, d) {
+            if (scheduleData[empName][d - 1] !== 'work') return false;
+            const dow = new Date(currentYear, currentMonth - 1, d).getDay();
+            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            if (dow === 1) return false;
+            if (holidays[dateStr] || workDays[dateStr]) return false;
+            // 陈文童付新远
+            if (empName === '陈文童' && scheduleData['付新远'] &&
+                scheduleData['付新远'][d - 1] !== 'work' && scheduleData['付新远'][d - 1] !== 'duty') return false;
+            if (empName === '付新远' && scheduleData['陈文童'] &&
+                scheduleData['陈文童'][d - 1] !== 'work' && scheduleData['陈文童'][d - 1] !== 'duty') return false;
+            // 每组至少一人上班
+            const empGroup = employees.find(e => e.name === empName)?.group;
+            if (empGroup) {
+                const working = employees.filter(e =>
+                    e.group === empGroup && e.name !== empName &&
+                    scheduleData[e.name] && (scheduleData[e.name][d - 1] === 'work' || scheduleData[e.name][d - 1] === 'duty')
+                ).length;
+                if (working === 0) return false;
+            }
+            return true;
+        }
+
+        // 阶段一：周日排满（目标每个周日7人休息）
+        const sundayTarget = 7; // 16人-7休=9人上班
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dow = new Date(currentYear, currentMonth - 1, d).getDay();
+            if (dow !== 0) continue;
+            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            if (holidays[dateStr]) continue;
+
+            // 当天已有多少人休息
+            let currentResting = employees.filter(e =>
+                scheduleData[e.name][d - 1] === 'rest' || scheduleData[e.name][d - 1] === 'designated'
+            ).length;
+
+            while (currentResting < sundayTarget) {
+                // 找还需要休息且能在这天休的人，优先间隔最大的
+                const candidates = employees
+                    .filter(emp => restNeeded[emp.name] > 0 && canRest(emp.name, d))
+                    .map(emp => ({ name: emp.name, gap: getMaxGap(emp.name) }))
+                    .sort((a, b) => b.gap - a.gap);
+
+                if (candidates.length === 0) break;
+
+                scheduleData[candidates[0].name][d - 1] = 'rest';
+                restNeeded[candidates[0].name]--;
+                currentResting++;
+            }
+        }
+
+        // 阶段二：剩余休息分配到非周一非周日的工作日
+        // 计算每天的名额
+        const availableDays = [];
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dow = new Date(currentYear, currentMonth - 1, d).getDay();
+            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            if (holidays[dateStr] || workDays[dateStr] || dow === 1 || dow === 0) continue;
+            availableDays.push(d);
+        }
+
+        // 总剩余休息天数
+        let totalRemaining = 0;
+        employees.forEach(emp => { totalRemaining += restNeeded[emp.name]; });
+        // 每天名额 = ceil(剩余/可用天数)，但不超过3
+        const dailyQuota = Math.min(3, Math.max(2, Math.ceil(totalRemaining / availableDays.length)));
+
+        const dailyRestCount = {};
+        for (let d = 1; d <= daysInMonth; d++) {
+            let count = 0;
+            employees.forEach(emp => {
+                const s = scheduleData[emp.name][d - 1];
+                if (s === 'rest' || s === 'designated') count++;
+            });
+            dailyRestCount[d] = count;
+        }
+
+        // 多轮分配
+        let maxIterations = totalRest * employees.length;
+        let iteration = 0;
+
+        while (iteration < maxIterations) {
+            iteration++;
+            let anyAssigned = false;
+
+            const needRest = employees.filter(emp => restNeeded[emp.name] > 0);
+            if (needRest.length === 0) break;
+
+            needRest.sort((a, b) => {
+                if (restNeeded[b.name] !== restNeeded[a.name]) return restNeeded[b.name] - restNeeded[a.name];
+                return getMaxGap(b.name) - getMaxGap(a.name);
+            });
+
+            for (const emp of needRest) {
+                if (restNeeded[emp.name] <= 0) continue;
+
+                let bestDay = -1;
+                let bestScore = -Infinity;
+
+                for (let d = 1; d <= daysInMonth; d++) {
+                    if (!canRest(emp.name, d)) continue;
+                    const dow = new Date(currentYear, currentMonth - 1, d).getDay();
+                    if (dow === 0) continue; // 周日已在阶段一处理
+                    if ((dailyRestCount[d] || 0) >= dailyQuota) continue;
+
+                    // 评分：间隔越大分越高
+                    let lastRest = 0;
+                    for (let i = d - 1; i >= 1; i--) {
+                        const s = scheduleData[emp.name][i - 1];
+                        if (s === 'rest' || s === 'designated') { lastRest = i; break; }
+                    }
+                    let nextRest = daysInMonth + 1;
+                    for (let i = d + 1; i <= daysInMonth; i++) {
+                        const s = scheduleData[emp.name][i - 1];
+                        if (s === 'rest' || s === 'designated') { nextRest = i; break; }
+                    }
+                    const gapBefore = lastRest > 0 ? (d - lastRest) : d;
+                    const gapAfter = nextRest <= daysInMonth ? (nextRest - d) : (daysInMonth - d + 1);
+                    let score = Math.min(gapBefore, gapAfter) * 10 + gapBefore;
+                    score -= (dailyRestCount[d] || 0) * 8;
+
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestDay = d;
+                    }
+                }
+
+                if (bestDay > 0) {
+                    scheduleData[emp.name][bestDay - 1] = 'rest';
+                    dailyRestCount[bestDay] = (dailyRestCount[bestDay] || 0) + 1;
+                    restNeeded[emp.name]--;
+                    anyAssigned = true;
+                }
+            }
+
+            if (!anyAssigned) break;
+        }
+
         // 3.5 Post-validation: 确保每组每天至少一人上班
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             if (holidays[dateStr]) continue;
 
-            const groups = ['经理', '主管', '到货', '发货'];
+            const groups = [...new Set(employees.map(e => e.group))];
             groups.forEach(group => {
                 const groupMembers = employees.filter(e => e.group === group);
                 const workingMembers = groupMembers.filter(e =>
