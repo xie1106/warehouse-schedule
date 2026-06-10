@@ -1460,25 +1460,42 @@
         event.stopPropagation();
 
         const dropdown = document.getElementById('cellDropdown');
-        const rect = event.target.getBoundingClientRect();
 
-        let top, left;
         if (isVertical) {
-            // 竖屏模式下，dropdown跟随手指点击位置
-            const touch = event.changedTouches ? event.changedTouches[0] : event;
-            top = (touch.clientY || rect.top) + 4;
-            left = (touch.clientX || rect.left) + 4;
-            if (top + 280 > window.innerHeight) top = window.innerHeight - 290;
-            if (left + 120 > window.innerWidth) left = window.innerWidth - 130;
+            // 竖屏模式：dropdown放在wrapper内部，跟随表格旋转
+            const wrapper = document.getElementById('tableWrapper');
+            if (!wrapper.contains(dropdown)) {
+                wrapper.appendChild(dropdown);
+            }
+            dropdown.style.position = 'absolute';
+            const rect = event.target.getBoundingClientRect();
+            const wrapperRect = wrapper.getBoundingClientRect();
+            // 计算相对于wrapper的位置（wrapper已旋转）
+            const scrollLeft = wrapper.scrollLeft;
+            const scrollTop = wrapper.scrollTop;
+            const cellRect = event.target.getBoundingClientRect();
+            // 使用wrapper内的相对坐标
+            let top = event.target.offsetTop + event.target.offsetHeight + 2;
+            let left = event.target.offsetLeft;
+            if (top + 280 > wrapper.scrollTop + wrapper.clientHeight) {
+                top = event.target.offsetTop - 280;
+            }
+            dropdown.style.top = Math.max(4, top) + 'px';
+            dropdown.style.left = Math.max(4, left) + 'px';
         } else {
-            top = rect.bottom + 4;
-            left = rect.left;
+            // 横屏模式：dropdown在body下，position:fixed
+            if (dropdown.parentElement !== document.body) {
+                document.body.appendChild(dropdown);
+            }
+            dropdown.style.position = 'fixed';
+            const rect = event.target.getBoundingClientRect();
+            let top = rect.bottom + 4;
+            let left = rect.left;
             if (top + 280 > window.innerHeight) top = rect.top - 280;
             if (left + 120 > window.innerWidth) left = window.innerWidth - 130;
+            dropdown.style.top = Math.max(4, top) + 'px';
+            dropdown.style.left = Math.max(4, left) + 'px';
         }
-
-        dropdown.style.top = Math.max(4, top) + 'px';
-        dropdown.style.left = Math.max(4, left) + 'px';
 
         dropdown.innerHTML = STATUS_TYPES.map(st =>
             `<div class="option" onclick="setCellStatus('${name}', ${day}, '${st.key}')">
@@ -1697,27 +1714,12 @@
             wrapper.style.width = vh + 'px';
             wrapper.style.height = vw + 'px';
             wrapper.style.maxHeight = 'none';
-            wrapper.style.overflow = 'hidden';
+            wrapper.style.overflow = 'auto';
             wrapper.style.zIndex = '998';
             wrapper.style.background = '#fff';
             wrapper.style.border = '2px solid #1e3a5f';
             wrapper.style.transformOrigin = 'top left';
             wrapper.style.transform = 'rotate(90deg)';
-            // 计算缩放让表格完全铺满（分别缩放宽高以填满屏幕）
-            setTimeout(() => {
-                if (table) {
-                    const tableW = table.scrollWidth;
-                    const tableH = table.scrollHeight;
-                    const scaleX = vh / tableW;
-                    const scaleY = vw / tableH;
-                    // 分别缩放X和Y轴，让表格完全铺满容器
-                    table.style.transform = 'scale(' + scaleX + ',' + scaleY + ')';
-                    table.style.transformOrigin = 'top left';
-                    table.style.width = tableW + 'px';
-                    table.style.height = tableH + 'px';
-                    wrapper.style.transform = 'rotate(90deg)';
-                }
-            }, 50);
             btn.textContent = '🔄 横屏';
         } else {
             document.body.classList.remove('vertical-mode');
