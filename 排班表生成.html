@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0, minimum-scale=0.5">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>排班表生成</title>
     <style>
         :root {
@@ -174,6 +177,10 @@
         .schedule-table th.holiday-col {
             background: #fef2f2;
             color: var(--danger);
+        }
+        .schedule-table th.sunday-col {
+            background: #fef2f2 !important;
+            color: #dc2626 !important;
         }
         .schedule-table .name-col {
             position: sticky;
@@ -1053,7 +1060,9 @@
             const dowLabels = ['日', '一', '二', '三', '四', '五', '六'];
             const isHoliday = !!holidays[dateStr];
 
-            html += `<th class="${isHoliday ? 'holiday-col' : ''}" title="${holidays[dateStr] || ''}">${d}<br><span style="font-size:9px;font-weight:400;">${dowLabels[dow]}</span></th>`;
+            const isSunday = (dow === 0);
+            const thClass = isHoliday ? 'holiday-col' : (isSunday ? 'sunday-col' : '');
+            html += `<th class="${thClass}" title="${holidays[dateStr] || ''}">${d}<br><span style="font-size:9px;font-weight:400;">${dowLabels[dow]}</span></th>`;
         }
         html += '</tr></thead><tbody>';
 

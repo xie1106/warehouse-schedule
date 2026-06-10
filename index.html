@@ -217,7 +217,7 @@
             return;
         }
         if (adminList.includes(savedEmployee)) {
-            window.location.href = '排班表生成.html';
+            window.location.href = '排班表生成.html?v=' + Date.now();
         } else {
             alert('⚠️ ' + savedEmployee + ' 不是管理员，无法进入排班表生成功能');
         }
