@@ -1017,7 +1017,7 @@
         });
 
         // 4. 周日排休（目标8人休，谢焕君已排则算在内）
-        const sundayMaxRest = 8;
+        const sundayMaxRest = 8; // 7-8人休 = 8-9人上班
         for (let d = 1; d <= daysInMonth; d++) {
             const dow = new Date(currentYear, currentMonth - 1, d).getDay();
             if (dow !== 0) continue;
@@ -1028,8 +1028,9 @@
                 scheduleData[e.name][d - 1] === 'rest' || scheduleData[e.name][d - 1] === 'designated'
             ).length;
 
-            // 随机选人填满到8人休息
-            while (currentResting < sundayMaxRest) {
+            // 随机目标7或8人休息（8-9人上班）
+            const thisSundayTarget = Math.random() < 0.5 ? 7 : 8;
+            while (currentResting < thisSundayTarget) {
                 const candidates = employees
                     .filter(emp => restNeeded[emp.name] > 0 && scheduleData[emp.name][d - 1] === 'work')
                     .sort(() => Math.random() - 0.5);
