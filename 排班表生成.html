@@ -456,6 +456,7 @@
     <div class="header">
         <h1>⚙️ 排班表生成</h1>
         <div class="header-actions">
+            <button class="btn btn-outline" onclick="toggleOrientation()" id="orientBtn">🔄 竖屏</button>
             <a href="index.html" class="btn-back">← 返回首页</a>
         </div>
     </div>
@@ -1629,6 +1630,31 @@
         toast.className = 'toast ' + (type || '');
         toast.classList.add('show');
         setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // === Orientation Toggle ===
+    let isVertical = false;
+    function toggleOrientation() {
+        isVertical = !isVertical;
+        const wrapper = document.getElementById('tableWrapper');
+        const btn = document.getElementById('orientBtn');
+        if (isVertical) {
+            wrapper.style.transform = 'rotate(90deg)';
+            wrapper.style.transformOrigin = 'top left';
+            wrapper.style.width = '100vh';
+            wrapper.style.position = 'absolute';
+            wrapper.style.left = '100%';
+            wrapper.style.maxHeight = 'none';
+            btn.textContent = '🔄 横屏';
+        } else {
+            wrapper.style.transform = '';
+            wrapper.style.transformOrigin = '';
+            wrapper.style.width = '';
+            wrapper.style.position = '';
+            wrapper.style.left = '';
+            wrapper.style.maxHeight = '80vh';
+            btn.textContent = '🔄 竖屏';
+        }
     }
 
     // === Start ===
