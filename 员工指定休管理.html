@@ -654,8 +654,6 @@
     <div class="header">
         <h1>指定休收集</h1>
         <div class="header-actions">
-            <button class="btn btn-outline" id="empManageBtn" onclick="openEmployeeModal()">👥 员工管理</button>
-            <a href="排班表生成.html" class="btn btn-primary" style="text-decoration:none;">⚡ 排班生成</a>
             <a href="index.html" class="btn-back">← 首页</a>
         </div>
     </div>
@@ -675,8 +673,10 @@
                         <input type="month" id="monthSelect" onchange="onMonthChange()">
                     </div>
                     <div class="submit-row">
-                        <button class="btn btn-success" onclick="submitSchedule()">✓ 提交指定休</button>
+                        <button class="btn btn-success" onclick="submitSchedule()">✓ 提交</button>
                         <button class="btn btn-outline" id="cancelSubmitBtn" onclick="cancelSubmit()" style="display:none;">✕ 取消提交</button>
+                        <a href="排班表生成.html" class="btn btn-primary" style="text-decoration:none;">⚡ 排班生成</a>
+                        <button class="btn btn-outline" id="empManageBtn" onclick="openEmployeeModal()">👥 员工管理</button>
                     </div>
                 </div>
 
