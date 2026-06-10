@@ -448,34 +448,73 @@
             .header-actions { width: 100%; display: flex; gap: 6px; }
             .header-actions .btn-back, .header-actions .btn { flex: 1; justify-content: center; font-size: 11px; padding: 8px 6px; }
         }
-        /* Vertical mode - shrink table to fit screen width */
+        /* Vertical mode - fullscreen table only */
+        body.vertical-mode .header,
+        body.vertical-mode .card .controls,
+        body.vertical-mode .card .legend,
+        body.vertical-mode .card .notice,
+        body.vertical-mode .card .deadline-notice,
+        body.vertical-mode #editLegendBtn {
+            display: none !important;
+        }
+        body.vertical-mode {
+            padding: 0;
+        }
+        body.vertical-mode .card {
+            padding: 0;
+            margin: 0;
+            border-radius: 0;
+            box-shadow: none;
+            border: none;
+        }
         body.vertical-mode .table-wrapper {
-            max-height: none;
-            overflow: visible;
+            max-height: 100vh;
+            border-radius: 0;
+            border: none;
         }
         body.vertical-mode .schedule-table {
             min-width: unset;
             width: 100%;
-            font-size: 8px;
+            font-size: 9px;
         }
         body.vertical-mode .schedule-table th,
         body.vertical-mode .schedule-table td {
             padding: 2px 1px;
             min-width: unset;
-            height: 22px;
-            font-size: 8px;
-            white-space: nowrap;
+            height: 20px;
+            font-size: 9px;
         }
         body.vertical-mode .schedule-table .name-col {
-            min-width: 40px;
+            min-width: 42px;
             font-size: 9px;
         }
         body.vertical-mode .schedule-table .rest-col {
             min-width: 20px;
-            left: 40px;
+            left: 42px;
+            font-size: 9px;
         }
         body.vertical-mode .schedule-table thead th.rest-col {
-            left: 40px;
+            left: 42px;
+        }
+        /* Floating exit button in vertical mode */
+        .vertical-exit-btn {
+            display: none;
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            z-index: 999;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 10px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+        body.vertical-mode .vertical-exit-btn {
+            display: block;
         }
     </style>
 </head>
@@ -536,6 +575,9 @@
 
     <!-- Cell edit dropdown -->
     <div class="cell-dropdown" id="cellDropdown"></div>
+
+    <!-- Vertical mode exit button -->
+    <button class="vertical-exit-btn" onclick="toggleOrientation()">✕ 退出竖屏</button>
 
     <!-- Legend editor modal -->
     <div class="modal-overlay" id="legendModal">
@@ -1694,23 +1736,24 @@
                 script.onerror = reject;
             });
         }
+        // Only capture the table itself
+        const table = document.querySelector('.schedule-table');
+        if (!table) { showToast('找不到排班表', 'error'); return; }
+
+        // Temporarily remove scroll constraints
         const wrapper = document.getElementById('tableWrapper');
-        // Temporarily expand to full size for capture
         const origMaxH = wrapper.style.maxHeight;
         const origOverflow = wrapper.style.overflow;
         wrapper.style.maxHeight = 'none';
         wrapper.style.overflow = 'visible';
 
         try {
-            const canvas = await html2canvas(wrapper, {
+            const canvas = await html2canvas(table, {
                 scale: 2,
                 backgroundColor: '#ffffff',
                 scrollX: 0,
-                scrollY: 0,
-                windowWidth: wrapper.scrollWidth,
-                windowHeight: wrapper.scrollHeight
+                scrollY: -window.scrollY
             });
-            // Restore
             wrapper.style.maxHeight = origMaxH;
             wrapper.style.overflow = origOverflow;
 
