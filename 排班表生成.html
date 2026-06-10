@@ -1184,11 +1184,36 @@
         // 检查休息总天数是否超过应休天数
         const restCount = scheduleData[name].filter(s => s === 'rest' || s === 'designated').length;
         if (restCount > currentTotalRest) {
-            showToast(`⚠️ ${name} 休息天数(${restCount})已超过应休天数(${currentTotalRest})`, 'error');
+            // 在修改的格子位置显示提醒气泡，需手动关闭
+            const cell = document.querySelector(`td[data-name="${name}"][data-day="${day}"]`);
+            showCellWarning(cell, `${name} 休息${restCount}天，超出应休${currentTotalRest}天`);
         }
         // 草稿状态不保存到数据库，确认后才保存
         hideDropdown();
         renderTable();
+    }
+
+    function showCellWarning(anchorEl, msg) {
+        // 移除旧的提醒
+        const old = document.getElementById('cellWarning');
+        if (old) old.remove();
+
+        const div = document.createElement('div');
+        div.id = 'cellWarning';
+        div.style.cssText = 'position:fixed;z-index:9999;background:#fef2f2;border:2px solid #ef4444;border-radius:8px;padding:12px 16px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-width:240px;font-size:13px;color:#dc2626;font-weight:500;';
+        div.innerHTML = `<div style="display:flex;align-items:flex-start;gap:8px;"><span>⚠️ ${msg}</span><button onclick="this.parentElement.parentElement.remove()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#ef4444;line-height:1;flex-shrink:0;">✕</button></div>`;
+        document.body.appendChild(div);
+
+        // 定位在格子附近
+        if (anchorEl) {
+            const rect = anchorEl.getBoundingClientRect();
+            div.style.top = (rect.bottom + 8) + 'px';
+            div.style.left = Math.min(rect.left, window.innerWidth - 260) + 'px';
+        } else {
+            div.style.top = '50%';
+            div.style.left = '50%';
+            div.style.transform = 'translate(-50%, -50%)';
+        }
     }
 
     // === Confirm / Lock ===
