@@ -1708,67 +1708,70 @@
     let isVertical = false;
     function toggleOrientation() {
         isVertical = !isVertical;
-        const card = document.querySelector('.card');
         const btn = document.getElementById('orientBtn');
+        const wrapper = document.getElementById('tableWrapper');
+        const table = wrapper.querySelector('.schedule-table');
+        if (!table) { showToast('请先生成排班表', 'error'); isVertical = false; return; }
         if (isVertical) {
             document.body.classList.add('vertical-mode');
+            const screenW = window.innerWidth - 16;
+            const tableW = table.scrollWidth;
+            const scale = Math.min(1, screenW / tableW);
+            wrapper.style.transform = 'scale(' + scale + ')';
+            wrapper.style.transformOrigin = 'top left';
+            wrapper.style.width = (100 / scale) + '%';
             btn.textContent = '🔄 横屏';
         } else {
             document.body.classList.remove('vertical-mode');
+            wrapper.style.transform = '';
+            wrapper.style.transformOrigin = '';
+            wrapper.style.width = '';
             btn.textContent = '🔄 竖屏';
         }
     }
 
     // === Save as Image ===
-    async function saveAsImage() {
+    function saveAsImage() {
         if (Object.keys(scheduleData).length === 0) {
             showToast('没有排班数据', 'error');
             return;
         }
-        showToast('正在生成图片...', 'success');
-        // Dynamically load html2canvas
-        if (!window.html2canvas) {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-            document.head.appendChild(script);
-            await new Promise((resolve, reject) => {
-                script.onload = resolve;
-                script.onerror = reject;
-            });
+        const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+        const colorMap = {};
+        const labelMap = {};
+        STATUS_TYPES.forEach(st => { colorMap[st.key] = st.color; labelMap[st.key] = st.label; });
+
+        let html = '<table style="border-collapse:collapse;font-family:sans-serif;font-size:11px;">';
+        html += '<tr style="background:#1e3a5f;color:#fff;font-weight:bold;">';
+        html += '<td style="border:1px solid #ccc;padding:4px 6px;">姓名</td>';
+        html += '<td style="border:1px solid #ccc;padding:4px 6px;">休</td>';
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dow = new Date(currentYear, currentMonth - 1, d).getDay();
+            const dowLabels = ['日','一','二','三','四','五','六'];
+            html += '<td style="border:1px solid #ccc;padding:4px 3px;text-align:center;">' + d + '(' + dowLabels[dow] + ')</td>';
         }
-        // Only capture the table itself
-        const table = document.querySelector('.schedule-table');
-        if (!table) { showToast('找不到排班表', 'error'); return; }
+        html += '</tr>';
+        employees.forEach(emp => {
+            if (!scheduleData[emp.name]) return;
+            const restTotal = scheduleData[emp.name].filter(s => s !== 'work' && s !== 'duty').length;
+            html += '<tr>';
+            html += '<td style="border:1px solid #ccc;padding:4px 6px;font-weight:bold;">' + emp.name + '</td>';
+            html += '<td style="border:1px solid #ccc;padding:4px 6px;text-align:center;font-weight:bold;">' + restTotal + '</td>';
+            for (let d = 1; d <= daysInMonth; d++) {
+                const status = scheduleData[emp.name][d - 1] || 'work';
+                const bg = colorMap[status] || '#fff';
+                const label = labelMap[status] || '';
+                html += '<td style="border:1px solid #eee;padding:4px 3px;text-align:center;background:' + bg + ';font-weight:' + (status === 'work' ? '400' : '700') + ';">' + label + '</td>';
+            }
+            html += '</tr>';
+        });
+        html += '</table>';
 
-        // Temporarily remove scroll constraints
-        const wrapper = document.getElementById('tableWrapper');
-        const origMaxH = wrapper.style.maxHeight;
-        const origOverflow = wrapper.style.overflow;
-        wrapper.style.maxHeight = 'none';
-        wrapper.style.overflow = 'visible';
-
-        try {
-            const canvas = await html2canvas(table, {
-                scale: 2,
-                backgroundColor: '#ffffff',
-                scrollX: 0,
-                scrollY: -window.scrollY
-            });
-            wrapper.style.maxHeight = origMaxH;
-            wrapper.style.overflow = origOverflow;
-
-            // Download
-            const link = document.createElement('a');
-            link.download = `排班表_${currentYear}年${currentMonth}月.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            showToast('图片已保存', 'success');
-        } catch(e) {
-            wrapper.style.maxHeight = origMaxH;
-            wrapper.style.overflow = origOverflow;
-            showToast('生成图片失败', 'error');
-            console.error(e);
-        }
+        const fullHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>排班表_' + currentYear + '年' + currentMonth + '月</title></head><body style="margin:0;padding:8px;">' + html + '</body></html>';
+        const blob = new Blob([fullHtml], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        showToast('已在新页面打开，长按表格可保存图片', 'success');
     }
 
     // === Start ===
