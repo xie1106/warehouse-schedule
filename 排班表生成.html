@@ -538,10 +538,18 @@
             const data = await supaFetch('schedules', {
                 query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=data,locked`
             });
-            if (data.length > 0 && data[0].locked) {
-                // 只显示已确认的排班
+            if (data.length > 0 && data[0].data && Object.keys(data[0].data).length > 0) {
+                // 有数据就加载（无论锁定与否）
                 scheduleData = data[0].data || {};
-                isLocked = true;
+                isLocked = data[0].locked || false;
+                // 同步加载应休天数
+                try {
+                    const totalRestKey = `total_rest_days_${currentYear}_${currentMonth}`;
+                    const restData = await supaFetch('settings', { query: `?key=eq.${encodeURIComponent(totalRestKey)}&select=value` });
+                    if (restData.length > 0 && restData[0].value !== null) {
+                        currentTotalRest = parseInt(restData[0].value) || 4;
+                    }
+                } catch (e) {}
                 renderTable();
                 updateButtonStates();
             } else {
@@ -1236,22 +1244,21 @@
     }
 
     async function unlockSchedule() {
-        if (!confirm('取消确认后排班将不再显示，需重新生成。是否继续？')) return;
-        // 删除数据库中的排班记录
+        if (!confirm('解锁后可以编辑排班，是否继续？')) return;
+        // 只解锁，不删除数据，保留当前排班继续编辑
         try {
             await supaFetch('schedules', {
-                method: 'DELETE',
-                query: `?year=eq.${currentYear}&month=eq.${currentMonth}`
+                method: 'PATCH',
+                query: `?year=eq.${currentYear}&month=eq.${currentMonth}`,
+                body: { locked: false }
             });
         } catch (e) {
-            console.error('Failed to delete schedule:', e);
+            console.error('Failed to unlock schedule:', e);
         }
-        scheduleData = {};
         isLocked = false;
-        document.getElementById('tableWrapper').innerHTML =
-            '<p style="text-align:center;padding:40px;color:var(--text-light);">点击"一键生成排班"生成后确认即可发布</p>';
+        renderTable();
         updateButtonStates();
-        showToast('排班已取消，可重新生成', 'success');
+        showToast('已解锁，可以编辑排班', 'success');
     }
 
     // === Export Excel ===
