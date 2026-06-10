@@ -962,15 +962,8 @@
             scheduleData[emp.name] = new Array(daysInMonth).fill('work');
         });
 
-        // 1. Apply holidays - everyone rests on holidays
-        for (let d = 1; d <= daysInMonth; d++) {
-            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            if (holidays[dateStr]) {
-                employees.forEach(emp => {
-                    scheduleData[emp.name][d - 1] = 'rest';
-                });
-            }
-        }
+        // 1. 法定假日不做特殊处理，按正常应休天数排班
+        // holidays数据仅用于表头标注显示
 
         // 2. Apply designated rest from Supabase
         employees.forEach(emp => {
@@ -992,12 +985,12 @@
             const xieCurrentRest = scheduleData['谢焕君'].filter(s => s === 'rest' || s === 'designated').length;
             const xieRemaining = Math.max(0, totalRest - xieCurrentRest);
 
-            // 收集可用的非假日周日
+            // 收集可用的周日（排除补班日）
             const availableSundays = [];
             for (let d = 1; d <= daysInMonth; d++) {
                 const dow = new Date(currentYear, currentMonth - 1, d).getDay();
                 const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                if (dow === 0 && !holidays[dateStr] && scheduleData['谢焕君'][d - 1] === 'work') {
+                if (dow === 0 && !workDays[dateStr] && scheduleData['谢焕君'][d - 1] === 'work') {
                     availableSundays.push(d);
                 }
             }
@@ -1049,7 +1042,7 @@
             const dow = new Date(currentYear, currentMonth - 1, d).getDay();
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             if (dow === 1) return false;
-            if (holidays[dateStr] || workDays[dateStr]) return false;
+            if (workDays[dateStr]) return false; // 补班日不休
             // 陈文童付新远
             if (empName === '陈文童' && scheduleData['付新远'] &&
                 scheduleData['付新远'][d - 1] !== 'work' && scheduleData['付新远'][d - 1] !== 'duty') return false;
@@ -1075,7 +1068,7 @@
             const dow = new Date(currentYear, currentMonth - 1, d).getDay();
             if (dow !== 0) continue;
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            if (holidays[dateStr]) continue;
+            if (workDays[dateStr]) continue; // 补班日的周日跳过
 
             // 当天已有多少人休息
             let currentResting = employees.filter(e =>
@@ -1114,11 +1107,11 @@
         }
 
         // 计算目标：剩余休息天数均匀分到可用天
-        const phase2Days = []; // 周二~周六的非假日天
+        const phase2Days = []; // 周二~周六的可用天
         for (let d = 1; d <= daysInMonth; d++) {
             const dow = new Date(currentYear, currentMonth - 1, d).getDay();
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            if (holidays[dateStr]) continue;
+            if (workDays[dateStr]) continue; // 补班日不排休
             if (dow === 0 || dow === 1) continue; // 跳过周日周一
             phase2Days.push(d);
         }
@@ -1231,8 +1224,6 @@
         // 3.5 Post-validation: 确保每组每天至少一人上班
         // 注意：经理组只有谢焕君一人，不适用此规则（否则她永远无法休息）
         for (let d = 1; d <= daysInMonth; d++) {
-            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            if (holidays[dateStr]) continue;
 
             const groups = [...new Set(employees.map(e => e.group))];
             groups.forEach(group => {
@@ -1299,8 +1290,6 @@
                                 if (rd > daysInMonth) break;
                                 const rdow = new Date(currentYear, currentMonth - 1, rd).getDay();
                                 if (rdow === 1) continue; // 不在周一休
-                                const dateStr2 = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(rd).padStart(2, '0')}`;
-                                if (holidays[dateStr2]) continue;
                                 // 当天状态必须是work才能改（不能改duty）
                                 if (scheduleData[emp.name][rd - 1] !== 'work') continue;
                                 // 检查组约束
@@ -1351,8 +1340,7 @@
         // 收集所有需要值班的天（非假日）
         const dutyDays = [];
         for (let d = 1; d <= daysInMonth; d++) {
-            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            if (!holidays[dateStr]) dutyDays.push(d);
+            dutyDays.push(d);
         }
         const totalDutyDays = dutyDays.length;
 
