@@ -886,10 +886,23 @@
     function populateEmployeeSelect() {
         const select = document.getElementById('empSelect');
         select.innerHTML = '<option value="">-- 请选择 --</option>';
+        const currentUser = localStorage.getItem('last_selected_employee');
+        const userIsAdmin = currentUser && isAdmin(currentUser);
+
         employees.forEach(emp => {
+            // 非管理员只能看到自己
+            if (!userIsAdmin && emp.name !== currentUser) return;
             const adminMark = isAdmin(emp.name) ? ' ⭐' : '';
             select.innerHTML += `<option value="${emp.name}">${emp.name}（${emp.group}）${adminMark}</option>`;
         });
+
+        // 非管理员自动选中自己并锁定
+        if (!userIsAdmin && currentUser) {
+            select.value = currentUser;
+            select.disabled = true;
+        } else {
+            select.disabled = false;
+        }
     }
 
     // === 员工选择记忆（变更2） ===
