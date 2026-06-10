@@ -864,6 +864,18 @@
         return adminList.includes(name);
     }
 
+    function updateRestDaysPermission() {
+        const input = document.getElementById('totalRestDays');
+        const currentUser = localStorage.getItem('last_selected_employee');
+        if (currentUser && isAdmin(currentUser)) {
+            input.disabled = false;
+            input.style.opacity = '1';
+        } else {
+            input.disabled = true;
+            input.style.opacity = '0.6';
+        }
+    }
+
     // === State ===
     let employees = [];
     let selectedDates = [];
@@ -946,11 +958,14 @@
             if (exists) {
                 select.value = saved;
                 currentEmployee = saved;
+                updateRestDaysPermission();
                 // 自动加载该员工的已有数据
                 await loadExistingDates();
                 renderCalendar();
                 await updateCancelButton();
             }
+        } else {
+            updateRestDaysPermission();
         }
     }
 
@@ -1014,6 +1029,8 @@
         if (currentEmployee) {
             localStorage.setItem('last_selected_employee', currentEmployee);
         }
+        // 非管理员禁止修改应休天数
+        updateRestDaysPermission();
         await loadExistingDates();
         renderCalendar();
         await updateCancelButton();
