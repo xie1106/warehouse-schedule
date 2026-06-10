@@ -1096,6 +1096,73 @@
             dailyRestCount[targetDay] = (dailyRestCount[targetDay] || 0) + 1;
         }
 
+        // 5.5 连续上班不超过6天（交换修复）
+        // 如果有人连续>6天，把连续段中间的一天和段外的一个休息天交换
+        for (let pass = 0; pass < 10; pass++) {
+            let anyFixed = false;
+            for (const emp of employees) {
+                let streak = 0;
+                let streakStart = 0;
+                for (let d = 1; d <= daysInMonth + 1; d++) {
+                    const s = d <= daysInMonth ? scheduleData[emp.name][d - 1] : 'x';
+                    if (s === 'work' || s === 'duty') {
+                        if (streak === 0) streakStart = d;
+                        streak++;
+                    } else {
+                        if (streak > 6) {
+                            // 找连续段中间可以休息的天（非周一、work状态）
+                            const mid = streakStart + Math.floor(streak / 2);
+                            let insertDay = -1;
+                            // 从中间向两边找
+                            for (let offset = 0; offset < streak; offset++) {
+                                for (const rd of [mid + offset, mid - offset]) {
+                                    if (rd < streakStart || rd >= streakStart + streak) continue;
+                                    if (rd > daysInMonth) continue;
+                                    const rdow = new Date(currentYear, currentMonth - 1, rd).getDay();
+                                    if (rdow === 1) continue; // 周一不休
+                                    if (scheduleData[emp.name][rd - 1] !== 'work') continue;
+                                    insertDay = rd;
+                                    break;
+                                }
+                                if (insertDay > 0) break;
+                            }
+
+                            if (insertDay > 0) {
+                                // 找段外一个rest天来交换（改为work）
+                                let swapDay = -1;
+                                for (let sd = 1; sd <= daysInMonth; sd++) {
+                                    if (sd >= streakStart && sd < streakStart + streak) continue;
+                                    if (scheduleData[emp.name][sd - 1] !== 'rest') continue;
+                                    const sdow = new Date(currentYear, currentMonth - 1, sd).getDay();
+                                    // 周日的rest不拿走（保持周日8人约束）
+                                    if (sdow === 0) continue;
+                                    swapDay = sd;
+                                    break;
+                                }
+
+                                if (swapDay > 0) {
+                                    // 交换：段中间改rest，段外rest改work
+                                    scheduleData[emp.name][insertDay - 1] = 'rest';
+                                    scheduleData[emp.name][swapDay - 1] = 'work';
+                                    dailyRestCount[insertDay] = (dailyRestCount[insertDay] || 0) + 1;
+                                    dailyRestCount[swapDay] = Math.max(0, (dailyRestCount[swapDay] || 0) - 1);
+                                    anyFixed = true;
+                                } else {
+                                    // 没有可交换的rest天，直接加（极端情况）
+                                    scheduleData[emp.name][insertDay - 1] = 'rest';
+                                    dailyRestCount[insertDay] = (dailyRestCount[insertDay] || 0) + 1;
+                                    anyFixed = true;
+                                }
+                            }
+                        }
+                        streak = 0;
+                        streakStart = d + 1;
+                    }
+                }
+            }
+            if (!anyFixed) break;
+        }
+
         // 6. 值班分配（连续轮值）
         const dutyExclude = ['谢焕君', '付新远', '陈文童', '陈安然', '黄丽情', '崔斯欣', '林镇兴'];
         const dutyEligible = employees.filter(e => !dutyExclude.includes(e.name)).map(e => e.name);
