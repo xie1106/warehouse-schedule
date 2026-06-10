@@ -383,6 +383,47 @@
         }
         .loading-overlay.hidden { display: none; }
         /* Responsive */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(4px);
+        }
+        .modal-overlay.active { display: flex; }
+        .legend-edit-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .legend-edit-row:last-child { border: none; }
+        .legend-edit-row input[type="text"] {
+            padding: 8px 12px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            flex: 1;
+            min-width: 60px;
+        }
+        .legend-edit-row input[type="color"] {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            padding: 2px;
+        }
+        .legend-edit-row .key-label {
+            font-size: 11px;
+            color: var(--text-light);
+            min-width: 70px;
+        }
         @media (max-width: 768px) {
             body { padding: 12px; }
             .header { flex-direction: column; align-items: flex-start; }
@@ -418,7 +459,7 @@
             ⚠️ 该月份排班已过截止日期，不能再生成/编辑
         </div>
 
-        <div class="legend">
+        <div class="legend" id="legendArea">
             <div class="legend-item"><div class="legend-color" style="background:#fff;border:1px solid #ccc"></div>上班</div>
             <div class="legend-item"><div class="legend-color" style="background:#fef9c3"></div>休息</div>
             <div class="legend-item"><div class="legend-color" style="background:#f3e8ff"></div>指定休</div>
@@ -429,6 +470,7 @@
             <div class="legend-item"><div class="legend-color" style="background:#fce7f3"></div>婚假</div>
             <div class="legend-item"><div class="legend-color" style="background:#fed7aa"></div>产检</div>
             <div class="legend-item"><div class="legend-color" style="background:#e0f2fe"></div>产假</div>
+            <button class="btn btn-outline" id="editLegendBtn" onclick="openLegendEditor()" style="margin-left:auto;padding:6px 12px;font-size:11px;min-height:unset;display:none;">✏️ 编辑</button>
         </div>
 
         <div class="table-wrapper" id="tableWrapper">
@@ -448,6 +490,18 @@
 
     <!-- Cell edit dropdown -->
     <div class="cell-dropdown" id="cellDropdown"></div>
+
+    <!-- Legend editor modal -->
+    <div class="modal-overlay" id="legendModal">
+        <div style="background:white;border-radius:16px;padding:28px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+            <h3 style="margin-bottom:16px;font-size:17px;color:var(--primary);">编辑状态图例</h3>
+            <div id="legendEditorList"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+                <button class="btn btn-outline" onclick="closeLegendEditor()">取消</button>
+                <button class="btn btn-primary" onclick="saveLegendConfig()">保存</button>
+            </div>
+        </div>
+    </div>
 
     <div class="toast" id="toast"></div>
 
@@ -506,7 +560,7 @@
     };
 
     // === Status Types ===
-    const STATUS_TYPES = [
+    let STATUS_TYPES = [
         { key: 'work', label: '上班', short: '上班', color: '#ffffff' },
         { key: 'rest', label: '休息', short: '休息', color: '#fef9c3' },
         { key: 'designated', label: '指定休', short: '指定休', color: '#f3e8ff' },
@@ -518,6 +572,73 @@
         { key: 'prenatal', label: '产检', short: '产检', color: '#fed7aa' },
         { key: 'maternity', label: '产假', short: '产假', color: '#e0f2fe' }
     ];
+
+    // Load custom status config from Supabase
+    async function loadStatusConfig() {
+        try {
+            const data = await supaFetch('settings', { query: '?key=eq.status_types&select=value' });
+            if (data.length > 0 && Array.isArray(data[0].value)) {
+                STATUS_TYPES = data[0].value;
+            }
+        } catch(e) {}
+        refreshLegendDisplay();
+    }
+
+    function refreshLegendDisplay() {
+        const area = document.getElementById('legendArea');
+        const editBtn = area.querySelector('#editLegendBtn');
+        // Remove old items
+        area.querySelectorAll('.legend-item').forEach(el => el.remove());
+        // Re-insert before editBtn
+        STATUS_TYPES.forEach(st => {
+            const div = document.createElement('div');
+            div.className = 'legend-item';
+            const borderStyle = st.color === '#ffffff' ? 'border:1px solid #ccc' : '';
+            div.innerHTML = `<div class="legend-color" style="background:${st.color};${borderStyle}"></div>${st.label}`;
+            area.insertBefore(div, editBtn);
+        });
+    }
+
+    function openLegendEditor() {
+        const list = document.getElementById('legendEditorList');
+        list.innerHTML = STATUS_TYPES.map((st, i) => `
+            <div class="legend-edit-row">
+                <span class="key-label">${st.key}</span>
+                <input type="color" id="legendColor${i}" value="${st.color === '#ffffff' ? '#ffffff' : st.color}">
+                <input type="text" id="legendLabel${i}" value="${st.label}" placeholder="显示名称">
+            </div>
+        `).join('');
+        document.getElementById('legendModal').classList.add('active');
+    }
+
+    function closeLegendEditor() {
+        document.getElementById('legendModal').classList.remove('active');
+    }
+
+    async function saveLegendConfig() {
+        STATUS_TYPES.forEach((st, i) => {
+            st.color = document.getElementById('legendColor' + i).value;
+            st.label = document.getElementById('legendLabel' + i).value;
+            st.short = st.label;
+        });
+        // Save to Supabase
+        try {
+            await supaFetch('settings', {
+                method: 'POST',
+                headers: { 'Prefer': 'resolution=merge-duplicates' },
+                body: JSON.stringify({ key: 'status_types', value: STATUS_TYPES })
+            });
+            showToast('图例配置已保存', 'success');
+        } catch(e) {
+            showToast('保存失败', 'error');
+        }
+        refreshLegendDisplay();
+        closeLegendEditor();
+        // Re-render table if exists
+        if (Object.keys(scheduleData).length > 0) {
+            renderTable();
+        }
+    }
 
     // === Default Employees ===
     const DEFAULT_EMPLOYEES = [
@@ -566,8 +687,13 @@
         try {
             await loadEmployees();
             await checkAdmin();
+            await loadStatusConfig();
             setDefaultMonth();
             await loadScheduleIfExists();
+            // Show legend edit button for admin
+            if (isCurrentUserAdmin) {
+                document.getElementById('editLegendBtn').style.display = 'inline-flex';
+            }
         } catch (e) {
             console.error('Init error:', e);
         }
@@ -1406,15 +1532,12 @@
         }
         xls += '</tr>';
 
-        const colorMap = {
-            work: '#ffffff', rest: '#fef9c3', designated: '#f3e8ff',
-            duty: '#fecaca', swap: '#e5e7eb', leave: '#d1fae5',
-            annual: '#dbeafe', marriage: '#fce7f3', prenatal: '#fed7aa', maternity: '#e0f2fe'
-        };
-        const labelMap = {
-            work: '上班', rest: '休息', designated: '指定休', duty: '值班',
-            swap: '调休', leave: '请假', annual: '年假', marriage: '婚假', prenatal: '产检', maternity: '产假'
-        };
+        const colorMap = {};
+        const labelMap = {};
+        STATUS_TYPES.forEach(st => {
+            colorMap[st.key] = st.color;
+            labelMap[st.key] = st.label;
+        });
 
         employees.forEach(emp => {
             if (!scheduleData[emp.name]) return;
