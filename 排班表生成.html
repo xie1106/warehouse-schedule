@@ -1698,25 +1698,38 @@
             wrapper.style.width = vh + 'px';
             wrapper.style.height = vw + 'px';
             wrapper.style.maxHeight = 'none';
-            wrapper.style.overflow = 'auto';
+            wrapper.style.overflow = 'hidden';
             wrapper.style.zIndex = '998';
             wrapper.style.background = '#fff';
+            wrapper.style.border = '2px solid #1e3a5f';
             wrapper.style.transformOrigin = 'top left';
             wrapper.style.transform = 'rotate(90deg)';
-            // 计算缩放比例让表格完全可见
+            // 计算缩放让表格完全铺满
             setTimeout(() => {
                 if (table) {
                     const tableW = table.scrollWidth;
                     const tableH = table.scrollHeight;
+                    // 缩放到填满整个容器
                     const scaleX = vh / tableW;
                     const scaleY = vw / tableH;
-                    const scale = Math.min(scaleX, scaleY, 1);
-                    wrapper.style.transform = 'rotate(90deg) scale(' + scale + ')';
+                    const scale = Math.min(scaleX, scaleY);
+                    // 用CSS缩放表格本身，而不是wrapper
+                    table.style.transform = 'scale(' + scale + ')';
+                    table.style.transformOrigin = 'top left';
+                    table.style.width = tableW + 'px';
+                    table.style.height = tableH + 'px';
+                    wrapper.style.transform = 'rotate(90deg)';
                 }
             }, 50);
             btn.textContent = '🔄 横屏';
         } else {
             document.body.classList.remove('vertical-mode');
+            if (table) {
+                table.style.transform = '';
+                table.style.transformOrigin = '';
+                table.style.width = '';
+                table.style.height = '';
+            }
             wrapper.style.transform = '';
             wrapper.style.transformOrigin = '';
             wrapper.style.position = '';
@@ -1728,6 +1741,7 @@
             wrapper.style.overflow = '';
             wrapper.style.zIndex = '';
             wrapper.style.background = '';
+            wrapper.style.border = '';
             btn.textContent = '🔄 竖屏';
         }
     }
