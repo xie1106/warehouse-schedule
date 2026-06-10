@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0, minimum-scale=0.5">
-    <title>仓库排班管理系统</title>
+    <title>排班系统</title>
     <style>
         :root {
             --primary: #1e3a5f;
@@ -168,25 +168,24 @@
     <div class="loading-overlay" id="loadingOverlay">加载中...</div>
     <div class="container">
         <div class="logo">📋</div>
-        <h1>仓库排班管理系统</h1>
-        <p class="subtitle">员工指定休收集 & 智能排班生成</p>
+        <h1>排班系统</h1>
         <div class="nav-links">
             <a href="员工指定休管理.html" class="nav-link">
                 <div class="nav-icon">📅</div>
                 <div class="nav-text">
-                    指定休收集
-                    <span>员工提交每月指定休日期</span>
+                    休息收集
+                    <span style="color:#dc2626;opacity:1;">提交截止时间25日</span>
                 </div>
             </a>
             <a href="javascript:void(0)" class="nav-link" id="scheduleLink" onclick="goToSchedule()">
                 <div class="nav-icon">⚙️</div>
                 <div class="nav-text">
-                    一键生成排班表
+                    一键生成
                     <span>智能排班、手动调整、导出Excel</span>
                 </div>
             </a>
         </div>
-        <p class="footer">捷展贸易 · 仓库管理</p>
+        <p class="footer">捷展 · 云仓</p>
     </div>
 
     <script>
