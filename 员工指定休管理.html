@@ -995,14 +995,14 @@
         return { year: targetYear, month: targetMonth };
     }
 
-    function setDefaultMonth() {
+    async function setDefaultMonth() {
         const target = getDefaultTargetMonth();
         currentYear = target.year;
         currentMonth = target.month;
 
         document.getElementById('monthSelect').value = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
-        loadTotalRestDays();
-        checkScheduleConfirmed();
+        await loadTotalRestDays();
+        await checkScheduleConfirmed();
         checkDeadline();
     }
 
@@ -1073,6 +1073,9 @@
 
     // === 截止时间判断（变更3） ===
     function checkDeadline() {
+        // 如果排班已确认，不覆盖提示
+        if (scheduleConfirmed) return;
+
         const now = new Date();
         const notice = document.getElementById('deadlineNotice');
 
@@ -1208,6 +1211,11 @@
     function toggleDay(day) {
         if (!currentEmployee) {
             showToast('请先选择员工', 'error');
+            return;
+        }
+
+        if (scheduleConfirmed) {
+            showToast('本月排班已确认，无法修改指定休', 'error');
             return;
         }
 
