@@ -764,11 +764,11 @@
             ).length;
 
             while (currentResting < sundayTarget) {
-                // 找还需要休息且能在这天休的人，优先间隔最大的
+                // 找还需要休息且能在这天休的人，优先间隔最大的（同分随机）
                 const candidates = employees
                     .filter(emp => restNeeded[emp.name] > 0 && canRest(emp.name, d))
-                    .map(emp => ({ name: emp.name, gap: getMaxGap(emp.name) }))
-                    .sort((a, b) => b.gap - a.gap);
+                    .map(emp => ({ name: emp.name, gap: getMaxGap(emp.name), rand: Math.random() }))
+                    .sort((a, b) => b.gap - a.gap || a.rand - b.rand);
 
                 if (candidates.length === 0) break;
 
@@ -826,12 +826,13 @@
             if (needRest.length === 0) break;
 
             // 找出有连续上班超过6天风险的人，优先处理
-            // 评分：当前最长连续上班段越长，越优先安排休息
+            // 评分：当前最长连续上班段越长，越优先安排休息（同分随机）
             needRest.sort((a, b) => {
                 const aMaxStreak = getMaxConsecutiveWork(a.name);
                 const bMaxStreak = getMaxConsecutiveWork(b.name);
                 if (bMaxStreak !== aMaxStreak) return bMaxStreak - aMaxStreak;
-                return restNeeded[b.name] - restNeeded[a.name];
+                if (restNeeded[b.name] !== restNeeded[a.name]) return restNeeded[b.name] - restNeeded[a.name];
+                return Math.random() - 0.5; // 同分随机
             });
 
             for (const emp of needRest) {
@@ -989,12 +990,12 @@
         const dutyAssigned = {}; // name -> count
         dutyEligible.forEach(name => { dutyAssigned[name] = 0; });
 
-        // 策略：按每人最长连续段排序，优先把长段的人排前面
+        // 策略：随机打乱顺序（每次生成结果不同，可多次生成挑选）
         const eligibleWithStreaks = dutyEligible.map(name => ({
             name,
             streaks: getWorkStreaks(name).sort((a, b) => b.length - a.length),
             target: dutyTargets[name]
-        }));
+        })).sort(() => Math.random() - 0.5);
 
         // 标记哪些天已分配值班
         const dutyOccupied = new Set();
