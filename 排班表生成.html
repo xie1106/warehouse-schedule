@@ -1396,7 +1396,7 @@
         xls += `<tr><td colspan="${daysInMonth + 1}" style="font-size:14px;font-weight:bold;text-align:center;">
             ${currentYear}年${currentMonth}月排班表</td></tr>`;
 
-        xls += '<tr><th>姓名</th>';
+        xls += '<tr><th>姓名</th><th>休</th>';
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             const isHoliday = !!holidays[dateStr];
@@ -1412,13 +1412,18 @@
             annual: '#dbeafe', marriage: '#fce7f3', prenatal: '#fed7aa', maternity: '#e0f2fe'
         };
         const labelMap = {
-            work: '', rest: '休', designated: '指', duty: '值',
+            work: '上', rest: '休', designated: '指', duty: '值',
             swap: '调', leave: '假', annual: '年', marriage: '婚', prenatal: '检', maternity: '产'
         };
 
         employees.forEach(emp => {
             if (!scheduleData[emp.name]) return;
-            xls += `<tr><td style="font-weight:bold;">${emp.name}</td>`;
+            let restCount = 0;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const s = scheduleData[emp.name][d - 1] || 'work';
+                if (s !== 'work' && s !== 'duty') restCount++;
+            }
+            xls += `<tr><td style="font-weight:bold;">${emp.name}</td><td style="font-weight:bold;">${restCount}</td>`;
             for (let d = 1; d <= daysInMonth; d++) {
                 const status = scheduleData[emp.name][d - 1] || 'work';
                 xls += `<td style="background:${colorMap[status]}">${labelMap[status]}</td>`;
@@ -1426,7 +1431,7 @@
             xls += '</tr>';
         });
 
-        xls += '<tr><td style="font-weight:bold;background:#f0fdf4;">上班人数</td>';
+        xls += '<tr><td style="font-weight:bold;background:#f0fdf4;">上班人数</td><td style="background:#f0fdf4;"></td>';
         for (let d = 1; d <= daysInMonth; d++) {
             let count = 0;
             employees.forEach(emp => {
