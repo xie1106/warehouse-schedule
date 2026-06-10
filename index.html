@@ -216,11 +216,8 @@
             window.location.href = '员工指定休管理.html';
             return;
         }
-        if (adminList.includes(savedEmployee)) {
-            window.location.href = '排班表生成.html?v=' + Date.now();
-        } else {
-            alert('⚠️ ' + savedEmployee + ' 不是管理员，无法进入排班表生成功能');
-        }
+        // 所有人都能进入排班表页面（非管理员只能查看）
+        window.location.href = '排班表生成.html?v=' + Date.now();
     }
 
     init();
