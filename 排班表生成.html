@@ -1204,40 +1204,61 @@
     }
 
     async function setCellStatus(name, day, status) {
+        const oldStatus = scheduleData[name][day - 1];
         scheduleData[name][day - 1] = status;
         // 检查休息总天数是否超过应休天数
         const restCount = scheduleData[name].filter(s => s === 'rest' || s === 'designated').length;
         if (restCount > currentTotalRest) {
-            // 在修改的格子位置显示提醒气泡，需手动关闭
+            // 弹出模态提醒，阻止其他操作，关闭后恢复原状态
+            hideDropdown();
+            renderTable();
             const cell = document.querySelector(`td[data-name="${name}"][data-day="${day}"]`);
-            showCellWarning(cell, `${name} 休息${restCount}天，超出应休${currentTotalRest}天`);
+            showCellWarning(cell, `${name} 休息${restCount}天，超出应休${currentTotalRest}天`, () => {
+                // 关闭回调：恢复之前的状态
+                scheduleData[name][day - 1] = oldStatus;
+                renderTable();
+            });
+            return;
         }
         // 草稿状态不保存到数据库，确认后才保存
         hideDropdown();
         renderTable();
     }
 
-    function showCellWarning(anchorEl, msg) {
-        // 移除旧的提醒
-        const old = document.getElementById('cellWarning');
+    function showCellWarning(anchorEl, msg, onClose) {
+        // 移除旧的
+        const old = document.getElementById('cellWarningOverlay');
         if (old) old.remove();
 
-        const div = document.createElement('div');
-        div.id = 'cellWarning';
-        div.style.cssText = 'position:fixed;z-index:9999;background:#fef2f2;border:2px solid #ef4444;border-radius:8px;padding:12px 16px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-width:240px;font-size:13px;color:#dc2626;font-weight:500;';
-        div.innerHTML = `<div style="display:flex;align-items:flex-start;gap:8px;"><span>⚠️ ${msg}</span><button onclick="this.parentElement.parentElement.remove()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#ef4444;line-height:1;flex-shrink:0;">✕</button></div>`;
-        document.body.appendChild(div);
+        // 遮罩层（阻止其他操作）
+        const overlay = document.createElement('div');
+        overlay.id = 'cellWarningOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:9998;';
 
-        // 定位在格子附近
+        // 弹窗
+        const div = document.createElement('div');
+        div.style.cssText = 'position:fixed;z-index:9999;background:#fef2f2;border:2px solid #ef4444;border-radius:8px;padding:16px 20px;box-shadow:0 4px 12px rgba(0,0,0,0.2);max-width:260px;font-size:14px;color:#dc2626;font-weight:500;';
+        div.innerHTML = `<div style="margin-bottom:12px;">⚠️ ${msg}</div><button id="cellWarningClose" style="display:block;width:100%;padding:8px;border:none;background:#ef4444;color:#fff;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">知道了</button>`;
+
+        overlay.appendChild(div);
+        document.body.appendChild(overlay);
+
+        // 定位弹窗在格子附近
         if (anchorEl) {
             const rect = anchorEl.getBoundingClientRect();
-            div.style.top = (rect.bottom + 8) + 'px';
-            div.style.left = Math.min(rect.left, window.innerWidth - 260) + 'px';
+            div.style.top = Math.min(rect.bottom + 8, window.innerHeight - 120) + 'px';
+            div.style.left = Math.min(rect.left, window.innerWidth - 280) + 'px';
         } else {
             div.style.top = '50%';
             div.style.left = '50%';
             div.style.transform = 'translate(-50%, -50%)';
         }
+
+        // 点击关闭按钮
+        document.getElementById('cellWarningClose').onclick = () => {
+            overlay.remove();
+            if (onClose) onClose();
+        };
     }
 
     // === Confirm / Lock ===
