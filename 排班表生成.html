@@ -859,6 +859,8 @@
                         currentTotalRest = parseInt(restData[0].value) || 4;
                     }
                 } catch (e) {}
+                // 加载指定休收集数据，标记不可编辑单元格
+                await loadCollectedLeaveCells();
                 renderTable();
                 updateButtonStates();
             } else {
@@ -893,6 +895,37 @@
         return now > lastDayOfPrevMonth;
     }
 
+    // 加载指定休收集的假期数据，标记为不可编辑
+    async function loadCollectedLeaveCells() {
+        collectedLeaveCells = {};
+        try {
+            const drData = await supaFetch('designated_rest', {
+                query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=employee_name,days`
+            });
+            for (const record of drData) {
+                if (!record.days || record.days.length === 0) continue;
+                // 加载该员工的 leave_types
+                let leaveTypes = {};
+                try {
+                    const ltKey = `leave_types_${record.employee_name}_${currentYear}_${currentMonth}`;
+                    const ltData = await supaFetch('settings', {
+                        query: `?key=eq.${encodeURIComponent(ltKey)}&select=value`
+                    });
+                    if (ltData.length > 0 && ltData[0].value) {
+                        leaveTypes = ltData[0].value;
+                    }
+                } catch (e) {}
+
+                record.days.forEach(d => {
+                    const type = leaveTypes[String(d)] || leaveTypes[d] || 'designated';
+                    // 所有从收集来的假期都锁定
+                    collectedLeaveCells[`${record.employee_name}_${d}`] = true;
+                });
+            }
+        } catch (e) {
+            console.error('Failed to load collected leave cells:', e);
+        }
+    }
     function updateButtonStates() {
         const deadlinePassed = isScheduleDeadlinePassed();
         const deadlineNotice = document.getElementById('deadlineNotice');
