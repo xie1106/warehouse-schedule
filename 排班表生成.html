@@ -942,14 +942,38 @@
         currentTotalRest = totalRest; // 同步到全局
 
         // Load designated rest from Supabase
-        let designatedRestMap = {};
+        let designatedRestMap = {}; // { empName: [days] } - 指定休（占用应休）
+        let leaveMap = {}; // { empName: { day: type } } - 其他假期（不占应休）
         try {
-            const drData = await supaFetch('designated_rest', {
-                query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=employee_name,days`
-            });
+            let drData;
+            try {
+                drData = await supaFetch('designated_rest', {
+                    query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=employee_name,days,leave_types`
+                });
+            } catch (e) {
+                drData = await supaFetch('designated_rest', {
+                    query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=employee_name,days`
+                });
+            }
             drData.forEach(record => {
                 if (record.days && record.days.length > 0) {
-                    designatedRestMap[record.employee_name] = record.days;
+                    const types = record.leave_types || {};
+                    const designatedDays = [];
+                    const otherLeaves = {};
+                    record.days.forEach(d => {
+                        const type = types[String(d)] || types[d] || 'designated';
+                        if (type === 'designated') {
+                            designatedDays.push(d);
+                        } else {
+                            otherLeaves[d] = type;
+                        }
+                    });
+                    if (designatedDays.length > 0) {
+                        designatedRestMap[record.employee_name] = designatedDays;
+                    }
+                    if (Object.keys(otherLeaves).length > 0) {
+                        leaveMap[record.employee_name] = otherLeaves;
+                    }
                 }
             });
         } catch (e) {
@@ -971,7 +995,7 @@
         // 4. 每人休息天数 = 应休天数（totalRest）
         // 5. 值班连续轮值
 
-        // 1. 写入指定休
+        // 1. 写入指定休（占用应休天数）
         for (const [empName, days] of Object.entries(designatedRestMap)) {
             if (!scheduleData[empName]) continue;
             days.forEach(d => {
@@ -979,6 +1003,18 @@
                     scheduleData[empName][d - 1] = 'designated';
                 }
             });
+        }
+
+        // 1.5 写入其他假期（不占用应休天数）
+        // 假期状态用对应类型名存储
+        for (const [empName, leaves] of Object.entries(leaveMap)) {
+            if (!scheduleData[empName]) continue;
+            for (const [day, type] of Object.entries(leaves)) {
+                const d = parseInt(day);
+                if (d >= 1 && d <= daysInMonth) {
+                    scheduleData[empName][d - 1] = type; // 'transfer', 'leave', 'annual', etc.
+                }
+            }
         }
 
         // 2. 谢焕君：周日休息（受应休天数限制）
@@ -1028,7 +1064,7 @@
             if (workDays[dateStr]) continue;
 
             let currentResting = employees.filter(e =>
-                scheduleData[e.name][d - 1] === 'rest' || scheduleData[e.name][d - 1] === 'designated'
+                scheduleData[e.name][d - 1] !== 'work' && scheduleData[e.name][d - 1] !== 'duty'
             ).length;
 
             // 随机目标7或8人休息（8-9人上班）

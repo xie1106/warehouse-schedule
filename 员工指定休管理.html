@@ -220,6 +220,21 @@
             box-shadow: 0 3px 10px rgba(30, 58, 95, 0.3);
             transform: scale(1.02);
         }
+        .calendar-grid .day.selected.leave-swap {
+            background: #8b5cf6;
+            box-shadow: 0 3px 10px rgba(139, 92, 246, 0.3);
+        }
+        .calendar-grid .day.selected.leave-leave {
+            background: #f59e0b;
+            box-shadow: 0 3px 10px rgba(245, 158, 11, 0.3);
+        }
+        .calendar-grid .day.selected.leave-annual,
+        .calendar-grid .day.selected.leave-marriage,
+        .calendar-grid .day.selected.leave-maternity,
+        .calendar-grid .day.selected.leave-prenatal {
+            background: #06b6d4;
+            box-shadow: 0 3px 10px rgba(6, 182, 212, 0.3);
+        }
         .calendar-grid .day.selected .day-label {
             color: rgba(255,255,255,0.85);
         }
@@ -686,6 +701,20 @@
                     <span id="restDaysUnit">天（指定休不超过此数）</span>
                 </div>
 
+                <div class="rest-config" id="leaveTypeArea">
+                    <span>假期类型：</span>
+                    <select id="leaveTypeSelect" onchange="onLeaveTypeChange()">
+                        <option value="designated">指定休</option>
+                        <option value="swap">调休</option>
+                        <option value="leave">请假</option>
+                        <option value="annual">年假</option>
+                        <option value="marriage">婚假</option>
+                        <option value="maternity">产假</option>
+                        <option value="prenatal">产检</option>
+                    </select>
+                    <span id="leaveTypeNote" style="color:var(--text-light);font-size:12px;margin-left:8px;">占用应休天数</span>
+                </div>
+
                 <div id="deadlineNotice" style="display:none; padding:12px 16px; background:#fef2f2; border-radius:10px; color:#991b1b; font-size:13px; margin-bottom:14px;">
                     ⚠️ 本月已过截止日，无法提交指定休
                 </div>
@@ -698,12 +727,15 @@
                     <div class="calendar-legend">
                         <span><div class="legend-dot holiday"></div>法定假日</span>
                         <span><div class="legend-dot workday"></div>补班日</span>
-                        <span><div class="legend-dot selected"></div>已选指定休</span>
+                        <span><div class="legend-dot selected"></div>指定休</span>
+                        <span><div class="legend-dot" style="background:#8b5cf6;"></div>调休</span>
+                        <span><div class="legend-dot" style="background:#f59e0b;"></div>请假</span>
+                        <span><div class="legend-dot" style="background:#06b6d4;"></div>年假/婚假/产假/产检</span>
                     </div>
                 </div>
 
                 <div class="selected-dates" id="selectedDatesArea">
-                    <div class="label">已选指定休日期：</div>
+                    <div class="label">已选日期：</div>
                     <div class="dates" id="selectedDatesList">暂无</div>
                 </div>
             </div>
@@ -878,7 +910,31 @@
 
     // === State ===
     let employees = [];
-    let selectedDates = [];
+    let selectedDates = {}; // { day: leaveType } e.g. { 3: 'designated', 7: 'leave' }
+    let currentLeaveType = 'designated';
+
+    const LEAVE_TYPES = {
+        designated: { label: '指定休', color: 'var(--primary)', occupiesRest: true },
+        swap: { label: '调休', color: '#8b5cf6', occupiesRest: false },
+        leave: { label: '请假', color: '#f59e0b', occupiesRest: false },
+        annual: { label: '年假', color: '#06b6d4', occupiesRest: false },
+        marriage: { label: '婚假', color: '#06b6d4', occupiesRest: false },
+        maternity: { label: '产假', color: '#06b6d4', occupiesRest: false },
+        prenatal: { label: '产检', color: '#06b6d4', occupiesRest: false }
+    };
+
+    function onLeaveTypeChange() {
+        currentLeaveType = document.getElementById('leaveTypeSelect').value;
+        const note = document.getElementById('leaveTypeNote');
+        if (LEAVE_TYPES[currentLeaveType].occupiesRest) {
+            note.textContent = '占用应休天数';
+            note.style.color = 'var(--danger)';
+        } else {
+            note.textContent = '不占用应休天数';
+            note.style.color = 'var(--success)';
+        }
+        renderCalendar();
+    }
     let currentEmployee = '';
     let currentYear = 0;
     let currentMonth = 0;
@@ -1136,21 +1192,33 @@
 
     async function loadExistingDates() {
         if (!currentEmployee || !currentYear || !currentMonth) {
-            selectedDates = [];
+            selectedDates = {};
             return;
         }
         try {
-            const data = await supaFetch('designated_rest', {
-                query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}&select=days`
-            });
+            // Try with leave_types column; fall back to days-only if column doesn't exist
+            let data;
+            try {
+                data = await supaFetch('designated_rest', {
+                    query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}&select=days,leave_types`
+                });
+            } catch (e) {
+                data = await supaFetch('designated_rest', {
+                    query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}&select=days`
+                });
+            }
             if (data.length > 0 && data[0].days) {
-                selectedDates = data[0].days;
+                selectedDates = {};
+                const types = data[0].leave_types || {};
+                data[0].days.forEach(d => {
+                    selectedDates[d] = types[String(d)] || types[d] || 'designated';
+                });
             } else {
-                selectedDates = [];
+                selectedDates = {};
             }
         } catch (e) {
             console.error('Failed to load existing dates:', e);
-            selectedDates = [];
+            selectedDates = {};
         }
         updateSelectedDatesDisplay();
     }
@@ -1190,7 +1258,10 @@
 
             if (isHoliday) classes += ' holiday';
             if (isWorkDay) classes += ' workday';
-            if (selectedDates.includes(d)) classes += ' selected';
+            if (selectedDates[d]) {
+                classes += ' selected';
+                if (selectedDates[d] !== 'designated') classes += ' leave-' + selectedDates[d];
+            }
             if (isDeadlinePassed || !currentEmployee) classes += ' disabled';
 
             // Build inner HTML with day-num and optional day-label
@@ -1215,7 +1286,7 @@
         }
 
         if (scheduleConfirmed) {
-            showToast('本月排班已确认，无法修改指定休', 'error');
+            showToast('本月排班已确认，无法修改', 'error');
             return;
         }
 
@@ -1226,32 +1297,37 @@
             return;
         }
 
-        const maxRest = parseInt(document.getElementById('totalRestDays').value) || 4;
-
-        const idx = selectedDates.indexOf(day);
-        if (idx > -1) {
-            selectedDates.splice(idx, 1);
+        if (selectedDates[day]) {
+            // 已选：取消
+            delete selectedDates[day];
         } else {
-            if (selectedDates.length >= maxRest) {
-                showToast(`最多选择${maxRest}天指定休`, 'error');
-                return;
+            // 新选：检查指定休是否超限
+            if (currentLeaveType === 'designated') {
+                const maxRest = parseInt(document.getElementById('totalRestDays').value) || 4;
+                const designatedCount = Object.values(selectedDates).filter(t => t === 'designated').length;
+                if (designatedCount >= maxRest) {
+                    showToast(\`指定休最多选择\${maxRest}天\`, 'error');
+                    return;
+                }
             }
-            selectedDates.push(day);
+            selectedDates[day] = currentLeaveType;
         }
 
-        selectedDates.sort((a, b) => a - b);
         renderCalendar();
         updateSelectedDatesDisplay();
     }
 
     function updateSelectedDatesDisplay() {
         const container = document.getElementById('selectedDatesList');
-        if (selectedDates.length === 0) {
+        const days = Object.keys(selectedDates).map(Number).sort((a, b) => a - b);
+        if (days.length === 0) {
             container.innerHTML = '<span style="color:var(--text-light);font-size:12px;">暂无选择</span>';
         } else {
-            container.innerHTML = selectedDates.map(d =>
-                `<span class="date-tag">${currentMonth}月${d}日</span>`
-            ).join('');
+            container.innerHTML = days.map(d => {
+                const type = selectedDates[d];
+                const info = LEAVE_TYPES[type] || LEAVE_TYPES.designated;
+                return `<span class="date-tag" style="background:${info.color};color:white;">${currentMonth}月${d}日 ${info.label}</span>`;
+            }).join('');
         }
     }
 
@@ -1272,12 +1348,12 @@
                 method: 'DELETE',
                 query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}`
             });
-            selectedDates = [];
+            selectedDates = {};
             renderCalendar();
             updateSelectedDatesDisplay();
             await updateStats();
             await updateCancelButton();
-            showToast(`${currentEmployee} 的指定休已取消`, 'success');
+            showToast(`${currentEmployee} 的假期已取消`, 'success');
         } catch (e) {
             showToast('取消失败', 'error');
         }
@@ -1318,7 +1394,7 @@
         }
 
         try {
-            if (selectedDates.length === 0) {
+            if (Object.keys(selectedDates).length === 0) {
                 // 取消指定休：删除记录
                 await supaFetch('designated_rest', {
                     method: 'DELETE',
@@ -1326,18 +1402,24 @@
                 });
                 showToast(`${currentEmployee} 的指定休已取消`, 'success');
             } else {
-                // Upsert 指定休
-                await supaFetch('designated_rest', {
-                    method: 'POST',
-                    body: {
-                        employee_name: currentEmployee,
-                        year: currentYear,
-                        month: currentMonth,
-                        days: selectedDates,
-                        submitted_at: new Date().toISOString()
-                    }
-                });
-                showToast(`${currentEmployee} 的指定休已保存`, 'success');
+                // Upsert 指定休/假期
+                const days = Object.keys(selectedDates).map(Number).sort((a, b) => a - b);
+                const body = {
+                    employee_name: currentEmployee,
+                    year: currentYear,
+                    month: currentMonth,
+                    days: days,
+                    leave_types: selectedDates,
+                    submitted_at: new Date().toISOString()
+                };
+                try {
+                    await supaFetch('designated_rest', { method: 'POST', body });
+                } catch (e) {
+                    // If leave_types column doesn't exist, retry without it
+                    delete body.leave_types;
+                    await supaFetch('designated_rest', { method: 'POST', body });
+                }
+                showToast(`${currentEmployee} 的假期已保存`, 'success');
             }
             await updateStats();
             await updateCancelButton();
