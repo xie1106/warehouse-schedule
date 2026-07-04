@@ -845,7 +845,7 @@
     async function loadScheduleIfExists() {
         try {
             const data = await supaFetch('schedules', {
-                query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=data,locked`
+                query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=data,locked&order=created_at.desc&limit=1`
             });
             if (data.length > 0 && data[0].data && Object.keys(data[0].data).length > 0) {
                 // 有数据就加载（无论锁定与否）
@@ -1371,7 +1371,8 @@
         // 7. 值班后再次修复连续上班≤6天
         fixConsecutive();
 
-        // 生成后不保存到数据库（只是草稿），确认后才保存
+        // 生成后立刻保存到数据库（草稿状态），刷新不会丢失
+        await saveScheduleToSupabase(false);
         renderTable();
         updateButtonStates();
         showToast('排班表已生成（草稿），请检查后点击"确认排班"', 'success');
@@ -1379,16 +1380,35 @@
 
     async function saveScheduleToSupabase(locked) {
         try {
-            await supaFetch('schedules', {
-                method: 'POST',
+            // 先尝试PATCH更新已有记录
+            const patchRes = await supaFetch('schedules', {
+                method: 'PATCH',
+                query: `?year=eq.${currentYear}&month=eq.${currentMonth}`,
                 body: {
-                    year: currentYear,
-                    month: currentMonth,
                     data: scheduleData,
                     locked: locked,
                     created_at: new Date().toISOString()
                 }
             });
+            // 如果PATCH没有命中任何行（204但content-length为空或返回空），则POST插入
+            // Supabase PATCH返回204 No Content时表示成功，但可能没匹配到行
+            // 为确保写入成功，检查是否存在记录
+            const check = await supaFetch('schedules', {
+                query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=year`
+            });
+            if (check.length === 0) {
+                // 不存在，需要插入
+                await supaFetch('schedules', {
+                    method: 'POST',
+                    body: {
+                        year: currentYear,
+                        month: currentMonth,
+                        data: scheduleData,
+                        locked: locked,
+                        created_at: new Date().toISOString()
+                    }
+                });
+            }
         } catch (e) {
             console.error('Failed to save schedule:', e);
             showToast('保存失败', 'error');
@@ -1533,9 +1553,10 @@
             });
             return;
         }
-        // 草稿状态不保存到数据库，确认后才保存
+        // 编辑后自动保存到数据库（草稿模式也保存，防止刷新丢失）
         hideDropdown();
         renderTable();
+        await saveScheduleToSupabase(isLocked);
     }
 
     function showCellWarning(anchorEl, msg, onClose) {
