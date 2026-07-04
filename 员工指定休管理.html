@@ -1306,7 +1306,7 @@
                 const maxRest = parseInt(document.getElementById('totalRestDays').value) || 4;
                 const designatedCount = Object.values(selectedDates).filter(t => t === 'designated').length;
                 if (designatedCount >= maxRest) {
-                    showToast(\`指定休最多选择\${maxRest}天\`, 'error');
+                    showToast(`指定休最多选择${maxRest}天`, 'error');
                     return;
                 }
             }
