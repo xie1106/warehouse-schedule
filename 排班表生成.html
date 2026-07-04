@@ -1110,7 +1110,7 @@
             if (dow === 1) return false; // 周一不休
             return true;
         }
-        const weekdayMaxRest = 3;
+        const weekdayMaxRest = 2; // 周二~周六每天最多2人休息
 
         // ========== v9 排班核心算法 ==========
         // 策略：先分值班（连续），再分休息（保证≤6天）
