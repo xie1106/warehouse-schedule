@@ -760,6 +760,7 @@
     let scheduleData = {}; // { name: [status for each day 1-31] }
     let isLocked = false;
     let currentTotalRest = 4; // 当月应休天数（全局）
+    let collectedLeaveCells = {}; // { "员工名_天": true } - 从指定休收集来的，不可编辑
     let activeDropdown = null;
     let isCurrentUserAdmin = false;
 
@@ -982,6 +983,15 @@
             }
         } catch (e) {
             console.error('Failed to load designated rest:', e);
+        }
+
+        // 记录从指定休收集来的单元格（不可手动编辑）
+        collectedLeaveCells = {};
+        for (const [empName, days] of Object.entries(designatedRestMap)) {
+            days.forEach(d => { collectedLeaveCells[`${empName}_${d}`] = true; });
+        }
+        for (const [empName, leaves] of Object.entries(leaveMap)) {
+            Object.keys(leaves).forEach(d => { collectedLeaveCells[`${empName}_${d}`] = true; });
         }
 
         // Initialize schedule - all work
@@ -1321,8 +1331,9 @@
             for (let d = 1; d <= daysInMonth; d++) {
                 const status = scheduleData[emp.name][d - 1] || 'work';
                 const statusInfo = STATUS_TYPES.find(s => s.key === status) || STATUS_TYPES[0];
-                // 只有管理员能编辑
-                const canEdit = isCurrentUserAdmin && !isLocked && !deadlinePassed;
+                // 从指定休收集来的假期不可编辑
+                const isCollected = collectedLeaveCells[`${emp.name}_${d}`];
+                const canEdit = isCurrentUserAdmin && !isLocked && !deadlinePassed && !isCollected;
                 const cellClass = canEdit ? 'editable' : 'locked';
 
                 html += `<td class="${cellClass}" style="background:${statusInfo.color} !important;font-weight:${status === 'work' ? '400' : '700'};" data-name="${emp.name}" data-day="${d}" data-status="${status}"
