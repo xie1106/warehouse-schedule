@@ -1214,6 +1214,7 @@
             }
             
             // 强制修复（如果应休用完还有>6天连续）
+            // 不额外加rest，而是把已有的rest移到更好的位置
             for (let pass = 0; pass < 30; pass++) {
                 if (getMaxStreak(empName) <= 6) break;
                 let lS = -1, lL = 0, streak = 0, ss = 0;
@@ -1224,8 +1225,23 @@
                 }
                 if (lL <= 6) break;
                 const ip = findInsertPos(schedule, lS, lL);
-                if (ip >= 0) schedule[ip] = 'rest';
-                else break;
+                if (ip < 0) break;
+                // 找段外一个rest天来交换（而非额外插入）
+                let swapDay = -1;
+                for (let sd = 0; sd < daysInMonth; sd++) {
+                    if (sd >= lS && sd < lS + lL) continue; // 段内跳过
+                    if (schedule[sd] !== 'rest') continue;
+                    const dow = new Date(currentYear, currentMonth - 1, sd + 1).getDay();
+                    if (dow === 0 || dow === 1) continue; // 不动周日和周一的rest
+                    swapDay = sd;
+                    break;
+                }
+                if (swapDay >= 0) {
+                    schedule[ip] = 'rest';
+                    schedule[swapDay] = 'work';
+                } else {
+                    break; // 无可交换则放弃（保持最小违规）
+                }
             }
         }
 
@@ -1247,7 +1263,7 @@
             }
         }
 
-        // 8. 最终全局修复（确保所有人连续≤6天）
+        // 8. 最终全局修复（确保所有人连续≤6天，通过交换休息位置）
         for (let pass = 0; pass < 200; pass++) {
             let anyFixed = false;
             for (const emp of employees) {
@@ -1261,7 +1277,23 @@
                 }
                 if (lL <= 6) continue;
                 const ip = findInsertPos(schedule, lS, lL);
-                if (ip >= 0) { schedule[ip] = 'rest'; anyFixed = true; }
+                if (ip >= 0) {
+                    // 找段外rest交换
+                    let swapDay = -1;
+                    for (let sd = 0; sd < daysInMonth; sd++) {
+                        if (sd >= lS && sd < lS + lL) continue;
+                        if (schedule[sd] !== 'rest') continue;
+                        const dow = new Date(currentYear, currentMonth - 1, sd + 1).getDay();
+                        if (dow === 0 || dow === 1) continue;
+                        swapDay = sd;
+                        break;
+                    }
+                    if (swapDay >= 0) {
+                        schedule[ip] = 'rest';
+                        schedule[swapDay] = 'work';
+                        anyFixed = true;
+                    }
+                }
             }
             if (!anyFixed) break;
         }
