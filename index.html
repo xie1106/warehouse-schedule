@@ -46,18 +46,14 @@
         .logo {
             width: 72px;
             height: 72px;
+            background: linear-gradient(145deg, var(--primary), var(--primary-light));
             border-radius: 18px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            font-size: 32px;
             margin-bottom: 24px;
-            overflow: hidden;
-        }
-        .logo img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 18px;
+            box-shadow: 0 4px 12px rgba(30, 58, 95, 0.2);
         }
         h1 {
             color: var(--text);
@@ -172,7 +168,7 @@
 <body>
     <div class="loading-overlay" id="loadingOverlay">加载中...</div>
     <div class="container">
-        <div class="logo"><img src="logo-bg.png" alt="捷展云仓"></div>
+        <div class="logo">🗓</div>
         <h1>排班系统</h1>
         <div class="nav-links">
             <a href="员工指定休管理.html" class="nav-link">
