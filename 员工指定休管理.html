@@ -1257,22 +1257,25 @@
             return;
         }
         try {
-            // Try with leave_types column; fall back to days-only if column doesn't exist
-            let data;
+            const data = await supaFetch('designated_rest', {
+                query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}&select=days`
+            });
+            // Load leave_types from settings table
+            const ltKey = `leave_types_${currentEmployee}_${currentYear}_${currentMonth}`;
+            let leaveTypes = {};
             try {
-                data = await supaFetch('designated_rest', {
-                    query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}&select=days,leave_types`
+                const ltData = await supaFetch('settings', {
+                    query: `?key=eq.${encodeURIComponent(ltKey)}&select=value`
                 });
-            } catch (e) {
-                data = await supaFetch('designated_rest', {
-                    query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}&select=days`
-                });
-            }
+                if (ltData.length > 0 && ltData[0].value) {
+                    leaveTypes = ltData[0].value;
+                }
+            } catch (e) {}
+
             if (data.length > 0 && data[0].days) {
                 selectedDates = {};
-                const types = data[0].leave_types || {};
                 data[0].days.forEach(d => {
-                    selectedDates[d] = types[String(d)] || types[d] || 'designated';
+                    selectedDates[d] = leaveTypes[String(d)] || leaveTypes[d] || 'designated';
                 });
             } else {
                 selectedDates = {};
@@ -1514,21 +1517,22 @@
             } else {
                 // Upsert 指定休/假期
                 const days = Object.keys(selectedDates).map(Number).sort((a, b) => a - b);
-                const body = {
-                    employee_name: currentEmployee,
-                    year: currentYear,
-                    month: currentMonth,
-                    days: days,
-                    leave_types: selectedDates,
-                    submitted_at: new Date().toISOString()
-                };
-                try {
-                    await supaFetch('designated_rest', { method: 'POST', body });
-                } catch (e) {
-                    // If leave_types column doesn't exist, retry without it
-                    delete body.leave_types;
-                    await supaFetch('designated_rest', { method: 'POST', body });
-                }
+                await supaFetch('designated_rest', {
+                    method: 'POST',
+                    body: {
+                        employee_name: currentEmployee,
+                        year: currentYear,
+                        month: currentMonth,
+                        days: days,
+                        submitted_at: new Date().toISOString()
+                    }
+                });
+                // Save leave_types to settings table
+                const ltKey = `leave_types_${currentEmployee}_${currentYear}_${currentMonth}`;
+                await supaFetch('settings', {
+                    method: 'POST',
+                    body: { key: ltKey, value: selectedDates }
+                });
                 showToast(`${currentEmployee} 的假期已保存`, 'success');
             }
             await updateStats();

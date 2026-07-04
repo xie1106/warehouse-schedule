@@ -945,37 +945,41 @@
         let designatedRestMap = {}; // { empName: [days] } - 指定休（占用应休）
         let leaveMap = {}; // { empName: { day: type } } - 其他假期（不占应休）
         try {
-            let drData;
-            try {
-                drData = await supaFetch('designated_rest', {
-                    query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=employee_name,days,leave_types`
-                });
-            } catch (e) {
-                drData = await supaFetch('designated_rest', {
-                    query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=employee_name,days`
-                });
-            }
-            drData.forEach(record => {
-                if (record.days && record.days.length > 0) {
-                    const types = record.leave_types || {};
-                    const designatedDays = [];
-                    const otherLeaves = {};
-                    record.days.forEach(d => {
-                        const type = types[String(d)] || types[d] || 'designated';
-                        if (type === 'designated') {
-                            designatedDays.push(d);
-                        } else {
-                            otherLeaves[d] = type;
-                        }
-                    });
-                    if (designatedDays.length > 0) {
-                        designatedRestMap[record.employee_name] = designatedDays;
-                    }
-                    if (Object.keys(otherLeaves).length > 0) {
-                        leaveMap[record.employee_name] = otherLeaves;
-                    }
-                }
+            const drData = await supaFetch('designated_rest', {
+                query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=employee_name,days`
             });
+
+            // Load leave_types from settings for each employee
+            for (const record of drData) {
+                if (!record.days || record.days.length === 0) continue;
+                let leaveTypes = {};
+                try {
+                    const ltKey = `leave_types_${record.employee_name}_${currentYear}_${currentMonth}`;
+                    const ltData = await supaFetch('settings', {
+                        query: `?key=eq.${encodeURIComponent(ltKey)}&select=value`
+                    });
+                    if (ltData.length > 0 && ltData[0].value) {
+                        leaveTypes = ltData[0].value;
+                    }
+                } catch (e) {}
+
+                const designatedDays = [];
+                const otherLeaves = {};
+                record.days.forEach(d => {
+                    const type = leaveTypes[String(d)] || leaveTypes[d] || 'designated';
+                    if (type === 'designated') {
+                        designatedDays.push(d);
+                    } else {
+                        otherLeaves[d] = type;
+                    }
+                });
+                if (designatedDays.length > 0) {
+                    designatedRestMap[record.employee_name] = designatedDays;
+                }
+                if (Object.keys(otherLeaves).length > 0) {
+                    leaveMap[record.employee_name] = otherLeaves;
+                }
+            }
         } catch (e) {
             console.error('Failed to load designated rest:', e);
         }
