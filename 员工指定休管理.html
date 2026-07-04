@@ -216,28 +216,44 @@
         }
         .calendar-grid .day.empty { cursor: default; }
         .calendar-grid .day.selected {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 3px 10px rgba(30, 58, 95, 0.3);
+            background: #f3e8ff;
+            color: #1e3a5f;
+            box-shadow: 0 3px 10px rgba(243, 232, 255, 0.5);
             transform: scale(1.02);
+            border: 2px solid #c084fc;
         }
         .calendar-grid .day.selected.leave-swap {
-            background: #8b5cf6;
-            box-shadow: 0 3px 10px rgba(139, 92, 246, 0.3);
+            background: #e5e7eb;
+            border-color: #9ca3af;
+            box-shadow: 0 3px 10px rgba(229, 231, 235, 0.5);
         }
         .calendar-grid .day.selected.leave-leave {
-            background: #f59e0b;
-            box-shadow: 0 3px 10px rgba(245, 158, 11, 0.3);
+            background: #d1fae5;
+            border-color: #34d399;
+            box-shadow: 0 3px 10px rgba(209, 250, 229, 0.5);
         }
-        .calendar-grid .day.selected.leave-annual,
-        .calendar-grid .day.selected.leave-marriage,
-        .calendar-grid .day.selected.leave-maternity,
+        .calendar-grid .day.selected.leave-annual {
+            background: #dbeafe;
+            border-color: #60a5fa;
+            box-shadow: 0 3px 10px rgba(219, 234, 254, 0.5);
+        }
+        .calendar-grid .day.selected.leave-marriage {
+            background: #fce7f3;
+            border-color: #f472b6;
+            box-shadow: 0 3px 10px rgba(252, 231, 243, 0.5);
+        }
         .calendar-grid .day.selected.leave-prenatal {
-            background: #06b6d4;
-            box-shadow: 0 3px 10px rgba(6, 182, 212, 0.3);
+            background: #fed7aa;
+            border-color: #fb923c;
+            box-shadow: 0 3px 10px rgba(254, 215, 170, 0.5);
+        }
+        .calendar-grid .day.selected.leave-maternity {
+            background: #e0f2fe;
+            border-color: #38bdf8;
+            box-shadow: 0 3px 10px rgba(224, 242, 254, 0.5);
         }
         .calendar-grid .day.selected .day-label {
-            color: rgba(255,255,255,0.85);
+            color: rgba(0,0,0,0.6);
         }
 
         /* Leave type popup */
@@ -341,7 +357,10 @@
         }
         .legend-dot.holiday { background: var(--danger); }
         .legend-dot.workday { background: var(--primary-lighter); }
-        .legend-dot.selected { background: var(--primary); }
+        .legend-dot.selected { background: #f3e8ff; border: 1px solid #c084fc; }
+        .legend-dot.swap { background: #e5e7eb; border: 1px solid #9ca3af; }
+        .legend-dot.leave { background: #d1fae5; border: 1px solid #34d399; }
+        .legend-dot.annual { background: #dbeafe; border: 1px solid #60a5fa; }
         /* Rest days config */
         .rest-config {
             display: flex;
@@ -772,9 +791,12 @@
                         <span><div class="legend-dot holiday"></div>法定假日</span>
                         <span><div class="legend-dot workday"></div>补班日</span>
                         <span><div class="legend-dot selected"></div>指定休</span>
-                        <span><div class="legend-dot" style="background:#8b5cf6;"></div>调休</span>
-                        <span><div class="legend-dot" style="background:#f59e0b;"></div>请假</span>
-                        <span><div class="legend-dot" style="background:#06b6d4;"></div>年假/婚假/产假/产检</span>
+                        <span><div class="legend-dot swap"></div>调休</span>
+                        <span><div class="legend-dot leave"></div>请假</span>
+                        <span><div class="legend-dot annual"></div>年假</span>
+                        <span><div class="legend-dot" style="background:#fce7f3;border:1px solid #f472b6;"></div>婚假</span>
+                        <span><div class="legend-dot" style="background:#fed7aa;border:1px solid #fb923c;"></div>产检</span>
+                        <span><div class="legend-dot" style="background:#e0f2fe;border:1px solid #38bdf8;"></div>产假</span>
                     </div>
                 </div>
 
@@ -784,26 +806,26 @@
                     <div class="popup-title">选择假期类型</div>
                     <div class="popup-options">
                         <button class="popup-opt" data-type="designated" onclick="selectLeaveType('designated')">
-                            <span class="opt-dot" style="background:var(--primary);"></span>指定休
+                            <span class="opt-dot" style="background:#f3e8ff;border:1px solid #c084fc;"></span>指定休
                             <span class="opt-note">占应休</span>
                         </button>
                         <button class="popup-opt" data-type="swap" onclick="selectLeaveType('swap')">
-                            <span class="opt-dot" style="background:#8b5cf6;"></span>调休
+                            <span class="opt-dot" style="background:#e5e7eb;border:1px solid #9ca3af;"></span>调休
                         </button>
                         <button class="popup-opt" data-type="leave" onclick="selectLeaveType('leave')">
-                            <span class="opt-dot" style="background:#f59e0b;"></span>请假
+                            <span class="opt-dot" style="background:#d1fae5;border:1px solid #34d399;"></span>请假
                         </button>
                         <button class="popup-opt" data-type="annual" onclick="selectLeaveType('annual')">
-                            <span class="opt-dot" style="background:#06b6d4;"></span>年假
+                            <span class="opt-dot" style="background:#dbeafe;border:1px solid #60a5fa;"></span>年假
                         </button>
                         <button class="popup-opt" data-type="marriage" onclick="selectLeaveType('marriage')">
-                            <span class="opt-dot" style="background:#06b6d4;"></span>婚假
+                            <span class="opt-dot" style="background:#fce7f3;border:1px solid #f472b6;"></span>婚假
                         </button>
                         <button class="popup-opt" data-type="maternity" onclick="selectLeaveType('maternity')">
-                            <span class="opt-dot" style="background:#06b6d4;"></span>产假
+                            <span class="opt-dot" style="background:#e0f2fe;border:1px solid #38bdf8;"></span>产假
                         </button>
                         <button class="popup-opt" data-type="prenatal" onclick="selectLeaveType('prenatal')">
-                            <span class="opt-dot" style="background:#06b6d4;"></span>产检
+                            <span class="opt-dot" style="background:#fed7aa;border:1px solid #fb923c;"></span>产检
                         </button>
                     </div>
                 </div>
@@ -987,13 +1009,13 @@
     let selectedDates = {}; // { day: leaveType } e.g. { 3: 'designated', 7: 'leave' }
 
     const LEAVE_TYPES = {
-        designated: { label: '指定休', color: 'var(--primary)', occupiesRest: true },
-        swap: { label: '调休', color: '#8b5cf6', occupiesRest: false },
-        leave: { label: '请假', color: '#f59e0b', occupiesRest: false },
-        annual: { label: '年假', color: '#06b6d4', occupiesRest: false },
-        marriage: { label: '婚假', color: '#06b6d4', occupiesRest: false },
-        maternity: { label: '产假', color: '#06b6d4', occupiesRest: false },
-        prenatal: { label: '产检', color: '#06b6d4', occupiesRest: false }
+        designated: { label: '指定休', color: '#f3e8ff', borderColor: '#c084fc', occupiesRest: true },
+        swap: { label: '调休', color: '#e5e7eb', borderColor: '#9ca3af', occupiesRest: false },
+        leave: { label: '请假', color: '#d1fae5', borderColor: '#34d399', occupiesRest: false },
+        annual: { label: '年假', color: '#dbeafe', borderColor: '#60a5fa', occupiesRest: false },
+        marriage: { label: '婚假', color: '#fce7f3', borderColor: '#f472b6', occupiesRest: false },
+        maternity: { label: '产假', color: '#e0f2fe', borderColor: '#38bdf8', occupiesRest: false },
+        prenatal: { label: '产检', color: '#fed7aa', borderColor: '#fb923c', occupiesRest: false }
     };
 
     let currentEmployee = '';
