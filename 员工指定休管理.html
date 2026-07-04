@@ -172,6 +172,7 @@
         /* Calendar */
         .calendar {
             margin-top: 8px;
+            position: relative;
         }
         .calendar-header {
             display: flex;
@@ -237,6 +238,61 @@
         }
         .calendar-grid .day.selected .day-label {
             color: rgba(255,255,255,0.85);
+        }
+
+        /* Leave type popup */
+        .leave-type-popup {
+            position: absolute;
+            z-index: 100;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            padding: 12px;
+            min-width: 160px;
+        }
+        .leave-type-popup .popup-title {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .leave-type-popup .popup-options {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .leave-type-popup .popup-opt {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border: none;
+            background: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text);
+            transition: background 0.15s;
+        }
+        .leave-type-popup .popup-opt:hover {
+            background: #f1f5f9;
+        }
+        .leave-type-popup .opt-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .leave-type-popup .opt-note {
+            font-size: 11px;
+            color: var(--danger);
+            margin-left: auto;
+        }
+        .popup-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 99;
         }
         .calendar-grid .day.holiday {
             color: var(--danger);
@@ -701,19 +757,7 @@
                     <span id="restDaysUnit">天（指定休不超过此数）</span>
                 </div>
 
-                <div class="rest-config" id="leaveTypeArea">
-                    <span>假期类型：</span>
-                    <select id="leaveTypeSelect" onchange="onLeaveTypeChange()">
-                        <option value="designated">指定休</option>
-                        <option value="swap">调休</option>
-                        <option value="leave">请假</option>
-                        <option value="annual">年假</option>
-                        <option value="marriage">婚假</option>
-                        <option value="maternity">产假</option>
-                        <option value="prenatal">产检</option>
-                    </select>
-                    <span id="leaveTypeNote" style="color:var(--text-light);font-size:12px;margin-left:8px;">占用应休天数</span>
-                </div>
+
 
                 <div id="deadlineNotice" style="display:none; padding:12px 16px; background:#fef2f2; border-radius:10px; color:#991b1b; font-size:13px; margin-bottom:14px;">
                     ⚠️ 本月已过截止日，无法提交指定休
@@ -731,6 +775,36 @@
                         <span><div class="legend-dot" style="background:#8b5cf6;"></div>调休</span>
                         <span><div class="legend-dot" style="background:#f59e0b;"></div>请假</span>
                         <span><div class="legend-dot" style="background:#06b6d4;"></div>年假/婚假/产假/产检</span>
+                    </div>
+                </div>
+
+                <!-- 假期类型弹窗 -->
+                <div class="leave-type-popup" id="leaveTypePopup" style="display:none;">
+                    <div class="popup-arrow"></div>
+                    <div class="popup-title">选择假期类型</div>
+                    <div class="popup-options">
+                        <button class="popup-opt" data-type="designated" onclick="selectLeaveType('designated')">
+                            <span class="opt-dot" style="background:var(--primary);"></span>指定休
+                            <span class="opt-note">占应休</span>
+                        </button>
+                        <button class="popup-opt" data-type="swap" onclick="selectLeaveType('swap')">
+                            <span class="opt-dot" style="background:#8b5cf6;"></span>调休
+                        </button>
+                        <button class="popup-opt" data-type="leave" onclick="selectLeaveType('leave')">
+                            <span class="opt-dot" style="background:#f59e0b;"></span>请假
+                        </button>
+                        <button class="popup-opt" data-type="annual" onclick="selectLeaveType('annual')">
+                            <span class="opt-dot" style="background:#06b6d4;"></span>年假
+                        </button>
+                        <button class="popup-opt" data-type="marriage" onclick="selectLeaveType('marriage')">
+                            <span class="opt-dot" style="background:#06b6d4;"></span>婚假
+                        </button>
+                        <button class="popup-opt" data-type="maternity" onclick="selectLeaveType('maternity')">
+                            <span class="opt-dot" style="background:#06b6d4;"></span>产假
+                        </button>
+                        <button class="popup-opt" data-type="prenatal" onclick="selectLeaveType('prenatal')">
+                            <span class="opt-dot" style="background:#06b6d4;"></span>产检
+                        </button>
                     </div>
                 </div>
 
@@ -911,7 +985,6 @@
     // === State ===
     let employees = [];
     let selectedDates = {}; // { day: leaveType } e.g. { 3: 'designated', 7: 'leave' }
-    let currentLeaveType = 'designated';
 
     const LEAVE_TYPES = {
         designated: { label: '指定休', color: 'var(--primary)', occupiesRest: true },
@@ -923,18 +996,6 @@
         prenatal: { label: '产检', color: '#06b6d4', occupiesRest: false }
     };
 
-    function onLeaveTypeChange() {
-        currentLeaveType = document.getElementById('leaveTypeSelect').value;
-        const note = document.getElementById('leaveTypeNote');
-        if (LEAVE_TYPES[currentLeaveType].occupiesRest) {
-            note.textContent = '占用应休天数';
-            note.style.color = 'var(--danger)';
-        } else {
-            note.textContent = '不占用应休天数';
-            note.style.color = 'var(--success)';
-        }
-        renderCalendar();
-    }
     let currentEmployee = '';
     let currentYear = 0;
     let currentMonth = 0;
@@ -1279,6 +1340,8 @@
         grid.innerHTML = html;
     }
 
+    let pendingDay = null; // 等待选择类型的日期
+
     function toggleDay(day) {
         if (!currentEmployee) {
             showToast('请先选择员工', 'error');
@@ -1297,22 +1360,69 @@
             return;
         }
 
+        // 关闭已有弹窗
+        hideLeavePopup();
+
         if (selectedDates[day]) {
             // 已选：取消
             delete selectedDates[day];
+            renderCalendar();
+            updateSelectedDatesDisplay();
         } else {
-            // 新选：检查指定休是否超限
-            if (currentLeaveType === 'designated') {
-                const maxRest = parseInt(document.getElementById('totalRestDays').value) || 4;
-                const designatedCount = Object.values(selectedDates).filter(t => t === 'designated').length;
-                if (designatedCount >= maxRest) {
-                    showToast(`指定休最多选择${maxRest}天`, 'error');
-                    return;
-                }
+            // 新选：显示类型选择弹窗
+            pendingDay = day;
+            showLeavePopup(day);
+        }
+    }
+
+    function showLeavePopup(day) {
+        const popup = document.getElementById('leaveTypePopup');
+        const dayEl = document.querySelector(`.day[data-day="${day}"]`);
+        if (!dayEl) return;
+
+        const rect = dayEl.getBoundingClientRect();
+        const calArea = document.getElementById('calendarArea');
+        const calRect = calArea.getBoundingClientRect();
+
+        popup.style.display = 'block';
+        popup.style.left = (rect.left - calRect.left + rect.width / 2 - 80) + 'px';
+        popup.style.top = (rect.bottom - calRect.top + 8) + 'px';
+
+        // 添加背景遮罩
+        if (!document.getElementById('popupOverlay')) {
+            const overlay = document.createElement('div');
+            overlay.id = 'popupOverlay';
+            overlay.className = 'popup-overlay';
+            overlay.onclick = hideLeavePopup;
+            document.body.appendChild(overlay);
+        }
+        document.getElementById('popupOverlay').style.display = 'block';
+    }
+
+    function hideLeavePopup() {
+        const popup = document.getElementById('leaveTypePopup');
+        popup.style.display = 'none';
+        pendingDay = null;
+        const overlay = document.getElementById('popupOverlay');
+        if (overlay) overlay.style.display = 'none';
+    }
+
+    function selectLeaveType(type) {
+        if (pendingDay === null) return;
+
+        // 检查指定休限制
+        if (type === 'designated') {
+            const maxRest = parseInt(document.getElementById('totalRestDays').value) || 4;
+            const designatedCount = Object.values(selectedDates).filter(t => t === 'designated').length;
+            if (designatedCount >= maxRest) {
+                showToast(`指定休最多选择${maxRest}天`, 'error');
+                hideLeavePopup();
+                return;
             }
-            selectedDates[day] = currentLeaveType;
         }
 
+        selectedDates[pendingDay] = type;
+        hideLeavePopup();
         renderCalendar();
         updateSelectedDatesDisplay();
     }
