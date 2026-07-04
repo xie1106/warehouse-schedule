@@ -1534,23 +1534,20 @@
     }
 
     async function unlockSchedule() {
-        if (!confirm('解锁后将清除当前排班，需要重新生成，是否继续？')) return;
-        // 解锁并清空数据，需要重新生成排班
+        if (!confirm('解锁后可修改排班（指定休收集的假期仍不可改），是否继续？')) return;
         try {
             await supaFetch('schedules', {
                 method: 'PATCH',
                 query: `?year=eq.${currentYear}&month=eq.${currentMonth}`,
-                body: { locked: false, data: {} }
+                body: { locked: false }
             });
         } catch (e) {
             console.error('Failed to unlock schedule:', e);
         }
         isLocked = false;
-        scheduleData = {};
-        document.getElementById('tableWrapper').innerHTML =
-            '<p style="text-align:center;padding:40px;color:var(--text-light);">排班已解锁，请重新点击"一键生成排班"</p>';
+        renderTable();
         updateButtonStates();
-        showToast('已解锁，请重新生成排班', 'success');
+        showToast('已解锁，可微调排班', 'success');
     }
 
     // === Export Excel ===
