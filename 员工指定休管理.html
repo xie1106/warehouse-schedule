@@ -258,7 +258,7 @@
 
         /* Leave type popup */
         .leave-type-popup {
-            position: absolute;
+            position: fixed;
             z-index: 100;
             background: white;
             border-radius: 12px;
@@ -1406,12 +1406,27 @@
         if (!dayEl) return;
 
         const rect = dayEl.getBoundingClientRect();
-        const calArea = document.getElementById('calendarArea');
-        const calRect = calArea.getBoundingClientRect();
 
         popup.style.display = 'block';
-        popup.style.left = (rect.left - calRect.left + rect.width / 2 - 80) + 'px';
-        popup.style.top = (rect.bottom - calRect.top + 8) + 'px';
+        // 用 fixed 定位，紧贴点击日期的右边或下方
+        const popupW = popup.offsetWidth || 160;
+        const popupH = popup.offsetHeight || 300;
+
+        let left = rect.right + 8;
+        let top = rect.top;
+
+        // 如果右边放不下，放左边
+        if (left + popupW > window.innerWidth) {
+            left = rect.left - popupW - 8;
+        }
+        // 如果下方超出，向上调整
+        if (top + popupH > window.innerHeight) {
+            top = window.innerHeight - popupH - 10;
+        }
+        if (top < 10) top = 10;
+
+        popup.style.left = left + 'px';
+        popup.style.top = top + 'px';
 
         // 添加背景遮罩
         if (!document.getElementById('popupOverlay')) {
