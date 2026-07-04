@@ -742,7 +742,7 @@
     <div class="loading-overlay" id="loadingOverlay">加载中...</div>
 
     <div class="header">
-        <h1>指定休收集</h1>
+        <h1>休假收集</h1>
         <div class="header-actions">
             <a href="index.html" class="btn-back">← 首页</a>
         </div>
@@ -1202,7 +1202,7 @@
             if (data.length > 0 && data[0].locked) {
                 scheduleConfirmed = true;
                 notice.style.display = 'block';
-                notice.innerHTML = `✅ ${currentYear}年${currentMonth}月的排班已确认，指定休收集已停止`;
+                notice.innerHTML = `✅ ${currentYear}年${currentMonth}月的排班已确认，休假收集已停止`;
                 return;
             }
         } catch (e) {}
@@ -1228,7 +1228,7 @@
 
         if (now > deadline) {
             notice.style.display = 'block';
-            notice.innerHTML = `⚠️ ${currentYear}年${currentMonth}月的指定休收集已截止（截止日期：${deadlineYear}年${deadlineMonth}月25日），无法提交`;
+            notice.innerHTML = `⚠️ ${currentYear}年${currentMonth}月的休假收集已截止（截止日期：${deadlineYear}年${deadlineMonth}月25日），无法提交`;
         } else {
             notice.style.display = 'none';
         }

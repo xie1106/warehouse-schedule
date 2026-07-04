@@ -174,7 +174,7 @@
             <a href="员工指定休管理.html" class="nav-link">
                 <div class="nav-icon">🕐</div>
                 <div class="nav-text">
-                    指定休收集
+                    休假收集
                     <span>提交截止时间25日</span>
                 </div>
             </a>
@@ -229,7 +229,7 @@
     function goToSchedule() {
         const savedEmployee = localStorage.getItem('last_selected_employee');
         if (!savedEmployee) {
-            alert('请先在"指定休收集"页面选择你是谁');
+            alert('请先在"休假收集"页面选择你是谁');
             window.location.href = '员工指定休管理.html';
             return;
         }
