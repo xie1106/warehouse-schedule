@@ -1116,7 +1116,7 @@
         // 策略：先分值班（连续），再分休息（保证≤6天）
         
         // 5.5 值班分配（先于休息，保证值班连续性）
-        const dutyExclude = ['谢焕君', '付新远', '陈文童', '陈安然', '黄丽焓', '崔斯欣', '林镇兴'];
+        const dutyExclude = ['谢焕君', '付新远', '陈文童', '陈安然', '黄丽情', '崔斯欣', '林镇兴'];
         const dutyEligible = employees.filter(e => !dutyExclude.includes(e.name)).map(e => e.name);
         const totalDutyDays = daysInMonth;
         const baseDuty = Math.floor(totalDutyDays / dutyEligible.length);
