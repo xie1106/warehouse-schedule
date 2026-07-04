@@ -1183,24 +1183,89 @@
             dailyRestCount[targetDay] = (dailyRestCount[targetDay] || 0) + 1;
         }
 
-        // 5.5 连续上班不超过6天检查 — 在值班分配之后统一处理（见下方）
+        // 5.5 + 6 + 7: 连续上班约束 + 值班分配 + 最终验证
+        // === 连续上班修复函数（通用，work+duty都算上班）===
+        function fixConsecutive() {
+            for (let pass = 0; pass < 50; pass++) {
+                let anyFixed = false;
+                for (const emp of employees) {
+                    let streak = 0, streakStart = 0;
+                    for (let d = 1; d <= daysInMonth + 1; d++) {
+                        const s = d <= daysInMonth ? scheduleData[emp.name][d - 1] : 'x';
+                        if (s === 'work' || s === 'duty') {
+                            if (streak === 0) streakStart = d;
+                            streak++;
+                        } else {
+                            if (streak > 6) {
+                                // 在第6天后面找一个work天改成rest
+                                let insertDay = -1;
+                                // 优先找work天（不动duty）
+                                for (let pos = streakStart + 5; pos < streakStart + streak && pos <= daysInMonth; pos++) {
+                                    const dow = new Date(currentYear, currentMonth - 1, pos).getDay();
+                                    if (dow === 1) continue;
+                                    if (scheduleData[emp.name][pos - 1] === 'work') { insertDay = pos; break; }
+                                }
+                                if (insertDay <= 0) {
+                                    // 从第4天开始找
+                                    for (let pos = streakStart + 3; pos < streakStart + streak && pos <= daysInMonth; pos++) {
+                                        const dow = new Date(currentYear, currentMonth - 1, pos).getDay();
+                                        if (dow === 1) continue;
+                                        if (scheduleData[emp.name][pos - 1] === 'work') { insertDay = pos; break; }
+                                    }
+                                }
+                                // 如果全是duty没有work，找duty天改rest（最后手段）
+                                if (insertDay <= 0) {
+                                    for (let pos = streakStart + 5; pos < streakStart + streak && pos <= daysInMonth; pos++) {
+                                        const dow = new Date(currentYear, currentMonth - 1, pos).getDay();
+                                        if (dow === 1) continue;
+                                        if (scheduleData[emp.name][pos - 1] === 'duty') { insertDay = pos; break; }
+                                    }
+                                }
+                                if (insertDay > 0) {
+                                    // 找段外rest天交换
+                                    let swapDay = -1;
+                                    for (let sd = 1; sd <= daysInMonth; sd++) {
+                                        if (sd >= streakStart && sd < streakStart + streak) continue;
+                                        if (scheduleData[emp.name][sd - 1] !== 'rest') continue;
+                                        const sdow = new Date(currentYear, currentMonth - 1, sd).getDay();
+                                        if (sdow === 0 || sdow === 1) continue;
+                                        swapDay = sd; break;
+                                    }
+                                    if (swapDay > 0) {
+                                        scheduleData[emp.name][insertDay - 1] = 'rest';
+                                        scheduleData[emp.name][swapDay - 1] = 'work';
+                                    } else {
+                                        // 无可交换，强制插入rest
+                                        scheduleData[emp.name][insertDay - 1] = 'rest';
+                                    }
+                                    anyFixed = true;
+                                }
+                            }
+                            streak = 0;
+                        }
+                    }
+                }
+                if (!anyFixed) break;
+            }
+        }
 
-        // 6. 值班分配（连续值班，随机分配，不按名单顺序）
+        // 先修复休息分配后的连续work
+        fixConsecutive();
+
+        // === 6. 值班分配 ===
         const dutyExclude = ['谢焕君', '付新远', '陈文童', '陈安然', '黄丽情', '崔斯欣', '林镇兴'];
         const dutyEligible = employees.filter(e => !dutyExclude.includes(e.name)).map(e => e.name);
-
         const totalDutyDays = daysInMonth;
         const baseDuty = Math.floor(totalDutyDays / dutyEligible.length);
         const extraDuty = totalDutyDays % dutyEligible.length;
 
-        // 随机打乱顺序
+        // 随机打乱
         const shuffledEligible = [...dutyEligible].sort(() => Math.random() - 0.5);
         const dutyTargets = {};
         shuffledEligible.forEach((name, idx) => {
             dutyTargets[name] = baseDuty + (idx < extraDuty ? 1 : 0);
         });
 
-        // 计算每人的连续工作段（work状态的连续天）
         function getWorkStreaks(name) {
             const streaks = [];
             let start = -1;
@@ -1208,80 +1273,92 @@
                 if (scheduleData[name][d] === 'work') {
                     if (start === -1) start = d;
                 } else {
-                    if (start !== -1) {
-                        streaks.push({ start, end: d - 1, len: d - start });
-                        start = -1;
-                    }
+                    if (start !== -1) { streaks.push({ start, end: d - 1, len: d - start }); start = -1; }
                 }
             }
             if (start !== -1) streaks.push({ start, end: daysInMonth - 1, len: daysInMonth - start });
             return streaks;
         }
 
-        // 核心：为每个人找一个连续的值班段
-        // 策略：在每人的连续工作段中，找一段 >= 目标天数的区间来安排值班
         const dutyAssignment = new Array(daysInMonth).fill(null);
         const assigned = {};
         shuffledEligible.forEach(name => { assigned[name] = 0; });
 
+        // 为每人找连续work段安排值班（值班段≤6天，保证不会单独超标）
         for (const name of shuffledEligible) {
             const target = dutyTargets[name];
             if (target <= 0) continue;
+            // 实际分配不超过6天连续（避免值班本身超6天）
+            const actualTarget = Math.min(target, 6);
             const streaks = getWorkStreaks(name).sort((a, b) => b.len - a.len);
 
-            let bestStreak = null;
-            let bestStart = -1;
-
-            // 找一个连续段能放下 target 天的
+            let placed = false;
             for (const streak of streaks) {
-                if (streak.len < target) continue;
-                // 在这个段里找连续 target 天都未被分配的起始位置
-                for (let s = streak.start; s <= streak.end - target + 1; s++) {
+                if (placed) break;
+                if (streak.len < actualTarget) continue;
+                for (let s = streak.start; s <= streak.end - actualTarget + 1; s++) {
                     let canFit = true;
-                    for (let i = 0; i < target; i++) {
+                    for (let i = 0; i < actualTarget; i++) {
                         if (dutyAssignment[s + i] !== null) { canFit = false; break; }
                     }
                     if (canFit) {
-                        bestStreak = streak;
-                        bestStart = s;
-                        break;
+                        for (let i = 0; i < actualTarget; i++) {
+                            dutyAssignment[s + i] = name;
+                            assigned[name]++;
+                        }
+                        placed = true; break;
                     }
                 }
-                if (bestStart >= 0) break;
             }
-
-            if (bestStart >= 0) {
-                // 连续安排
-                for (let i = 0; i < target; i++) {
-                    dutyAssignment[bestStart + i] = name;
-                    assigned[name]++;
-                }
-            } else {
-                // 没有足够长的连续段，按最长可用段尽量连续填
+            // fallback：最长可用连续空位
+            if (!placed) {
+                let bestStart = -1, bestLen = 0;
                 for (const streak of streaks) {
-                    if (assigned[name] >= target) break;
+                    let runStart = -1, runLen = 0;
                     for (let d = streak.start; d <= streak.end; d++) {
-                        if (assigned[name] >= target) break;
                         if (dutyAssignment[d] === null) {
-                            dutyAssignment[d] = name;
+                            if (runStart === -1) runStart = d;
+                            runLen++;
+                        } else {
+                            if (runLen > bestLen) { bestStart = runStart; bestLen = runLen; }
+                            runStart = -1; runLen = 0;
+                        }
+                    }
+                    if (runLen > bestLen) { bestStart = runStart; bestLen = runLen; }
+                }
+                if (bestStart >= 0) {
+                    const toAssign = Math.min(actualTarget - assigned[name], bestLen);
+                    for (let i = 0; i < toAssign; i++) {
+                        dutyAssignment[bestStart + i] = name;
+                        assigned[name]++;
+                    }
+                }
+            }
+            // 剩余target如果没分完（target>6），再找另一个连续段
+            let remaining = target - assigned[name];
+            if (remaining > 0) {
+                const streaks2 = getWorkStreaks(name).sort((a, b) => b.len - a.len);
+                for (const streak of streaks2) {
+                    if (remaining <= 0) break;
+                    for (let s = streak.start; s <= streak.end; s++) {
+                        if (remaining <= 0) break;
+                        if (dutyAssignment[s] === null) {
+                            dutyAssignment[s] = name;
                             assigned[name]++;
+                            remaining--;
                         }
                     }
                 }
             }
         }
 
-        // 补漏：未分配的天用林镇兴或其他可用人补
+        // 补漏：未分配的天，找任何eligible人当天是work的
         for (let d = 0; d < daysInMonth; d++) {
             if (dutyAssignment[d] !== null) continue;
-            if (scheduleData['林镇兴'] && scheduleData['林镇兴'][d] === 'work') {
-                dutyAssignment[d] = '林镇兴';
-            } else {
-                const candidate = [...shuffledEligible, '林镇兴'].find(name =>
-                    scheduleData[name] && scheduleData[name][d] === 'work'
-                );
-                if (candidate) dutyAssignment[d] = candidate;
-            }
+            const candidate = [...shuffledEligible, '林镇兴'].find(name =>
+                scheduleData[name] && scheduleData[name][d] === 'work'
+            );
+            if (candidate) dutyAssignment[d] = candidate;
         }
 
         // 写入 scheduleData
@@ -1291,68 +1368,8 @@
             }
         }
 
-        // 7. 最终检查：连续上班（work+duty）不超过6天
-        // 值班分配后再做，确保 duty 也计入
-        for (let pass = 0; pass < 20; pass++) {
-            let anyFixed = false;
-            for (const emp of employees) {
-                let streak = 0;
-                let streakStart = 0;
-                for (let d = 1; d <= daysInMonth + 1; d++) {
-                    const s = d <= daysInMonth ? scheduleData[emp.name][d - 1] : 'x';
-                    if (s === 'work' || s === 'duty') {
-                        if (streak === 0) streakStart = d;
-                        streak++;
-                    } else {
-                        if (streak > 6) {
-                            // 在连续段中间插一天休息（和段外的rest交换）
-                            const mid = streakStart + Math.floor(streak / 2);
-                            let insertDay = -1;
-                            for (let offset = 0; offset < streak; offset++) {
-                                for (const rd of [mid + offset, mid - offset]) {
-                                    if (rd < streakStart || rd >= streakStart + streak) continue;
-                                    if (rd < 1 || rd > daysInMonth) continue;
-                                    const rdow = new Date(currentYear, currentMonth - 1, rd).getDay();
-                                    if (rdow === 1) continue; // 周一不休
-                                    const cs = scheduleData[emp.name][rd - 1];
-                                    if (cs !== 'work') continue; // 只拿work天，不拿duty天
-                                    insertDay = rd;
-                                    break;
-                                }
-                                if (insertDay > 0) break;
-                            }
-
-                            if (insertDay > 0) {
-                                // 找段外一个rest天来交换
-                                let swapDay = -1;
-                                for (let sd = 1; sd <= daysInMonth; sd++) {
-                                    if (sd >= streakStart && sd < streakStart + streak) continue;
-                                    if (scheduleData[emp.name][sd - 1] !== 'rest') continue;
-                                    const sdow = new Date(currentYear, currentMonth - 1, sd).getDay();
-                                    if (sdow === 0) continue; // 周日rest不拿
-                                    if (sdow === 1) continue; // 周一不能工作→已是work
-                                    swapDay = sd;
-                                    break;
-                                }
-
-                                if (swapDay > 0) {
-                                    scheduleData[emp.name][insertDay - 1] = 'rest';
-                                    scheduleData[emp.name][swapDay - 1] = 'work';
-                                    anyFixed = true;
-                                } else {
-                                    // 没有段外rest可交换，尝试直接在连续段中间加一天rest（增加一天休息）
-                                    // 仅在 restNeeded 允许时（此时不再严格守应休总数，安全优先）
-                                    scheduleData[emp.name][insertDay - 1] = 'rest';
-                                    anyFixed = true;
-                                }
-                            }
-                        }
-                        streak = 0;
-                    }
-                }
-            }
-            if (!anyFixed) break;
-        }
+        // 7. 值班后再次修复连续上班≤6天
+        fixConsecutive();
 
         // 生成后不保存到数据库（只是草稿），确认后才保存
         renderTable();
