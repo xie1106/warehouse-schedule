@@ -15,9 +15,11 @@ const state = {
 const STORAGE_KEYS = {
     EMPLOYEES: 'warehouse_employees',
     LEAVE_DATA: 'warehouse_leave_data',
+    SCHEDULE_DATA: 'warehouse_schedule_data',
     SUBMITTED: 'warehouse_submitted',
     CURRENT_USER_ID: 'warehouse_current_user_id',
     USER_ROLE: 'warehouse_user_role',
+    SELECTED_MONTH: 'warehouse_selected_month',
 };
 
 const loadFromStorage = () => {
@@ -36,6 +38,11 @@ const loadFromStorage = () => {
             state.leaveData = JSON.parse(savedLeaveData);
         }
         
+        const savedScheduleData = localStorage.getItem(STORAGE_KEYS.SCHEDULE_DATA);
+        if (savedScheduleData) {
+            state.scheduleData = JSON.parse(savedScheduleData);
+        }
+        
         const savedSubmitted = localStorage.getItem(STORAGE_KEYS.SUBMITTED);
         if (savedSubmitted) {
             state.submittedEmployees = new Set(JSON.parse(savedSubmitted));
@@ -44,6 +51,11 @@ const loadFromStorage = () => {
         const savedRole = localStorage.getItem(STORAGE_KEYS.USER_ROLE);
         if (savedRole) {
             state.userRole = savedRole;
+        }
+        
+        const savedMonth = localStorage.getItem(STORAGE_KEYS.SELECTED_MONTH);
+        if (savedMonth) {
+            state.selectedMonth = savedMonth;
         }
     } catch (e) {
         console.error('加载数据失败:', e);
@@ -58,8 +70,10 @@ const saveToStorage = () => {
     try {
         localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
         localStorage.setItem(STORAGE_KEYS.LEAVE_DATA, JSON.stringify(state.leaveData));
+        localStorage.setItem(STORAGE_KEYS.SCHEDULE_DATA, JSON.stringify(state.scheduleData));
         localStorage.setItem(STORAGE_KEYS.SUBMITTED, JSON.stringify([...state.submittedEmployees]));
         localStorage.setItem(STORAGE_KEYS.USER_ROLE, state.userRole);
+        localStorage.setItem(STORAGE_KEYS.SELECTED_MONTH, state.selectedMonth);
     } catch (e) {
         console.error('保存数据失败:', e);
     }
@@ -113,6 +127,7 @@ const submitLeave = () => {
 
 const generateAndRenderSchedule = () => {
     state.scheduleData = generateSchedule(state.selectedMonth, state.leaveData);
+    saveToStorage();
     state.currentPage = 'schedule';
     render();
 };
@@ -120,6 +135,7 @@ const generateAndRenderSchedule = () => {
 const updateScheduleCell = (empId, date, type) => {
     if (!state.scheduleData[empId]) state.scheduleData[empId] = {};
     state.scheduleData[empId][date] = type;
+    saveToStorage();
     render();
 };
 
@@ -356,7 +372,7 @@ const renderLeave = () => {
                                     <input 
                                         type="month" 
                                         value="${state.selectedMonth}"
-                                        onchange="state.selectedMonth=this.value;render()"
+                                        onchange="state.selectedMonth=this.value;saveToStorage();render()"
                                         class="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                                     />
                                 </div>
@@ -488,6 +504,7 @@ const renderSchedule = () => {
     
     if (Object.keys(state.scheduleData).length === 0) {
         state.scheduleData = generateSchedule(state.selectedMonth, state.leaveData);
+        saveToStorage();
     }
 
     return `
@@ -501,7 +518,7 @@ const renderSchedule = () => {
                     <input 
                         type="month" 
                         value="${state.selectedMonth}"
-                        onchange="state.selectedMonth=this.value;state.scheduleData={};render()"
+                        onchange="state.selectedMonth=this.value;state.scheduleData={};saveToStorage();render()"
                         class="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                     />
                     <button onclick="state.currentPage='home';render()" class="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors">
@@ -515,7 +532,7 @@ const renderSchedule = () => {
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div class="flex flex-wrap gap-2">
                         <button 
-                            onclick="state.scheduleData=generateSchedule(state.selectedMonth, state.leaveData);render()"
+                            onclick="state.scheduleData=generateSchedule(state.selectedMonth, state.leaveData);saveToStorage();render()"
                             class="btn-primary text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center space-x-2"
                         >
                             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
@@ -865,6 +882,7 @@ const deleteEmployee = (id) => {
             employees.splice(idx, 1);
             state.submittedEmployees.delete(id);
             delete state.leaveData[id];
+            delete state.scheduleData[id];
             saveToStorage();
             showToast('员工删除成功！');
             
