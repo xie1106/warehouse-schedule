@@ -1278,25 +1278,16 @@
             return;
         }
         try {
+            const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
             const data = await supaFetch('designated_rest', {
-                query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}&select=days`
+                query: `?employee_id=eq.${encodeURIComponent(currentEmployee)}&month=eq.${monthStr}&select=dates,leave_types,submitted`
             });
-            // Load leave_types from settings table
-            const ltKey = `leave_types_${currentEmployee}_${currentYear}_${currentMonth}`;
-            let leaveTypes = {};
-            try {
-                const ltData = await supaFetch('settings', {
-                    query: `?key=eq.${encodeURIComponent(ltKey)}&select=value`
-                });
-                if (ltData.length > 0 && ltData[0].value) {
-                    leaveTypes = ltData[0].value;
-                }
-            } catch (e) {}
 
-            if (data.length > 0 && data[0].days) {
+            if (data.length > 0 && data[0].dates) {
                 selectedDates = {};
-                data[0].days.forEach(d => {
-                    selectedDates[d] = leaveTypes[String(d)] || leaveTypes[d] || 'designated';
+                const leaveTypes = data[0].leave_types || {};
+                data[0].dates.forEach(d => {
+                    selectedDates[d] = leaveTypes[String(d)] || 'designated';
                 });
             } else {
                 selectedDates = {};
@@ -1493,9 +1484,10 @@
             return;
         }
         try {
+            const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
             await supaFetch('designated_rest', {
                 method: 'DELETE',
-                query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}`
+                query: `?employee_id=eq.${encodeURIComponent(currentEmployee)}&month=eq.${monthStr}`
             });
             selectedDates = {};
             renderCalendar();
@@ -1515,10 +1507,11 @@
             return;
         }
         try {
+            const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
             const data = await supaFetch('designated_rest', {
-                query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}&select=days`
+                query: `?employee_id=eq.${encodeURIComponent(currentEmployee)}&month=eq.${monthStr}&select=dates`
             });
-            btn.style.display = (data.length > 0 && data[0].days && data[0].days.length > 0) ? 'inline-flex' : 'none';
+            btn.style.display = (data.length > 0 && data[0].dates && data[0].dates.length > 0) ? 'inline-flex' : 'none';
         } catch (e) {
             btn.style.display = 'none';
         }
@@ -1543,11 +1536,12 @@
         }
 
         try {
+            const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
             if (Object.keys(selectedDates).length === 0) {
                 // 取消指定休：删除记录
                 await supaFetch('designated_rest', {
                     method: 'DELETE',
-                    query: `?employee_name=eq.${encodeURIComponent(currentEmployee)}&year=eq.${currentYear}&month=eq.${currentMonth}`
+                    query: `?employee_id=eq.${encodeURIComponent(currentEmployee)}&month=eq.${monthStr}`
                 });
                 showToast(`${currentEmployee} 的指定休已取消`, 'success');
             } else {
@@ -1556,18 +1550,13 @@
                 await supaFetch('designated_rest', {
                     method: 'POST',
                     body: {
-                        employee_name: currentEmployee,
-                        year: currentYear,
-                        month: currentMonth,
-                        days: days,
+                        employee_id: currentEmployee,
+                        month: monthStr,
+                        dates: days,
+                        leave_types: selectedDates,
+                        submitted: true,
                         submitted_at: new Date().toISOString()
                     }
-                });
-                // Save leave_types to settings table
-                const ltKey = `leave_types_${currentEmployee}_${currentYear}_${currentMonth}`;
-                await supaFetch('settings', {
-                    method: 'POST',
-                    body: { key: ltKey, value: selectedDates }
                 });
                 showToast(`${currentEmployee} 的假期已保存`, 'success');
             }
@@ -1586,14 +1575,15 @@
 
         try {
             // 读取当月所有 designated_rest 记录
+            const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
             const data = await supaFetch('designated_rest', {
-                query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=employee_name,days`
+                query: `?month=eq.${monthStr}&select=employee_id,submitted,dates`
             });
 
             const submittedMap = {};
             data.forEach(record => {
-                if (record.days && record.days.length > 0) {
-                    submittedMap[record.employee_name] = record.days;
+                if (record.submitted && record.dates && record.dates.length > 0) {
+                    submittedMap[record.employee_id] = record.dates;
                 }
             });
 
