@@ -229,16 +229,19 @@ const renderHome = () => {
 const renderLeave = () => {
     const [year, month] = state.selectedMonth.split('-').map(Number);
     const calendarDays = generateCalendar(year, month - 1);
-    const selectedEmp = employees.find(e => e.id === state.selectedEmployee);
-    const empLeaveData = state.leaveData[state.selectedEmployee] || {};
+    
+    const currentEmpId = state.userRole === 'admin' ? state.selectedEmployee : state.currentUserId;
+    const selectedEmp = employees.find(e => e.id === currentEmpId);
+    const empLeaveData = state.leaveData[currentEmpId] || {};
     const selectedDates = Object.keys(empLeaveData);
+    const isSubmitted = state.submittedEmployees.has(currentEmpId);
     
     return `
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div class="flex items-center justify-between mb-6">
                 <div>
                     <h2 class="text-2xl font-bold text-gray-800">休假收集</h2>
-                    <p class="text-gray-500">选择员工和月份，在日历上标记假期</p>
+                    <p class="text-gray-500">${state.userRole === 'admin' ? '选择员工和月份，在日历上标记假期' : '请选择您的休假日期'}</p>
                 </div>
                 <button onclick="state.currentPage='home';render()" class="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i>
@@ -251,6 +254,7 @@ const renderLeave = () => {
                     <div class="glass-card rounded-xl p-6">
                         <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
                             <div class="flex items-center space-x-4">
+                                ${state.userRole === 'admin' ? `
                                 <div>
                                     <label class="text-sm text-gray-500 mb-1 block">选择员工</label>
                                     <select 
@@ -264,6 +268,14 @@ const renderLeave = () => {
                                         `).join('')}
                                     </select>
                                 </div>
+                                ` : `
+                                <div>
+                                    <label class="text-sm text-gray-500 mb-1 block">当前员工</label>
+                                    <div class="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                                        ${selectedEmp?.name}
+                                    </div>
+                                </div>
+                                `}
                                 <div>
                                     <label class="text-sm text-gray-500 mb-1 block">选择月份</label>
                                     <input 
@@ -331,12 +343,18 @@ const renderLeave = () => {
                             <div>
                                 <span class="text-sm text-gray-500">已选日期：</span>
                                 <span class="text-sm font-medium text-gray-700">${selectedDates.length}天</span>
+                                ${isSubmitted ? `<span class="ml-2 text-sm text-green-600 flex items-center"><i data-lucide="check-circle" class="w-4 h-4 mr-1"></i>已提交</span>` : ''}
                             </div>
                             <button 
                                 onclick="submitLeave()"
-                                class="btn-primary text-white px-6 py-2.5 rounded-xl font-medium"
+                                ${isSubmitted ? 'disabled' : ''}
+                                class="px-6 py-2.5 rounded-xl font-medium transition-all ${
+                                    isSubmitted 
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                        : 'btn-primary text-white'
+                                }"
                             >
-                                提交休假申请
+                                ${isSubmitted ? '已提交休假申请' : '提交休假申请'}
                             </button>
                         </div>
                     </div>
@@ -366,8 +384,8 @@ const renderLeave = () => {
                             提交详情
                         </h3>
                         <div class="space-y-2 max-h-80 overflow-y-auto">
-                            ${employees.map((emp, idx) => {
-                                const isSubmitted = idx < state.submittedCount;
+                            ${employees.map((emp) => {
+                                const isSubmitted = state.submittedEmployees.has(emp.id);
                                 return `
                                     <div class="flex items-center justify-between p-2 rounded-lg ${isSubmitted ? 'bg-green-50' : 'bg-gray-50'}">
                                         <span class="text-sm text-gray-700">${emp.name}</span>
