@@ -1127,11 +1127,16 @@
             dutyTargets[name] = baseDuty + (idx < extraDuty ? 1 : 0);
         });
         
-        // 按顺序连续分配值班天
+        // 按顺序连续分配值班天（跳过已有指定休/假期的天）
         let dutyCursor = 0;
         for (const name of shuffledEligible) {
-            for (let i = 0; i < dutyTargets[name] && dutyCursor < daysInMonth; i++) {
-                scheduleData[name][dutyCursor] = 'duty';
+            let assigned = 0;
+            while (assigned < dutyTargets[name] && dutyCursor < daysInMonth) {
+                // 只在该人当天是work状态时才分配值班
+                if (scheduleData[name][dutyCursor] === 'work') {
+                    scheduleData[name][dutyCursor] = 'duty';
+                    assigned++;
+                }
                 dutyCursor++;
             }
         }
@@ -1143,6 +1148,8 @@
         for (let d = 1; d <= daysInMonth; d++) {
             const dow = new Date(currentYear, currentMonth - 1, d).getDay();
             if (dow !== 0) continue;
+            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            if (workDays[dateStr]) continue; // 调休工作日不排周日休
             let currentResting = employees.filter(e => scheduleData[e.name][d - 1] === 'rest').length;
             const target = 6 + Math.floor(Math.random() * 2);
             const candidates = employees.filter(emp =>
@@ -1190,6 +1197,23 @@
         }
 
         // 为每人分配剩余休息天（保证连续≤6天）
+        // 检查某天（0-indexed）休息人数是否已达上限
+        function dayRestCount(dayIdx) {
+            let count = 0;
+            for (const emp of employees) {
+                const s = scheduleData[emp.name][dayIdx];
+                if (s && s !== 'work' && s !== 'duty') count++;
+            }
+            return count;
+        }
+        function canPlaceRest(dayIdx) {
+            const day = dayIdx + 1;
+            if (!canRest(day)) return false;
+            const dow = new Date(currentYear, currentMonth - 1, day).getDay();
+            const limit = dow === 0 ? 7 : weekdayMaxRest;
+            return dayRestCount(dayIdx) < limit;
+        }
+
         function assignRestSmart(empName) {
             const schedule = scheduleData[empName];
             let placed = schedule.filter(s => s === 'rest' || s === 'designated').length;
@@ -1203,10 +1227,12 @@
                     else { if (streak > lL) { lL = streak; lS = ss; } streak = 0; }
                 }
                 let ip = lL > 6 ? findInsertPos(schedule, lS, lL) : -1;
+                // 检查该位置是否可放（人数限额）
+                if (ip >= 0 && !canPlaceRest(ip)) ip = -1;
                 if (ip < 0) {
                     const avail = [];
                     for (let d = 0; d < daysInMonth; d++) {
-                        if (schedule[d] === 'work' && canRest(d + 1)) avail.push(d);
+                        if (schedule[d] === 'work' && canPlaceRest(d)) avail.push(d);
                     }
                     if (avail.length > 0) ip = avail[Math.floor(Math.random() * avail.length)];
                 }
@@ -1464,6 +1490,13 @@
     }
 
     async function setCellStatus(name, day, status) {
+        // 周一不可设为休息类状态
+        const dow = new Date(currentYear, currentMonth - 1, day).getDay();
+        if (dow === 1 && status !== 'work' && status !== 'duty') {
+            showToast('周一全员不休，不能设为休息', 'error');
+            hideDropdown();
+            return;
+        }
         const oldStatus = scheduleData[name][day - 1];
         scheduleData[name][day - 1] = status;
         // 检查休息总天数是否超过应休天数
