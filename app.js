@@ -350,11 +350,11 @@ const renderLeave = () => {
                         </h3>
                         <div class="grid grid-cols-2 gap-4">
                             <div class="text-center p-4 bg-green-50 rounded-xl">
-                                <p class="text-3xl font-bold text-green-600">${state.submittedCount}</p>
+                                <p class="text-3xl font-bold text-green-600">${state.submittedEmployees.size}</p>
                                 <p class="text-sm text-gray-600 mt-1">已提交</p>
                             </div>
                             <div class="text-center p-4 bg-orange-50 rounded-xl">
-                                <p class="text-3xl font-bold text-orange-500">${employees.length - state.submittedCount}</p>
+                                <p class="text-3xl font-bold text-orange-500">${employees.length - state.submittedEmployees.size}</p>
                                 <p class="text-sm text-gray-600 mt-1">未提交</p>
                             </div>
                         </div>
@@ -366,8 +366,8 @@ const renderLeave = () => {
                             提交详情
                         </h3>
                         <div class="space-y-2 max-h-80 overflow-y-auto">
-                            ${employees.map((emp, idx) => {
-                                const isSubmitted = idx < state.submittedCount;
+                            ${employees.map((emp) => {
+                                const isSubmitted = state.submittedEmployees.has(emp.id);
                                 return `
                                     <div class="flex items-center justify-between p-2 rounded-lg ${isSubmitted ? 'bg-green-50' : 'bg-gray-50'}">
                                         <span class="text-sm text-gray-700">${emp.name}</span>
