@@ -68,18 +68,22 @@ const generateCalendar = (year, month) => {
     return days;
 };
 
-const generateSchedule = (selectedMonth) => {
+const generateSchedule = (selectedMonth, leaveData = {}) => {
     const [year, month] = selectedMonth.split('-').map(Number);
     const days = getDaysInMonth(year, month);
     const schedule = {};
     
     employees.forEach(emp => {
         schedule[emp.id] = {};
+        const empLeaveData = leaveData[emp.id] || {};
+        
         for (let i = 1; i <= days; i++) {
             const date = `${year}-${String(month).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
             const dayOfWeek = new Date(year, month - 1, i).getDay();
             
-            if (dayOfWeek === 0 || dayOfWeek === 6) {
+            if (empLeaveData[date]) {
+                schedule[emp.id][date] = 'rest';
+            } else if (dayOfWeek === 0 || dayOfWeek === 6) {
                 schedule[emp.id][date] = 'rest';
             } else {
                 const rand = Math.random();
