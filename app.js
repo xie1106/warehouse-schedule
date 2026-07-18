@@ -6,8 +6,40 @@ const state = {
     selectedLeaveType: 'designated',
     leaveData: {},
     scheduleData: {},
-    submittedEmployees: new Set(['1', '2', '3']),
+    submittedEmployees: new Set(),
     userRole: 'admin',
+};
+
+const loadState = () => {
+    try {
+        const saved = localStorage.getItem('warehouseSchedule');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.leaveData) state.leaveData = parsed.leaveData;
+            if (parsed.submittedEmployees) state.submittedEmployees = new Set(parsed.submittedEmployees);
+            if (parsed.currentUserId) state.currentUserId = parsed.currentUserId;
+            if (parsed.userRole) state.userRole = parsed.userRole;
+            if (parsed.selectedMonth) state.selectedMonth = parsed.selectedMonth;
+            if (parsed.selectedEmployee) state.selectedEmployee = parsed.selectedEmployee;
+        }
+    } catch (e) {
+        console.error('Failed to load state:', e);
+    }
+};
+
+const saveState = () => {
+    try {
+        localStorage.setItem('warehouseSchedule', JSON.stringify({
+            leaveData: state.leaveData,
+            submittedEmployees: Array.from(state.submittedEmployees),
+            currentUserId: state.currentUserId,
+            userRole: state.userRole,
+            selectedMonth: state.selectedMonth,
+            selectedEmployee: state.selectedEmployee,
+        }));
+    } catch (e) {
+        console.error('Failed to save state:', e);
+    }
 };
 
 const initLeaveData = () => {
@@ -27,24 +59,48 @@ const toggleLeave = (date) => {
     } else {
         state.leaveData[empId][date] = state.selectedLeaveType;
     }
+    saveState();
     render();
+};
+
+const showToast = (message, type = 'success') => {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-20 right-4 z-50 px-6 py-3 rounded-xl shadow-lg flex items-center space-x-2 transition-all duration-300 transform translate-y-0 opacity-100 ${
+        type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+    }`;
+    toast.innerHTML = `
+        <i data-lucide="${type === 'success' ? 'check-circle' : 'alert-circle'}" class="w-5 h-5"></i>
+        <span class="font-medium">${message}</span>
+    `;
+    document.body.appendChild(toast);
+    lucide.createIcons();
+    
+    setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('-translate-y-4', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 };
 
 const submitLeave = () => {
     const empId = state.userRole === 'admin' ? state.selectedEmployee : state.currentUserId;
     state.submittedEmployees.add(empId);
+    saveState();
+    showToast('休假申请提交成功！');
     render();
 };
 
 const generateAndRenderSchedule = () => {
     state.scheduleData = generateSchedule(state.selectedMonth);
     state.currentPage = 'schedule';
+    saveState();
     render();
 };
 
 const updateScheduleCell = (empId, date, type) => {
     if (!state.scheduleData[empId]) state.scheduleData[empId] = {};
     state.scheduleData[empId][date] = type;
+    saveState();
     render();
 };
 
@@ -69,7 +125,7 @@ const renderHeader = () => {
                             const isActive = state.currentPage === page;
                             return `
                                 <button 
-                                    onclick="state.currentPage='${page}';render()"
+                                    onclick="state.currentPage='${page}';saveState();render()"
                                     class="px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                                         isActive 
                                             ? 'bg-blue-100 text-blue-700' 
@@ -87,7 +143,7 @@ const renderHeader = () => {
                             ${state.userRole === 'admin' ? '管理员' : '员工'}
                         </div>
                         <button 
-                            onclick="state.userRole = state.userRole === 'admin' ? 'employee' : 'admin';render()"
+                            onclick="state.userRole = state.userRole === 'admin' ? 'employee' : 'admin';saveState();render()"
                             class="px-3 py-1.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
                         >
                             切换身份
@@ -108,7 +164,7 @@ const renderHome = () => {
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div 
-                    onclick="state.currentPage='leave';render()"
+                    onclick="state.currentPage='leave';saveState();render()"
                     class="glass-card rounded-2xl p-6 cursor-pointer stat-card animate-fadeIn"
                     style="animation-delay: 0.1s"
                 >
@@ -207,7 +263,7 @@ const renderHome = () => {
             <div class="glass-card rounded-xl p-6 animate-fadeIn" style="animation-delay: 0.6s">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold text-gray-800">提交详情</h3>
-                    <button onclick="state.currentPage='leave';render()" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                    <button onclick="state.currentPage='leave';saveState();render()" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
                         查看全部
                     </button>
                 </div>
@@ -246,7 +302,7 @@ const renderLeave = () => {
                     <h2 class="text-2xl font-bold text-gray-800">休假收集</h2>
                     <p class="text-gray-500">${state.userRole === 'admin' ? '选择员工和月份，在日历上标记假期' : '请选择您的休假日期'}</p>
                 </div>
-                <button onclick="state.currentPage='home';render()" class="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors">
+                <button onclick="state.currentPage='home';saveState();render()" class="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i>
                     <span class="text-sm">返回首页</span>
                 </button>
@@ -261,7 +317,7 @@ const renderLeave = () => {
                                 <div>
                                     <label class="text-sm text-gray-500 mb-1 block">选择员工</label>
                                     <select 
-                                        onchange="state.selectedEmployee=this.value;render()"
+                                        onchange="state.selectedEmployee=this.value;saveState();render()"
                                         class="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                                     >
                                         ${employees.map(emp => `
@@ -284,7 +340,7 @@ const renderLeave = () => {
                                     <input 
                                         type="month" 
                                         value="${state.selectedMonth}"
-                                        onchange="state.selectedMonth=this.value;render()"
+                                        onchange="state.selectedMonth=this.value;saveState();render()"
                                         class="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                                     />
                                 </div>
@@ -300,7 +356,7 @@ const renderLeave = () => {
                             <div class="flex flex-wrap gap-2">
                                 ${leaveTypes.map(type => `
                                     <button 
-                                        onclick="state.selectedLeaveType='${type.id}';render()"
+                                        onclick="state.selectedLeaveType='${type.id}';saveState();render()"
                                         class="px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
                                             state.selectedLeaveType === type.id 
                                                 ? 'bg-gray-800 text-white' 
@@ -426,10 +482,10 @@ const renderSchedule = () => {
                     <input 
                         type="month" 
                         value="${state.selectedMonth}"
-                        onchange="state.selectedMonth=this.value;state.scheduleData={};render()"
+                        onchange="state.selectedMonth=this.value;state.scheduleData={};saveState();render()"
                         class="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                     />
-                    <button onclick="state.currentPage='home';render()" class="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors">
+                    <button onclick="state.currentPage='home';saveState();render()" class="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors">
                         <i data-lucide="arrow-left" class="w-4 h-4"></i>
                         <span class="text-sm">返回</span>
                     </button>
@@ -440,7 +496,7 @@ const renderSchedule = () => {
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div class="flex flex-wrap gap-2">
                         <button 
-                            onclick="state.scheduleData=generateSchedule(state.selectedMonth);render()"
+                            onclick="state.scheduleData=generateSchedule(state.selectedMonth);saveState();render()"
                             class="btn-primary text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center space-x-2"
                         >
                             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
@@ -555,7 +611,7 @@ const renderEmployees = () => {
                 </div>
                 <div class="flex items-center space-x-3">
                     <button 
-                        onclick="state.currentPage='home';render()" 
+                        onclick="state.currentPage='home';saveState();render()" 
                         class="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors"
                     >
                         <i data-lucide="arrow-left" class="w-4 h-4"></i>
@@ -653,6 +709,7 @@ const deleteEmployee = (id) => {
         const idx = employees.findIndex(e => e.id === id);
         if (idx > -1) {
             employees.splice(idx, 1);
+            saveState();
             render();
         }
     }
@@ -685,5 +742,6 @@ const render = () => {
     lucide.createIcons();
 };
 
+loadState();
 initLeaveData();
 render();
