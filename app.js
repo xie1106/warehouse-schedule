@@ -17,7 +17,6 @@ const STORAGE_KEYS = {
     LEAVE_DATA: 'warehouse_leave_data',
     SCHEDULE_DATA: 'warehouse_schedule_data',
     SUBMITTED: 'warehouse_submitted',
-    CURRENT_USER_ID: 'warehouse_current_user_id',
     USER_ROLE: 'warehouse_user_role',
     SELECTED_MONTH: 'warehouse_selected_month',
 };
