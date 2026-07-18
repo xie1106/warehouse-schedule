@@ -755,7 +755,17 @@
 
     // === State ===
     let employees = [];
-    let currentYear = 0;
+    // 员工名→ID映射
+    let empNameToId = {};
+    let empIdToName = {};
+    async function loadEmployeeMapping() {
+        try {
+            const data = await supaFetch('employees', { query: '?select=id,name' });
+            data.forEach(r => { empNameToId[r.name] = r.id; empIdToName[r.id] = r.name; });
+        } catch (e) { console.error('Failed to load employee mapping:', e); }
+    }
+
+        let currentYear = 0;
     let currentMonth = 0;
     let scheduleData = {}; // { name: [status for each day 1-31] }
     let isLocked = false;
@@ -780,6 +790,7 @@
     async function init() {
         try {
             await loadEmployees();
+            await loadEmployeeMapping();
             await checkAdmin();
             await loadStatusConfig();
             setDefaultMonth();
@@ -910,7 +921,7 @@
                 record.dates.forEach(d => {
                     const type = leaveTypes[String(d)] || 'designated';
                     // 所有从收集来的假期都锁定
-                    collectedLeaveCells[`${record.employee_id}_${d}`] = true;
+                    collectedLeaveCells[`${(empIdToName[record.employee_id] || record.employee_id)}_${d}`] = true;
                 });
             }
         } catch (e) {
@@ -990,10 +1001,10 @@
                     }
                 });
                 if (designatedDays.length > 0) {
-                    designatedRestMap[record.employee_id] = designatedDays;
+                    designatedRestMap[(empIdToName[record.employee_id] || record.employee_id)] = designatedDays;
                 }
                 if (Object.keys(otherLeaves).length > 0) {
-                    leaveMap[record.employee_id] = otherLeaves;
+                    leaveMap[(empIdToName[record.employee_id] || record.employee_id)] = otherLeaves;
                 }
             }
         } catch (e) {

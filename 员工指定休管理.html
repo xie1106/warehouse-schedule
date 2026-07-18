@@ -1017,7 +1017,17 @@
         prenatal: { label: '产检', color: '#fed7aa', borderColor: '#fb923c', occupiesRest: false }
     };
 
-    let currentEmployee = '';
+    // 员工名→ID映射（designated_rest外键需要用ID）
+    let empNameToId = {};
+    let empIdToName = {};
+    async function loadEmployeeMapping() {
+        try {
+            const data = await supaFetch('employees', { query: '?select=id,name' });
+            data.forEach(r => { empNameToId[r.name] = r.id; empIdToName[r.id] = r.name; });
+        } catch (e) { console.error('Failed to load employee mapping:', e); }
+    }
+
+        let currentEmployee = '';
     let currentYear = 0;
     let currentMonth = 0;
 
@@ -1026,6 +1036,7 @@
         try {
             await getAdminList();
             await loadEmployees();
+            await loadEmployeeMapping();
             populateEmployeeSelect();
             setDefaultMonth();
             await restoreSelectedEmployee();
@@ -1280,7 +1291,7 @@
         try {
             const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
             const data = await supaFetch('designated_rest', {
-                query: `?employee_id=eq.${encodeURIComponent(currentEmployee)}&month=eq.${monthStr}&select=dates,leave_types,submitted`
+                query: `?employee_id=eq.${encodeURIComponent(empNameToId[currentEmployee] || currentEmployee)}&month=eq.${monthStr}&select=dates,leave_types,submitted`
             });
 
             if (data.length > 0 && data[0].dates) {
@@ -1487,7 +1498,7 @@
             const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
             await supaFetch('designated_rest', {
                 method: 'DELETE',
-                query: `?employee_id=eq.${encodeURIComponent(currentEmployee)}&month=eq.${monthStr}`
+                query: `?employee_id=eq.${encodeURIComponent(empNameToId[currentEmployee] || currentEmployee)}&month=eq.${monthStr}`
             });
             selectedDates = {};
             renderCalendar();
@@ -1509,7 +1520,7 @@
         try {
             const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
             const data = await supaFetch('designated_rest', {
-                query: `?employee_id=eq.${encodeURIComponent(currentEmployee)}&month=eq.${monthStr}&select=dates`
+                query: `?employee_id=eq.${encodeURIComponent(empNameToId[currentEmployee] || currentEmployee)}&month=eq.${monthStr}&select=dates`
             });
             btn.style.display = (data.length > 0 && data[0].dates && data[0].dates.length > 0) ? 'inline-flex' : 'none';
         } catch (e) {
@@ -1541,7 +1552,7 @@
                 // 取消指定休：删除记录
                 await supaFetch('designated_rest', {
                     method: 'DELETE',
-                    query: `?employee_id=eq.${encodeURIComponent(currentEmployee)}&month=eq.${monthStr}`
+                    query: `?employee_id=eq.${encodeURIComponent(empNameToId[currentEmployee] || currentEmployee)}&month=eq.${monthStr}`
                 });
                 showToast(`${currentEmployee} 的指定休已取消`, 'success');
             } else {
@@ -1550,7 +1561,7 @@
                 await supaFetch('designated_rest', {
                     method: 'POST',
                     body: {
-                        employee_id: currentEmployee,
+                        employee_id: empNameToId[currentEmployee] || currentEmployee,
                         month: monthStr,
                         dates: days,
                         leave_types: selectedDates,
@@ -1583,7 +1594,7 @@
             const submittedMap = {};
             data.forEach(record => {
                 if (record.submitted && record.dates && record.dates.length > 0) {
-                    submittedMap[record.employee_id] = record.dates;
+                    submittedMap[empIdToName[record.employee_id] || record.employee_id] = record.dates;
                 }
             });
 
