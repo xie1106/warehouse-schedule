@@ -112,7 +112,7 @@ const submitLeave = () => {
 };
 
 const generateAndRenderSchedule = () => {
-    state.scheduleData = generateSchedule(state.selectedMonth);
+    state.scheduleData = generateSchedule(state.selectedMonth, state.leaveData);
     state.currentPage = 'schedule';
     render();
 };
@@ -487,7 +487,7 @@ const renderSchedule = () => {
     const calendarDays = generateCalendar(year, month - 1);
     
     if (Object.keys(state.scheduleData).length === 0) {
-        state.scheduleData = generateSchedule(state.selectedMonth);
+        state.scheduleData = generateSchedule(state.selectedMonth, state.leaveData);
     }
 
     return `
@@ -515,7 +515,7 @@ const renderSchedule = () => {
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div class="flex flex-wrap gap-2">
                         <button 
-                            onclick="state.scheduleData=generateSchedule(state.selectedMonth);render()"
+                            onclick="state.scheduleData=generateSchedule(state.selectedMonth, state.leaveData);render()"
                             class="btn-primary text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center space-x-2"
                         >
                             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
