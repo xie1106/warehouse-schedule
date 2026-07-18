@@ -366,8 +366,8 @@ const renderLeave = () => {
                             提交详情
                         </h3>
                         <div class="space-y-2 max-h-80 overflow-y-auto">
-                            ${employees.map((emp) => {
-                                const isSubmitted = state.submittedEmployees.has(emp.id);
+                            ${employees.map((emp, idx) => {
+                                const isSubmitted = idx < state.submittedCount;
                                 return `
                                     <div class="flex items-center justify-between p-2 rounded-lg ${isSubmitted ? 'bg-green-50' : 'bg-gray-50'}">
                                         <span class="text-sm text-gray-700">${emp.name}</span>
