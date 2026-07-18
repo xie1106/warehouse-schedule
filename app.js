@@ -1,66 +1,15 @@
 const state = {
     currentPage: 'home',
     selectedMonth: new Date().toISOString().slice(0, 7),
-    selectedEmployee: employees[0].id,
-    currentUserId: employees[0].id,
+    selectedEmployee: '',
+    currentUserId: '',
     selectedLeaveType: 'designated',
     leaveData: {},
     scheduleData: {},
     submittedEmployees: new Set(),
     userRole: 'admin',
-};
-
-const loadState = () => {
-    try {
-        const saved = localStorage.getItem('warehouseSchedule');
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed.leaveData) state.leaveData = parsed.leaveData;
-            if (parsed.submittedEmployees) state.submittedEmployees = new Set(parsed.submittedEmployees);
-            if (parsed.currentUserId) state.currentUserId = parsed.currentUserId;
-            if (parsed.userRole) state.userRole = parsed.userRole;
-            if (parsed.selectedMonth) state.selectedMonth = parsed.selectedMonth;
-            if (parsed.selectedEmployee) state.selectedEmployee = parsed.selectedEmployee;
-        }
-    } catch (e) {
-        console.error('Failed to load state:', e);
-    }
-};
-
-const saveState = () => {
-    try {
-        localStorage.setItem('warehouseSchedule', JSON.stringify({
-            leaveData: state.leaveData,
-            submittedEmployees: Array.from(state.submittedEmployees),
-            currentUserId: state.currentUserId,
-            userRole: state.userRole,
-            selectedMonth: state.selectedMonth,
-            selectedEmployee: state.selectedEmployee,
-        }));
-    } catch (e) {
-        console.error('Failed to save state:', e);
-    }
-};
-
-const initLeaveData = () => {
-    employees.forEach(emp => {
-        if (!state.leaveData[emp.id]) {
-            state.leaveData[emp.id] = {};
-        }
-    });
-};
-
-const toggleLeave = (date) => {
-    const empId = state.userRole === 'admin' ? state.selectedEmployee : state.currentUserId;
-    if (!state.leaveData[empId]) state.leaveData[empId] = {};
-    
-    if (state.leaveData[empId][date]) {
-        delete state.leaveData[empId][date];
-    } else {
-        state.leaveData[empId][date] = state.selectedLeaveType;
-    }
-    saveState();
-    render();
+    employees: [],
+    isLoading: false,
 };
 
 const showToast = (message, type = 'success') => {
@@ -82,25 +31,190 @@ const showToast = (message, type = 'success') => {
     }, 3000);
 };
 
-const submitLeave = () => {
+const setLoading = (loading) => {
+    state.isLoading = loading;
+    render();
+};
+
+const initLeaveData = () => {
+    state.employees.forEach(emp => {
+        if (!state.leaveData[emp.id]) {
+            state.leaveData[emp.id] = {};
+        }
+    });
+};
+
+const fetchEmployees = async () => {
+    try {
+        const { data, error } = await supabase.from('employees').select('*');
+        if (error) throw error;
+        state.employees = data || [];
+        if (state.employees.length > 0 && !state.selectedEmployee) {
+            state.selectedEmployee = state.employees[0].id;
+            state.currentUserId = state.employees[0].id;
+        }
+        initLeaveData();
+        await fetchLeaveData();
+    } catch (error) {
+        console.error('Failed to fetch employees:', error);
+        showToast('获取员工数据失败，使用本地数据', 'error');
+        state.employees = employees;
+        if (!state.selectedEmployee) {
+            state.selectedEmployee = employees[0].id;
+            state.currentUserId = employees[0].id;
+        }
+        initLeaveData();
+    }
+};
+
+const fetchLeaveData = async () => {
+    try {
+        const { data, error } = await supabase.from('designated_rest').select('*').eq('month', state.selectedMonth);
+        if (error) throw error;
+        if (data && data.length > 0) {
+            data.forEach(item => {
+                state.leaveData[item.employee_id] = item.leave_types || {};
+                if (item.submitted) {
+                    state.submittedEmployees.add(item.employee_id);
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Failed to fetch leave data:', error);
+    }
+};
+
+const saveLeaveData = async (empId) => {
+    try {
+        const leaveTypes = state.leaveData[empId] || {};
+        const dates = Object.keys(leaveTypes);
+        const isSubmitted = state.submittedEmployees.has(empId);
+        
+        const { data: existing, error: selectError } = await supabase.from('designated_rest')
+            .select('id').eq('employee_id', empId).eq('month', state.selectedMonth);
+        
+        if (selectError) throw selectError;
+        
+        if (existing && existing.length > 0) {
+            await supabase.from('designated_rest').update({
+                dates,
+                leave_types: leaveTypes,
+                submitted: isSubmitted,
+                submitted_at: isSubmitted ? new Date().toISOString() : null,
+                updated_at: new Date().toISOString(),
+            }).eq('id', existing[0].id);
+        } else {
+            await supabase.from('designated_rest').insert({
+                employee_id: empId,
+                month: state.selectedMonth,
+                dates,
+                leave_types: leaveTypes,
+                submitted: isSubmitted,
+                submitted_at: isSubmitted ? new Date().toISOString() : null,
+            });
+        }
+    } catch (error) {
+        console.error('Failed to save leave data:', error);
+        showToast('保存数据失败', 'error');
+        throw error;
+    }
+};
+
+const saveSchedule = async () => {
+    try {
+        for (const emp of state.employees) {
+            const schedule = state.scheduleData[emp.id] || {};
+            
+            const { data: existing, error: selectError } = await supabase.from('schedules')
+                .select('id').eq('employee_id', emp.id).eq('month', state.selectedMonth);
+            
+            if (selectError) throw selectError;
+            
+            if (existing && existing.length > 0) {
+                await supabase.from('schedules').update({
+                    schedule,
+                    updated_at: new Date().toISOString(),
+                }).eq('id', existing[0].id);
+            } else {
+                await supabase.from('schedules').insert({
+                    employee_id: emp.id,
+                    month: state.selectedMonth,
+                    schedule,
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Failed to save schedule:', error);
+        showToast('保存排班失败', 'error');
+    }
+};
+
+const fetchSchedule = async () => {
+    try {
+        const { data, error } = await supabase.from('schedules').select('*').eq('month', state.selectedMonth);
+        if (error) throw error;
+        if (data && data.length > 0) {
+            data.forEach(item => {
+                state.scheduleData[item.employee_id] = item.schedule || {};
+            });
+        }
+    } catch (error) {
+        console.error('Failed to fetch schedule:', error);
+    }
+};
+
+const toggleLeave = async (date) => {
     const empId = state.userRole === 'admin' ? state.selectedEmployee : state.currentUserId;
-    state.submittedEmployees.add(empId);
-    saveState();
-    showToast('休假申请提交成功！');
+    if (!state.leaveData[empId]) state.leaveData[empId] = {};
+    
+    if (state.leaveData[empId][date]) {
+        delete state.leaveData[empId][date];
+    } else {
+        state.leaveData[empId][date] = state.selectedLeaveType;
+    }
+    
+    await saveLeaveData(empId);
     render();
 };
 
-const generateAndRenderSchedule = () => {
-    state.scheduleData = generateSchedule(state.selectedMonth);
-    state.currentPage = 'schedule';
-    saveState();
-    render();
+const submitLeave = async () => {
+    setLoading(true);
+    try {
+        const empId = state.userRole === 'admin' ? state.selectedEmployee : state.currentUserId;
+        state.submittedEmployees.add(empId);
+        
+        await saveLeaveData(empId);
+        showToast('休假申请提交成功！');
+    } catch (error) {
+        showToast('提交失败，请重试', 'error');
+    } finally {
+        setLoading(false);
+    }
 };
 
-const updateScheduleCell = (empId, date, type) => {
+const generateAndRenderSchedule = async () => {
+    setLoading(true);
+    try {
+        await fetchLeaveData();
+        
+        state.scheduleData = generateSchedule(state.selectedMonth);
+        
+        await saveSchedule();
+        showToast('排班表生成成功！');
+        
+        state.currentPage = 'schedule';
+    } catch (error) {
+        showToast('生成排班失败，请重试', 'error');
+    } finally {
+        setLoading(false);
+    }
+};
+
+const updateScheduleCell = async (empId, date, type) => {
     if (!state.scheduleData[empId]) state.scheduleData[empId] = {};
     state.scheduleData[empId][date] = type;
-    saveState();
+    
+    await saveSchedule();
     render();
 };
 
@@ -125,7 +239,7 @@ const renderHeader = () => {
                             const isActive = state.currentPage === page;
                             return `
                                 <button 
-                                    onclick="state.currentPage='${page}';saveState();render()"
+                                    onclick="state.currentPage='${page}';render()"
                                     class="px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                                         isActive 
                                             ? 'bg-blue-100 text-blue-700' 
@@ -143,7 +257,7 @@ const renderHeader = () => {
                             ${state.userRole === 'admin' ? '管理员' : '员工'}
                         </div>
                         <button 
-                            onclick="state.userRole = state.userRole === 'admin' ? 'employee' : 'admin';saveState();render()"
+                            onclick="state.userRole = state.userRole === 'admin' ? 'employee' : 'admin';render()"
                             class="px-3 py-1.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
                         >
                             切换身份
@@ -156,15 +270,20 @@ const renderHeader = () => {
 };
 
 const renderHome = () => {
-    const totalEmployees = employees.length;
+    const totalEmployees = state.employees.length;
     const submittedCount = state.submittedEmployees.size;
     const pendingCount = totalEmployees - submittedCount;
     
     return `
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            ${state.isLoading ? `
+                <div class="flex justify-center items-center py-12">
+                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                </div>
+            ` : `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div 
-                    onclick="state.currentPage='leave';saveState();render()"
+                    onclick="state.currentPage='leave';render()"
                     class="glass-card rounded-2xl p-6 cursor-pointer stat-card animate-fadeIn"
                     style="animation-delay: 0.1s"
                 >
@@ -186,7 +305,7 @@ const renderHome = () => {
                     <div class="mt-4 h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div 
                             class="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500"
-                            style="width: ${(submittedCount / totalEmployees) * 100}%"
+                            style="width: ${totalEmployees > 0 ? (submittedCount / totalEmployees) * 100 : 0}%"
                         ></div>
                     </div>
                 </div>
@@ -263,12 +382,12 @@ const renderHome = () => {
             <div class="glass-card rounded-xl p-6 animate-fadeIn" style="animation-delay: 0.6s">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold text-gray-800">提交详情</h3>
-                    <button onclick="state.currentPage='leave';saveState();render()" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                    <button onclick="state.currentPage='leave';render()" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
                         查看全部
                     </button>
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                    ${employees.slice(0, 10).map((emp) => {
+                    ${state.employees.slice(0, 10).map((emp) => {
                         const isSubmitted = state.submittedEmployees.has(emp.id);
                         return `
                             <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -281,6 +400,7 @@ const renderHome = () => {
                     }).join('')}
                 </div>
             </div>
+            `}
         </main>
     `;
 };
@@ -290,19 +410,24 @@ const renderLeave = () => {
     const calendarDays = generateCalendar(year, month - 1);
     
     const currentEmpId = state.userRole === 'admin' ? state.selectedEmployee : state.currentUserId;
-    const selectedEmp = employees.find(e => e.id === currentEmpId);
+    const selectedEmp = state.employees.find(e => e.id === currentEmpId);
     const empLeaveData = state.leaveData[currentEmpId] || {};
     const selectedDates = Object.keys(empLeaveData);
     const isSubmitted = state.submittedEmployees.has(currentEmpId);
     
     return `
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            ${state.isLoading ? `
+                <div class="flex justify-center items-center py-12">
+                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                </div>
+            ` : `
             <div class="flex items-center justify-between mb-6">
                 <div>
                     <h2 class="text-2xl font-bold text-gray-800">休假收集</h2>
                     <p class="text-gray-500">${state.userRole === 'admin' ? '选择员工和月份，在日历上标记假期' : '请选择您的休假日期'}</p>
                 </div>
-                <button onclick="state.currentPage='home';saveState();render()" class="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors">
+                <button onclick="state.currentPage='home';render()" class="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i>
                     <span class="text-sm">返回首页</span>
                 </button>
@@ -317,10 +442,10 @@ const renderLeave = () => {
                                 <div>
                                     <label class="text-sm text-gray-500 mb-1 block">选择员工</label>
                                     <select 
-                                        onchange="state.selectedEmployee=this.value;saveState();render()"
+                                        onchange="state.selectedEmployee=this.value;render()"
                                         class="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                                     >
-                                        ${employees.map(emp => `
+                                        ${state.employees.map(emp => `
                                             <option value="${emp.id}" ${state.selectedEmployee === emp.id ? 'selected' : ''}>
                                                 ${emp.name}
                                             </option>
@@ -340,13 +465,13 @@ const renderLeave = () => {
                                     <input 
                                         type="month" 
                                         value="${state.selectedMonth}"
-                                        onchange="state.selectedMonth=this.value;saveState();render()"
+                                        onchange="state.selectedMonth=this.value;fetchLeaveData().then(render)"
                                         class="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                                     />
                                 </div>
                             </div>
                             <div class="text-sm text-gray-600">
-                                本月应休天数：<span class="font-bold text-blue-600">${selectedEmp?.workDays}天</span>
+                                本月应休天数：<span class="font-bold text-blue-600">${selectedEmp?.work_days || selectedEmp?.workDays || 4}天</span>
                                 <span class="text-gray-400 ml-2">(指定休不超过此数)</span>
                             </div>
                         </div>
@@ -356,7 +481,7 @@ const renderLeave = () => {
                             <div class="flex flex-wrap gap-2">
                                 ${leaveTypes.map(type => `
                                     <button 
-                                        onclick="state.selectedLeaveType='${type.id}';saveState();render()"
+                                        onclick="state.selectedLeaveType='${type.id}';render()"
                                         class="px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
                                             state.selectedLeaveType === type.id 
                                                 ? 'bg-gray-800 text-white' 
@@ -431,7 +556,7 @@ const renderLeave = () => {
                                 <p class="text-sm text-gray-600 mt-1">已提交</p>
                             </div>
                             <div class="text-center p-4 bg-orange-50 rounded-xl">
-                                <p class="text-3xl font-bold text-orange-500">${employees.length - state.submittedEmployees.size}</p>
+                                <p class="text-3xl font-bold text-orange-500">${state.employees.length - state.submittedEmployees.size}</p>
                                 <p class="text-sm text-gray-600 mt-1">未提交</p>
                             </div>
                         </div>
@@ -443,7 +568,7 @@ const renderLeave = () => {
                             提交详情
                         </h3>
                         <div class="space-y-2 max-h-80 overflow-y-auto">
-                            ${employees.map((emp) => {
+                            ${state.employees.map((emp) => {
                                 const isSubmitted = state.submittedEmployees.has(emp.id);
                                 return `
                                     <div class="flex items-center justify-between p-2 rounded-lg ${isSubmitted ? 'bg-green-50' : 'bg-gray-50'}">
@@ -458,6 +583,7 @@ const renderLeave = () => {
                     </div>
                 </div>
             </div>
+            `}
         </main>
     `;
 };
@@ -473,6 +599,11 @@ const renderSchedule = () => {
 
     return `
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            ${state.isLoading ? `
+                <div class="flex justify-center items-center py-12">
+                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                </div>
+            ` : `
             <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
                 <div>
                     <h2 class="text-2xl font-bold text-gray-800">排班表</h2>
@@ -482,10 +613,10 @@ const renderSchedule = () => {
                     <input 
                         type="month" 
                         value="${state.selectedMonth}"
-                        onchange="state.selectedMonth=this.value;state.scheduleData={};saveState();render()"
+                        onchange="state.selectedMonth=this.value;state.scheduleData={};fetchSchedule().then(render)"
                         class="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                     />
-                    <button onclick="state.currentPage='home';saveState();render()" class="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors">
+                    <button onclick="state.currentPage='home';render()" class="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors">
                         <i data-lucide="arrow-left" class="w-4 h-4"></i>
                         <span class="text-sm">返回</span>
                     </button>
@@ -496,7 +627,7 @@ const renderSchedule = () => {
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div class="flex flex-wrap gap-2">
                         <button 
-                            onclick="state.scheduleData=generateSchedule(state.selectedMonth);saveState();render()"
+                            onclick="generateAndRenderSchedule()"
                             class="btn-primary text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center space-x-2"
                         >
                             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
@@ -550,7 +681,7 @@ const renderSchedule = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            ${employees.map(emp => `
+                            ${state.employees.map(emp => `
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="sticky left-0 bg-white px-4 py-2 text-sm font-medium text-gray-800 border-b border-gray-100">
                                         ${emp.name}
@@ -597,6 +728,7 @@ const renderSchedule = () => {
                     </li>
                 </ul>
             </div>
+            `}
         </main>
     `;
 };
@@ -604,6 +736,11 @@ const renderSchedule = () => {
 const renderEmployees = () => {
     return `
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            ${state.isLoading ? `
+                <div class="flex justify-center items-center py-12">
+                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                </div>
+            ` : `
             <div class="flex items-center justify-between mb-6">
                 <div>
                     <h2 class="text-2xl font-bold text-gray-800">员工管理</h2>
@@ -611,7 +748,7 @@ const renderEmployees = () => {
                 </div>
                 <div class="flex items-center space-x-3">
                     <button 
-                        onclick="state.currentPage='home';saveState();render()" 
+                        onclick="state.currentPage='home';render()" 
                         class="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors"
                     >
                         <i data-lucide="arrow-left" class="w-4 h-4"></i>
@@ -641,13 +778,13 @@ const renderEmployees = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            ${employees.map((emp, idx) => `
+                            ${state.employees.map((emp, idx) => `
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-4 py-3 text-sm text-gray-500 border-b border-gray-100">${String(idx + 1).padStart(3, '0')}</td>
                                     <td class="px-4 py-3 text-sm font-medium text-gray-800 border-b border-gray-100">${emp.name}</td>
                                     <td class="px-4 py-3 text-sm text-gray-600 border-b border-gray-100">${emp.department}</td>
                                     <td class="px-4 py-3 text-sm text-gray-600 border-b border-gray-100">${emp.position}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-600 border-b border-gray-100">${emp.workDays}天</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 border-b border-gray-100">${emp.work_days || emp.workDays || 4}天</td>
                                     <td class="px-4 py-3 border-b border-gray-100">
                                         <div class="flex items-center space-x-2">
                                             <button 
@@ -674,15 +811,15 @@ const renderEmployees = () => {
             <div class="mt-6 glass-card rounded-xl p-6">
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div class="text-center p-4">
-                        <p class="text-3xl font-bold text-blue-600">${employees.length}</p>
+                        <p class="text-3xl font-bold text-blue-600">${state.employees.length}</p>
                         <p class="text-sm text-gray-500 mt-1">总员工数</p>
                     </div>
                     <div class="text-center p-4">
-                        <p class="text-3xl font-bold text-green-600">${employees.filter(e => e.department === '仓储部').length}</p>
+                        <p class="text-3xl font-bold text-green-600">${state.employees.filter(e => e.department === '仓储部').length}</p>
                         <p class="text-sm text-gray-500 mt-1">仓储部</p>
                     </div>
                     <div class="text-center p-4">
-                        <p class="text-3xl font-bold text-purple-600">${employees.filter(e => e.position === '操作员').length}</p>
+                        <p class="text-3xl font-bold text-purple-600">${state.employees.filter(e => e.position === '操作员').length}</p>
                         <p class="text-sm text-gray-500 mt-1">操作员</p>
                     </div>
                     <div class="text-center p-4">
@@ -691,6 +828,7 @@ const renderEmployees = () => {
                     </div>
                 </div>
             </div>
+            `}
         </main>
     `;
 };
@@ -700,16 +838,15 @@ const showAddEmployeeModal = () => {
 };
 
 const showEditEmployeeModal = (id) => {
-    const emp = employees.find(e => e.id === id);
+    const emp = state.employees.find(e => e.id === id);
     alert(`编辑员工：${emp?.name}`);
 };
 
 const deleteEmployee = (id) => {
     if (confirm('确定要删除该员工吗？')) {
-        const idx = employees.findIndex(e => e.id === id);
+        const idx = state.employees.findIndex(e => e.id === id);
         if (idx > -1) {
-            employees.splice(idx, 1);
-            saveState();
+            state.employees.splice(idx, 1);
             render();
         }
     }
@@ -742,6 +879,4 @@ const render = () => {
     lucide.createIcons();
 };
 
-loadState();
-initLeaveData();
-render();
+fetchEmployees().then(render);
