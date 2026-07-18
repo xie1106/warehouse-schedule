@@ -2,10 +2,11 @@ const state = {
     currentPage: 'home',
     selectedMonth: new Date().toISOString().slice(0, 7),
     selectedEmployee: employees[0].id,
+    currentUserId: employees[0].id,
     selectedLeaveType: 'designated',
     leaveData: {},
     scheduleData: {},
-    submittedCount: 3,
+    submittedEmployees: new Set(['1', '2', '3']),
     userRole: 'admin',
 };
 
@@ -18,7 +19,7 @@ const initLeaveData = () => {
 };
 
 const toggleLeave = (date) => {
-    const empId = state.selectedEmployee;
+    const empId = state.userRole === 'admin' ? state.selectedEmployee : state.currentUserId;
     if (!state.leaveData[empId]) state.leaveData[empId] = {};
     
     if (state.leaveData[empId][date]) {
@@ -30,7 +31,8 @@ const toggleLeave = (date) => {
 };
 
 const submitLeave = () => {
-    state.submittedCount++;
+    const empId = state.userRole === 'admin' ? state.selectedEmployee : state.currentUserId;
+    state.submittedEmployees.add(empId);
     render();
 };
 
@@ -99,7 +101,8 @@ const renderHeader = () => {
 
 const renderHome = () => {
     const totalEmployees = employees.length;
-    const pendingCount = totalEmployees - state.submittedCount;
+    const submittedCount = state.submittedEmployees.size;
+    const pendingCount = totalEmployees - submittedCount;
     
     return `
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -121,13 +124,13 @@ const renderHome = () => {
                             <p class="text-lg text-orange-500 font-semibold">25日</p>
                         </div>
                         <div class="bg-blue-50 rounded-full px-4 py-2">
-                            <span class="text-sm font-medium text-blue-700">${state.submittedCount}/${totalEmployees} 已提交</span>
+                            <span class="text-sm font-medium text-blue-700">${submittedCount}/${totalEmployees} 已提交</span>
                         </div>
                     </div>
                     <div class="mt-4 h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div 
                             class="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500"
-                            style="width: ${(state.submittedCount / totalEmployees) * 100}%"
+                            style="width: ${(submittedCount / totalEmployees) * 100}%"
                         ></div>
                     </div>
                 </div>
@@ -180,7 +183,7 @@ const renderHome = () => {
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm text-gray-500 mb-1">已提交</p>
-                            <p class="text-3xl font-bold text-green-600 animate-countUp">${state.submittedCount}</p>
+                            <p class="text-3xl font-bold text-green-600 animate-countUp">${submittedCount}</p>
                         </div>
                         <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
                             <i data-lucide="check-circle" class="text-green-600 w-6 h-6"></i>
@@ -209,8 +212,8 @@ const renderHome = () => {
                     </button>
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                    ${employees.slice(0, 10).map((emp, idx) => {
-                        const isSubmitted = idx < state.submittedCount;
+                    ${employees.slice(0, 10).map((emp) => {
+                        const isSubmitted = state.submittedEmployees.has(emp.id);
                         return `
                             <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                 <span class="text-sm font-medium text-gray-700">${emp.name}</span>
