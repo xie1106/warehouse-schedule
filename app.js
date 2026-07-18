@@ -5,8 +5,82 @@ const state = {
     selectedLeaveType: 'designated',
     leaveData: {},
     scheduleData: {},
-    submittedCount: 3,
+    submittedEmployees: new Set(),
     userRole: 'admin',
+    modalOpen: false,
+    modalType: 'add',
+    editingEmployee: null,
+};
+
+const STORAGE_KEYS = {
+    EMPLOYEES: 'warehouse_employees',
+    LEAVE_DATA: 'warehouse_leave_data',
+    SUBMITTED: 'warehouse_submitted',
+    CURRENT_USER_ID: 'warehouse_current_user_id',
+    USER_ROLE: 'warehouse_user_role',
+};
+
+const loadFromStorage = () => {
+    try {
+        const savedEmployees = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+        if (savedEmployees) {
+            const parsed = JSON.parse(savedEmployees);
+            if (parsed.length > 0) {
+                employees.length = 0;
+                employees.push(...parsed);
+            }
+        }
+        
+        const savedLeaveData = localStorage.getItem(STORAGE_KEYS.LEAVE_DATA);
+        if (savedLeaveData) {
+            state.leaveData = JSON.parse(savedLeaveData);
+        }
+        
+        const savedSubmitted = localStorage.getItem(STORAGE_KEYS.SUBMITTED);
+        if (savedSubmitted) {
+            state.submittedEmployees = new Set(JSON.parse(savedSubmitted));
+        }
+        
+        const savedRole = localStorage.getItem(STORAGE_KEYS.USER_ROLE);
+        if (savedRole) {
+            state.userRole = savedRole;
+        }
+    } catch (e) {
+        console.error('加载数据失败:', e);
+    }
+    
+    if (employees.length > 0 && !employees.find(e => e.id === state.selectedEmployee)) {
+        state.selectedEmployee = employees[0].id;
+    }
+};
+
+const saveToStorage = () => {
+    try {
+        localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
+        localStorage.setItem(STORAGE_KEYS.LEAVE_DATA, JSON.stringify(state.leaveData));
+        localStorage.setItem(STORAGE_KEYS.SUBMITTED, JSON.stringify([...state.submittedEmployees]));
+        localStorage.setItem(STORAGE_KEYS.USER_ROLE, state.userRole);
+    } catch (e) {
+        console.error('保存数据失败:', e);
+    }
+};
+
+const showToast = (message, type = 'success') => {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="flex items-center space-x-2">
+            <i data-lucide="${type === 'success' ? 'check-circle' : 'alert-circle'}" class="w-5 h-5"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    lucide.createIcons();
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 };
 
 const initLeaveData = () => {
@@ -26,11 +100,14 @@ const toggleLeave = (date) => {
     } else {
         state.leaveData[empId][date] = state.selectedLeaveType;
     }
+    saveToStorage();
     render();
 };
 
 const submitLeave = () => {
-    state.submittedCount++;
+    state.submittedEmployees.add(state.selectedEmployee);
+    saveToStorage();
+    showToast('休假申请提交成功！');
     render();
 };
 
@@ -44,6 +121,16 @@ const updateScheduleCell = (empId, date, type) => {
     if (!state.scheduleData[empId]) state.scheduleData[empId] = {};
     state.scheduleData[empId][date] = type;
     render();
+};
+
+const updateWorkDays = (empId, value) => {
+    const emp = employees.find(e => e.id === empId);
+    if (emp) {
+        emp.workDays = parseInt(value) || 4;
+        saveToStorage();
+        showToast('应休天数更新成功！');
+        render();
+    }
 };
 
 const renderHeader = () => {
@@ -85,7 +172,7 @@ const renderHeader = () => {
                             ${state.userRole === 'admin' ? '管理员' : '员工'}
                         </div>
                         <button 
-                            onclick="state.userRole = state.userRole === 'admin' ? 'employee' : 'admin';render()"
+                            onclick="state.userRole = state.userRole === 'admin' ? 'employee' : 'admin';saveToStorage();render()"
                             class="px-3 py-1.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
                         >
                             切换身份
@@ -99,7 +186,7 @@ const renderHeader = () => {
 
 const renderHome = () => {
     const totalEmployees = employees.length;
-    const pendingCount = totalEmployees - state.submittedCount;
+    const pendingCount = totalEmployees - state.submittedEmployees.size;
     
     return `
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -121,13 +208,13 @@ const renderHome = () => {
                             <p class="text-lg text-orange-500 font-semibold">25日</p>
                         </div>
                         <div class="bg-blue-50 rounded-full px-4 py-2">
-                            <span class="text-sm font-medium text-blue-700">${state.submittedCount}/${totalEmployees} 已提交</span>
+                            <span class="text-sm font-medium text-blue-700">${state.submittedEmployees.size}/${totalEmployees} 已提交</span>
                         </div>
                     </div>
                     <div class="mt-4 h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div 
                             class="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500"
-                            style="width: ${(state.submittedCount / totalEmployees) * 100}%"
+                            style="width: ${totalEmployees > 0 ? (state.submittedEmployees.size / totalEmployees) * 100 : 0}%"
                         ></div>
                     </div>
                 </div>
@@ -180,7 +267,7 @@ const renderHome = () => {
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm text-gray-500 mb-1">已提交</p>
-                            <p class="text-3xl font-bold text-green-600 animate-countUp">${state.submittedCount}</p>
+                            <p class="text-3xl font-bold text-green-600 animate-countUp">${state.submittedEmployees.size}</p>
                         </div>
                         <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
                             <i data-lucide="check-circle" class="text-green-600 w-6 h-6"></i>
@@ -209,8 +296,8 @@ const renderHome = () => {
                     </button>
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                    ${employees.slice(0, 10).map((emp, idx) => {
-                        const isSubmitted = idx < state.submittedCount;
+                    ${employees.slice(0, 10).map((emp) => {
+                        const isSubmitted = state.submittedEmployees.has(emp.id);
                         return `
                             <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                 <span class="text-sm font-medium text-gray-700">${emp.name}</span>
@@ -274,9 +361,18 @@ const renderLeave = () => {
                                     />
                                 </div>
                             </div>
-                            <div class="text-sm text-gray-600">
-                                本月应休天数：<span class="font-bold text-blue-600">${selectedEmp?.workDays}天</span>
-                                <span class="text-gray-400 ml-2">(指定休不超过此数)</span>
+                            <div class="flex items-center space-x-3">
+                                <span class="text-sm text-gray-600">本月应休天数：</span>
+                                <input 
+                                    type="number" 
+                                    min="1" 
+                                    max="15" 
+                                    value="${selectedEmp?.workDays || 4}"
+                                    onchange="updateWorkDays('${state.selectedEmployee}', this.value)"
+                                    class="w-16 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-center font-bold text-blue-600"
+                                />
+                                <span class="text-sm text-gray-600">天</span>
+                                <span class="text-gray-400 text-sm">(指定休不超过此数)</span>
                             </div>
                         </div>
 
@@ -366,8 +462,8 @@ const renderLeave = () => {
                             提交详情
                         </h3>
                         <div class="space-y-2 max-h-80 overflow-y-auto">
-                            ${employees.map((emp, idx) => {
-                                const isSubmitted = idx < state.submittedCount;
+                            ${employees.map((emp) => {
+                                const isSubmitted = state.submittedEmployees.has(emp.id);
                                 return `
                                     <div class="flex items-center justify-between p-2 rounded-lg ${isSubmitted ? 'bg-green-50' : 'bg-gray-50'}">
                                         <span class="text-sm text-gray-700">${emp.name}</span>
@@ -525,6 +621,10 @@ const renderSchedule = () => {
 };
 
 const renderEmployees = () => {
+    const avgWorkDays = employees.length > 0 
+        ? Math.round(employees.reduce((sum, e) => sum + e.workDays, 0) / employees.length) 
+        : 0;
+
     return `
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div class="flex items-center justify-between mb-6">
@@ -609,7 +709,7 @@ const renderEmployees = () => {
                         <p class="text-sm text-gray-500 mt-1">操作员</p>
                     </div>
                     <div class="text-center p-4">
-                        <p class="text-3xl font-bold text-orange-600">4</p>
+                        <p class="text-3xl font-bold text-orange-600">${avgWorkDays}</p>
                         <p class="text-sm text-gray-500 mt-1">平均应休天数</p>
                     </div>
                 </div>
@@ -618,20 +718,160 @@ const renderEmployees = () => {
     `;
 };
 
+const renderEmployeeModal = () => {
+    if (!state.modalOpen) return '';
+    
+    const isEdit = state.modalType === 'edit';
+    const emp = state.editingEmployee || {};
+    
+    return `
+        <div class="modal-overlay" onclick="closeEmployeeModal()">
+            <div class="modal-content animate-scaleIn" onclick="event.stopPropagation()">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-bold text-gray-800">${isEdit ? '编辑员工' : '新增员工'}</h3>
+                        <button onclick="closeEmployeeModal()" class="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    
+                    <form onsubmit="handleEmployeeFormSubmit(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">姓名</label>
+                            <input 
+                                type="text" 
+                                name="name" 
+                                value="${emp.name || ''}" 
+                                required
+                                placeholder="请输入员工姓名"
+                                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">部门</label>
+                            <select 
+                                name="department"
+                                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                            >
+                                <option value="仓储部" ${emp.department === '仓储部' ? 'selected' : ''}>仓储部</option>
+                                <option value="运营部" ${emp.department === '运营部' ? 'selected' : ''}>运营部</option>
+                                <option value="财务部" ${emp.department === '财务部' ? 'selected' : ''}>财务部</option>
+                                <option value="人事部" ${emp.department === '人事部' ? 'selected' : ''}>人事部</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">职位</label>
+                            <select 
+                                name="position"
+                                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                            >
+                                <option value="操作员" ${emp.position === '操作员' ? 'selected' : ''}>操作员</option>
+                                <option value="主管" ${emp.position === '主管' ? 'selected' : ''}>主管</option>
+                                <option value="经理" ${emp.position === '经理' ? 'selected' : ''}>经理</option>
+                                <option value="文员" ${emp.position === '文员' ? 'selected' : ''}>文员</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">月应休天数</label>
+                            <input 
+                                type="number" 
+                                name="workDays" 
+                                value="${emp.workDays || 4}" 
+                                min="1" 
+                                max="15"
+                                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                            />
+                        </div>
+                        
+                        <div class="flex space-x-3 pt-4">
+                            <button 
+                                type="button" 
+                                onclick="closeEmployeeModal()"
+                                class="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                            >
+                                取消
+                            </button>
+                            <button 
+                                type="submit"
+                                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                            >
+                                ${isEdit ? '保存修改' : '新增员工'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    `;
+};
+
 const showAddEmployeeModal = () => {
-    alert('新增员工功能：填写员工姓名、部门、职位和应休天数');
+    state.modalOpen = true;
+    state.modalType = 'add';
+    state.editingEmployee = null;
+    render();
 };
 
 const showEditEmployeeModal = (id) => {
     const emp = employees.find(e => e.id === id);
-    alert(`编辑员工：${emp?.name}`);
+    if (emp) {
+        state.modalOpen = true;
+        state.modalType = 'edit';
+        state.editingEmployee = { ...emp };
+        render();
+    }
+};
+
+const closeEmployeeModal = () => {
+    state.modalOpen = false;
+    state.modalType = 'add';
+    state.editingEmployee = null;
+    render();
+};
+
+const handleEmployeeFormSubmit = (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    const data = {
+        name: formData.get('name'),
+        department: formData.get('department'),
+        position: formData.get('position'),
+        workDays: parseInt(formData.get('workDays')) || 4,
+    };
+    
+    if (state.modalType === 'add') {
+        const newId = String(Date.now());
+        employees.push({ id: newId, ...data });
+        showToast('员工新增成功！');
+    } else {
+        const idx = employees.findIndex(e => e.id === state.editingEmployee.id);
+        if (idx > -1) {
+            employees[idx] = { ...employees[idx], ...data };
+            showToast('员工信息更新成功！');
+        }
+    }
+    
+    saveToStorage();
+    closeEmployeeModal();
 };
 
 const deleteEmployee = (id) => {
-    if (confirm('确定要删除该员工吗？')) {
+    if (confirm('确定要删除该员工吗？删除后无法恢复。')) {
         const idx = employees.findIndex(e => e.id === id);
         if (idx > -1) {
             employees.splice(idx, 1);
+            state.submittedEmployees.delete(id);
+            delete state.leaveData[id];
+            saveToStorage();
+            showToast('员工删除成功！');
+            
+            if (employees.length > 0 && !employees.find(e => e.id === state.selectedEmployee)) {
+                state.selectedEmployee = employees[0].id;
+            }
+            
             render();
         }
     }
@@ -660,9 +900,11 @@ const render = () => {
             content += renderHome();
     }
     
+    content += renderEmployeeModal();
     app.innerHTML = content;
     lucide.createIcons();
 };
 
+loadFromStorage();
 initLeaveData();
 render();
