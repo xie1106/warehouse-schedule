@@ -1254,7 +1254,7 @@
             }
         }
         
-        // --- 硬约束修复：确保所有人连续≤6天 ---
+        // --- 硬约束修复：确保所有人连续≤6天（通过交换rest位置，不新增rest） ---
         for (let pass = 0; pass < 500; pass++) {
             let anyViolation = false;
             for (const emp of employees) {
@@ -1266,27 +1266,43 @@
                 if (streaks.length === 0) continue;
                 const longest = streaks[0];
                 
-                // 在第5或6天位置强制插入休息
-                let inserted = false;
+                // 策略：把段外一个rest移到段内第5-6天位置
+                let insertPos = -1;
                 for (let pos = longest.start + 5; pos < longest.start + longest.len && pos < daysInMonth; pos++) {
-                    if (schedule[pos] === 'work' && getRestLimit(pos + 1) > 0) {
-                        // 先看能否放（限额检查放宽：允许多1人）
-                        if (countResting(pos) < getRestLimit(pos + 1) + 1) {
-                            schedule[pos] = 'rest';
-                            inserted = true;
+                    if (schedule[pos] === 'work' && !isMonday(pos + 1) && !isWorkDay(pos + 1)) {
+                        insertPos = pos;
+                        break;
+                    }
+                }
+                if (insertPos < 0) {
+                    for (let pos = longest.start + 4; pos >= longest.start + 3; pos--) {
+                        if (pos < 0 || pos >= daysInMonth) continue;
+                        if (schedule[pos] === 'work' && !isMonday(pos + 1) && !isWorkDay(pos + 1)) {
+                            insertPos = pos;
                             break;
                         }
                     }
                 }
-                if (!inserted) {
-                    // 把段内一个duty改为rest（最后手段）
-                    for (let pos = longest.start + 5; pos < longest.start + longest.len && pos < daysInMonth; pos++) {
-                        if (schedule[pos] === 'duty' && getRestLimit(pos + 1) > 0) {
-                            schedule[pos] = 'rest';
-                            inserted = true;
-                            break;
-                        }
-                    }
+                if (insertPos < 0) continue;
+                
+                // 找段外一个rest交换回work
+                let swapDay = -1;
+                for (let sd = 0; sd < daysInMonth; sd++) {
+                    if (sd >= longest.start && sd < longest.start + longest.len) continue;
+                    if (schedule[sd] !== 'rest') continue;
+                    if (isSunday(sd + 1)) continue; // 不动周日的rest
+                    // 确认移走后不会造成新的>6天连续
+                    schedule[sd] = 'work';
+                    const newMax = getMaxStreak(emp.name);
+                    schedule[sd] = 'rest';
+                    if (newMax <= 6) { swapDay = sd; break; }
+                }
+                if (swapDay >= 0) {
+                    schedule[insertPos] = 'rest';
+                    schedule[swapDay] = 'work';
+                } else {
+                    // 无法交换时才允许额外加一天（最后手段）
+                    schedule[insertPos] = 'rest';
                 }
             }
             if (!anyViolation) break;
