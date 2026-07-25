@@ -1178,10 +1178,10 @@
             if (!isSunday(d) || isWorkDay(d)) continue;
             const limit = sundayMaxRest;
             let current = countResting(d - 1);
-            // 按剩余需休天数多的优先
+            // 每次重新计算候选人（严格检查placed < totalRest）
             const candidates = employees
-                .filter(e => scheduleData[e.name][d-1] === 'work' || scheduleData[e.name][d-1] === 'duty')
                 .filter(e => {
+                    if (scheduleData[e.name][d-1] !== 'work') return false;
                     const placed = scheduleData[e.name].filter(s => s === 'rest' || s === 'designated').length;
                     return placed < totalRest;
                 })
@@ -1192,8 +1192,9 @@
                 });
             for (const emp of candidates) {
                 if (current >= limit) break;
-                // 如果是duty天，只在需要打断>6天连续时才动
-                if (scheduleData[emp.name][d-1] === 'duty') continue;
+                // 再次确认不超额（因为同一轮循环中可能已经被其他周日分配过了）
+                const currentPlaced = scheduleData[emp.name].filter(s => s === 'rest' || s === 'designated').length;
+                if (currentPlaced >= totalRest) continue;
                 scheduleData[emp.name][d-1] = 'rest';
                 current++;
             }
