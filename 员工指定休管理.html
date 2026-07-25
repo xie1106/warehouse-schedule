@@ -1497,9 +1497,11 @@
         }
         try {
             const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+            const empId = empNameToId[currentEmployee] || currentEmployee;
             await supaFetch('designated_rest', {
-                method: 'DELETE',
-                query: `?employee_id=eq.${encodeURIComponent(empNameToId[currentEmployee] || currentEmployee)}&month=eq.${monthStr}`
+                method: 'PATCH',
+                query: `?employee_id=eq.${encodeURIComponent(empId)}&month=eq.${monthStr}`,
+                body: { dates: [], leave_types: {}, submitted: false, updated_at: new Date().toISOString() }
             });
             selectedDates = {};
             renderCalendar();
@@ -1550,10 +1552,12 @@
         try {
             const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
             if (Object.keys(selectedDates).length === 0) {
-                // 取消指定休：删除记录
+                // 取消指定休：清空数据
+                const empId = empNameToId[currentEmployee] || currentEmployee;
                 await supaFetch('designated_rest', {
-                    method: 'DELETE',
-                    query: `?employee_id=eq.${encodeURIComponent(empNameToId[currentEmployee] || currentEmployee)}&month=eq.${monthStr}`
+                    method: 'PATCH',
+                    query: `?employee_id=eq.${encodeURIComponent(empId)}&month=eq.${monthStr}`,
+                    body: { dates: [], leave_types: {}, submitted: false, updated_at: new Date().toISOString() }
                 });
                 showToast(`${currentEmployee} 的指定休已取消`, 'success');
             } else {
