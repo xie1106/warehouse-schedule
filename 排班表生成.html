@@ -1113,20 +1113,17 @@
             dutyTargets[name] = baseDuty + (idx < extraDuty ? 1 : 0);
         });
         
-        // 值班用"均匀间隔"分配（非连续块）
+        // 值班用"连续块轮值"分配 — 每人连续值班几天再换下一个人
+        // 打乱顺序保证公平，按顺序轮值
+        let dutyCursor = 0;
         for (const name of shuffledEligible) {
-            const target = dutyTargets[name];
-            // 找出该人所有可用天（work状态）
-            const availDays = [];
-            for (let d = 0; d < daysInMonth; d++) {
-                if (scheduleData[name][d] === 'work') availDays.push(d);
-            }
-            // 等间距选取
-            const step = availDays.length / target;
-            for (let i = 0; i < target; i++) {
-                const idx = Math.min(Math.floor(i * step + step * 0.3 * (Math.random() - 0.5)), availDays.length - 1);
-                const actualIdx = Math.max(0, Math.min(idx, availDays.length - 1));
-                scheduleData[name][availDays[actualIdx]] = 'duty';
+            let assigned = 0;
+            while (assigned < dutyTargets[name] && dutyCursor < daysInMonth) {
+                if (scheduleData[name][dutyCursor] === 'work') {
+                    scheduleData[name][dutyCursor] = 'duty';
+                    assigned++;
+                }
+                dutyCursor++;
             }
         }
 
