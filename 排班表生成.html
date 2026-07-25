@@ -855,13 +855,14 @@
 
     async function loadScheduleIfExists() {
         try {
+            const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
             const data = await supaFetch('schedules', {
-                query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=data,locked&order=created_at.desc&limit=1`
+                query: `?employee_id=is.null&month=eq.${monthStr}&select=schedule&order=created_at.desc&limit=1`
             });
-            if (data.length > 0 && data[0].data && Object.keys(data[0].data).length > 0) {
+            if (data.length > 0 && data[0].schedule && data[0].schedule.data && Object.keys(data[0].schedule.data).length > 0) {
                 // 有数据就加载（无论锁定与否）
-                scheduleData = data[0].data || {};
-                isLocked = data[0].locked || false;
+                scheduleData = data[0].schedule.data || {};
+                isLocked = data[0].schedule.locked || false;
                 // 同步加载应休天数
                 try {
                     const totalRestKey = `total_rest_days_${currentYear}_${currentMonth}`;
@@ -1326,32 +1327,28 @@
 
     async function saveScheduleToSupabase(locked) {
         try {
+            const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
             // 先尝试PATCH更新已有记录
             const patchRes = await supaFetch('schedules', {
                 method: 'PATCH',
-                query: `?year=eq.${currentYear}&month=eq.${currentMonth}`,
+                query: `?employee_id=is.null&month=eq.${monthStr}`,
                 body: {
-                    data: scheduleData,
-                    locked: locked,
-                    created_at: new Date().toISOString()
+                    schedule: { data: scheduleData, locked: locked },
+                    updated_at: new Date().toISOString()
                 }
             });
-            // 如果PATCH没有命中任何行（204但content-length为空或返回空），则POST插入
-            // Supabase PATCH返回204 No Content时表示成功，但可能没匹配到行
-            // 为确保写入成功，检查是否存在记录
+            // 检查是否存在记录，不存在则插入
             const check = await supaFetch('schedules', {
-                query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=year`
+                query: `?employee_id=is.null&month=eq.${monthStr}&select=id`
             });
             if (check.length === 0) {
                 // 不存在，需要插入
                 await supaFetch('schedules', {
                     method: 'POST',
                     body: {
-                        year: currentYear,
-                        month: currentMonth,
-                        data: scheduleData,
-                        locked: locked,
-                        created_at: new Date().toISOString()
+                        employee_id: null,
+                        month: monthStr,
+                        schedule: { data: scheduleData, locked: locked }
                     }
                 });
             }
@@ -1570,10 +1567,11 @@
     async function unlockSchedule() {
         if (!confirm('解锁后可修改排班（指定休收集的假期仍不可改），是否继续？')) return;
         try {
+            const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
             await supaFetch('schedules', {
                 method: 'PATCH',
-                query: `?year=eq.${currentYear}&month=eq.${currentMonth}`,
-                body: { locked: false }
+                query: `?employee_id=is.null&month=eq.${monthStr}`,
+                body: { schedule: { data: scheduleData, locked: false }, updated_at: new Date().toISOString() }
             });
         } catch (e) {
             console.error('Failed to unlock schedule:', e);

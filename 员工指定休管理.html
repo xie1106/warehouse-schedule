@@ -1207,10 +1207,11 @@
     async function checkScheduleConfirmed() {
         const notice = document.getElementById('deadlineNotice');
         try {
+            const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
             const data = await supaFetch('schedules', {
-                query: `?year=eq.${currentYear}&month=eq.${currentMonth}&select=locked`
+                query: `?employee_id=is.null&month=eq.${monthStr}&select=schedule`
             });
-            if (data.length > 0 && data[0].locked) {
+            if (data.length > 0 && data[0].schedule && data[0].schedule.locked) {
                 scheduleConfirmed = true;
                 notice.style.display = 'block';
                 notice.innerHTML = `✅ ${currentYear}年${currentMonth}月的排班已确认，休假收集已停止`;
