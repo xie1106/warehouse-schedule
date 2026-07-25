@@ -1589,83 +1589,93 @@
     }
 
     // === Export Excel ===
+    // 钉钉员工信息映射
+    const dingtalkEmployees = {
+        '谢焕君': {dept:'捷展云仓', uid:'134256432435393864', code:'JZ0006'},
+        '陈文童': {dept:'出货组,捷展云仓', uid:'141723396637808774', code:'JZ0031'},
+        '付新远': {dept:'进货组', uid:'093731020820240644', code:'JZ0039'},
+        '林创武': {dept:'进货组', uid:'01170357401426163842', code:'JZ0148'},
+        '李亚景': {dept:'进货组', uid:'192353222026064611', code:'JZ0049'},
+        '迟喻阳': {dept:'进货组', uid:'17159392487784962', code:'JZ0560'},
+        '蒋能': {dept:'进货组', uid:'17606305882094069', code:'JZ0713'},
+        '林镇兴': {dept:'整理组', uid:'134162222026690276', code:'JZ0011'},
+        '林佗贵': {dept:'出货组', uid:'17206006400043674', code:'JZ0583'},
+        '吴兴义': {dept:'出货组', uid:'17169490688032894', code:'JZ0561'},
+        '吴兴浪': {dept:'出货组', uid:'17170362931719237', code:'JZ0562'},
+        '刘少东': {dept:'出货组', uid:'675910585320947011', code:'JZ0202'},
+        '陈安然': {dept:'出货组', uid:'132018666837820377', code:'JZ0026'},
+        '黄丽情': {dept:'出货组', uid:'141410520039704556', code:'JZ0028'},
+        '崔斯欣': {dept:'出货组', uid:'025241114223733096', code:'JZ0034'},
+    };
+
     function exportExcel() {
         if (Object.keys(scheduleData).length === 0) {
             showToast('没有数据可导出', 'error');
             return;
         }
-
         const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+        const dowLabels = ['日', '一', '二', '三', '四', '五', '六'];
 
+        // 钉钉格式导出
         let xls = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
         <head><meta charset="UTF-8">
         <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
         <x:Name>排班表</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
         </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
-        <style>
-            td, th { border: 1px solid #ccc; padding: 4px 6px; text-align: center; font-size: 11px; }
-            th { background: #f0f0f0; font-weight: bold; }
-            .holiday-h { background: #fef2f2; color: #dc2626; font-weight: bold; }
-        </style>
+        <style>td,th{padding:2px 4px;font-size:11px;}</style>
         </head><body><table>`;
 
-        xls += `<tr><td colspan="${daysInMonth + 1}" style="font-size:14px;font-weight:bold;text-align:center;">
-            ${currentYear}年${currentMonth}月排班表</td></tr>`;
-
-        xls += '<tr><th>姓名</th><th>休</th>';
+        // R0: 标题
+        xls += `<tr><td colspan="${daysInMonth+4}">云仓事业部排班表</td></tr>`;
+        // R1: 注意事项
+        xls += `<tr><td colspan="${daysInMonth+4}">注意：时间必须严格按照现有格式，否则无法识别到钉钉考勤后台</td></tr>`;
+        // R2: 班次信息
+        xls += `<tr><td colspan="${daysInMonth+4}">排班信息：班次上班SP: 09:30-19:00; 班次仓库: 10:30-20:30; 班次哺乳假周一到周六: 10:30-19:30; 班次哺乳假周日: 09:30-18:00; 班次春节值班班次: 09:30-18:30; 清空：删除排休或排班; 休: 当天休息 </td></tr>`;
+        // R3: 表头
+        xls += '<tr><td>部门</td><td>用户ID</td><td>工号</td><td>姓名</td>';
         for (let d = 1; d <= daysInMonth; d++) {
-            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            const isHoliday = !!holidays[dateStr];
             const dow = new Date(currentYear, currentMonth - 1, d).getDay();
-            const dowLabels = ['日', '一', '二', '三', '四', '五', '六'];
-            xls += `<th${isHoliday ? ' class="holiday-h"' : ''}>${d}(${dowLabels[dow]})</th>`;
+            xls += `<td>${currentYear}/${currentMonth}/${d}\n周${dowLabels[dow]}</td>`;
         }
         xls += '</tr>';
 
-        const colorMap = {};
-        const labelMap = {};
-        STATUS_TYPES.forEach(st => {
-            colorMap[st.key] = st.color;
-            labelMap[st.key] = st.label;
-        });
-
+        // 数据行
         employees.forEach(emp => {
             if (!scheduleData[emp.name]) return;
-            let restCount = 0;
-            for (let d = 1; d <= daysInMonth; d++) {
-                const s = scheduleData[emp.name][d - 1] || 'work';
-                if (s !== 'work' && s !== 'duty') restCount++;
-            }
-            xls += `<tr><td style="font-weight:bold;">${emp.name}</td><td style="font-weight:bold;">${restCount}</td>`;
+            const info = dingtalkEmployees[emp.name] || {dept:'', uid:'', code:''};
+            xls += `<tr><td>${info.dept}</td><td>${info.uid}</td><td>${info.code}</td><td>${emp.name}</td>`;
             for (let d = 1; d <= daysInMonth; d++) {
                 const status = scheduleData[emp.name][d - 1] || 'work';
-                xls += `<td style="background:${colorMap[status]}">${labelMap[status]}</td>`;
+                const dow = new Date(currentYear, currentMonth - 1, d).getDay();
+                let cell = '';
+                if (status === 'rest' || status === 'designated') {
+                    cell = '休';
+                } else if (status === 'duty' && dow === 0) {
+                    cell = '上班SP'; // 周日值班
+                } else if (status === 'duty') {
+                    cell = '仓库'; // 非周日值班=正常班
+                } else if (status === 'work' && dow === 0) {
+                    cell = '上班SP'; // 周日上班
+                } else if (status === 'work') {
+                    cell = '仓库';
+                } else {
+                    // 假期类型：调休/请假/年假等 → 休
+                    cell = '休';
+                }
+                xls += `<td>${cell}</td>`;
             }
             xls += '</tr>';
         });
 
-        xls += '<tr><td style="font-weight:bold;background:#f0fdf4;">上班人数</td><td style="background:#f0fdf4;"></td>';
-        for (let d = 1; d <= daysInMonth; d++) {
-            let count = 0;
-            employees.forEach(emp => {
-                if (!scheduleData[emp.name]) return;
-                const s = scheduleData[emp.name][d - 1];
-                if (s === 'work' || s === 'duty') count++;
-            });
-            xls += `<td style="background:#f0fdf4;font-weight:bold;">${count}</td>`;
-        }
-        xls += '</tr>';
-
         xls += '</table></body></html>';
-
-        const blob = new Blob([xls], { type: 'application/vnd.ms-excel' });
+        const blob = new Blob([xls], {type:'application/vnd.ms-excel'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `排班表_${currentYear}年${currentMonth}月.xls`;
+        a.download = `排班表_${currentYear}年${currentMonth}月_钉钉导入.xls`;
         a.click();
         URL.revokeObjectURL(url);
-        showToast('Excel已导出', 'success');
+        showToast('钉钉排班表已导出', 'success');
     }
 
     // === Toast ===
