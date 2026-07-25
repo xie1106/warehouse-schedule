@@ -1301,12 +1301,27 @@
                 if (swapDay >= 0) {
                     schedule[insertPos] = 'rest';
                     schedule[swapDay] = 'work';
-                } else {
-                    // 无法交换时才允许额外加一天（最后手段）
-                    schedule[insertPos] = 'rest';
                 }
+                // 无法交换时不额外加rest（宁可连续>6天也不超总休天数）
             }
             if (!anyViolation) break;
+        }
+
+        // === 最终保障：强制每人rest+designated = totalRest ===
+        for (const emp of employees) {
+            const schedule = scheduleData[emp.name];
+            let restDays = [];
+            for (let d = 0; d < daysInMonth; d++) {
+                if (schedule[d] === 'rest') restDays.push(d);
+            }
+            const designated = schedule.filter(s => s === 'designated').length;
+            const target = Math.max(0, totalRest - designated);
+            // 多了就移除（从最不重要的位置移除：非打断连续段的rest）
+            while (restDays.length > target) {
+                // 移除最后一个rest（最不影响的）
+                const removeIdx = restDays.pop();
+                schedule[removeIdx] = 'work';
+            }
         }
 
         // 生成后立刻保存到数据库（草稿状态），刷新不会丢失
