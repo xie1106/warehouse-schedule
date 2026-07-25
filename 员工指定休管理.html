@@ -1498,11 +1498,17 @@
         try {
             const monthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
             const empId = empNameToId[currentEmployee] || currentEmployee;
-            await supaFetch('designated_rest', {
-                method: 'PATCH',
-                query: `?employee_id=eq.${encodeURIComponent(empId)}&month=eq.${monthStr}`,
-                body: { dates: [], leave_types: {}, submitted: false, updated_at: new Date().toISOString() }
+            // 找到该员工当月记录
+            const existing = await supaFetch('designated_rest', {
+                query: `?employee_id=eq.${encodeURIComponent(empId)}&month=eq.${monthStr}&select=id&order=created_at.desc&limit=1`
             });
+            if (existing.length > 0) {
+                await supaFetch('designated_rest', {
+                    method: 'PATCH',
+                    query: `?id=eq.${existing[0].id}`,
+                    body: { dates: [], leave_types: {}, submitted: false, updated_at: new Date().toISOString() }
+                });
+            }
             selectedDates = {};
             renderCalendar();
             updateSelectedDatesDisplay();
@@ -1561,19 +1567,39 @@
                 });
                 showToast(`${currentEmployee} 的指定休已取消`, 'success');
             } else {
-                // Upsert 指定休/假期
+                // Upsert 指定休/假期: 先查是否已有记录
+                const empId = empNameToId[currentEmployee] || currentEmployee;
                 const days = Object.keys(selectedDates).map(Number).sort((a, b) => a - b);
-                await supaFetch('designated_rest', {
-                    method: 'POST',
-                    body: {
-                        employee_id: empNameToId[currentEmployee] || currentEmployee,
-                        month: monthStr,
-                        dates: days,
-                        leave_types: selectedDates,
-                        submitted: true,
-                        submitted_at: new Date().toISOString()
-                    }
+                const existing = await supaFetch('designated_rest', {
+                    query: `?employee_id=eq.${encodeURIComponent(empId)}&month=eq.${monthStr}&select=id`
                 });
+                if (existing.length > 0) {
+                    // 更新已有记录
+                    await supaFetch('designated_rest', {
+                        method: 'PATCH',
+                        query: `?id=eq.${existing[0].id}`,
+                        body: {
+                            dates: days,
+                            leave_types: selectedDates,
+                            submitted: true,
+                            submitted_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        }
+                    });
+                } else {
+                    // 新建记录
+                    await supaFetch('designated_rest', {
+                        method: 'POST',
+                        body: {
+                            employee_id: empId,
+                            month: monthStr,
+                            dates: days,
+                            leave_types: selectedDates,
+                            submitted: true,
+                            submitted_at: new Date().toISOString()
+                        }
+                    });
+                }
                 showToast(`${currentEmployee} 的假期已保存`, 'success');
             }
             await updateStats();
