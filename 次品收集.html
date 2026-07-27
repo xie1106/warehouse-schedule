@@ -296,10 +296,10 @@ function loadHistory() {
                 <span class="badge ${statusClass}">${statusText}</span>
             </div>
             <div class="record-time">${new Date(r.created_at).toLocaleString()} ${noteDisplay?' · '+noteDisplay:''}</div>
-            <div style="margin-top:6px;"><button onclick="togglePhotos(${realIdx})" style="padding:6px 14px;background:#f0f7ff;border:1px solid #4A90D9;border-radius:6px;color:#4A90D9;font-size:13px;font-weight:500;cursor:pointer;">📷 查看照片 (${photoCount})</button></div>
+            <div style="margin-top:6px;"><button onclick="togglePhotos(${realIdx})" style="padding:6px 14px;background:#f0f7ff;border:1px solid #4A90D9;border-radius:6px;color:#4A90D9;font-size:13px;font-weight:500;cursor:pointer;">查看图片 (${photoCount})</button></div>
             ${photosHtml}
             <div class="record-actions">
-                ${r.status!=='done'?`<button onclick="markDone(${realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`:''}
+                ${r.status!=='done'?`<button onclick="markDone(${realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`:`<button onclick="markUndone(${realIdx})" style="color:#d97706;border-color:#d97706;">↩ 反完成</button>`}
                 <button onclick="editRecord(${realIdx})">✏️ 编辑</button>
                 <button onclick="deleteRecord(${realIdx})">🗑 删除</button>
             </div>
@@ -349,6 +349,19 @@ async function markDone(idx) {
     }
     await fetchRecords();
     showToast('已标记完成', 'green');
+}
+
+async function markUndone(idx) {
+    const list = getRecords();
+    const rec = list[idx];
+    if (rec && rec.id) {
+        await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, {
+            method: 'PATCH', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'pending' })
+        });
+    }
+    await fetchRecords();
+    showToast('已恢复为待处理', 'green');
 }
 
 async function togglePhotos(idx) {
