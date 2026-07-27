@@ -95,6 +95,7 @@
                 <input type="text" id="note" placeholder="次品描述">
             </div>
             <button class="submit-btn" id="submitBtn" onclick="submitRecord()" disabled>提交</button>
+            <button class="submit-btn" id="cancelBtn" onclick="cancelEdit()" style="display:none;background:#999;margin-top:8px;">取消编辑</button>
         </div>
     </div>
 
@@ -367,7 +368,8 @@ function updateBtn() {
     const poId = document.getElementById('poId').value.trim();
     const skuInputs = document.querySelectorAll('.sku-input');
     const hasAnySku = Array.from(skuInputs).some(i => i.value.trim().length > 0);
-    document.getElementById('submitBtn').disabled = !(/^\d{6,}$/.test(poId) && photos.length > 0 && hasAnySku);
+    const isEditing = editingIdx >= 0;
+    document.getElementById('submitBtn').disabled = !(/^\d{6,}$/.test(poId) && photos.length > 0 && (hasAnySku || isEditing));
 }
 document.getElementById('poId').addEventListener('input', function() {
     updateBtn();
@@ -446,6 +448,7 @@ async function submitRecord() {
     document.getElementById('skuRows').innerHTML = '';
     await fetchRecords();
     btn.disabled = false; btn.textContent = '提交';
+    document.getElementById('cancelBtn').style.display = 'none';
 }
 
 function saveLocal(record) {}
@@ -541,8 +544,21 @@ function editRecord(idx) {
     document.getElementById('collectForm').style.display = 'block';
     document.getElementById('collectArrow').textContent = '收起 ▲';
     document.getElementById('submitBtn').textContent = '保存修改';
+    document.getElementById('cancelBtn').style.display = 'block';
     updateBtn();
     window.scrollTo(0, 0);
+}
+
+function cancelEdit() {
+    editingIdx = -1;
+    document.getElementById('poId').value = '';
+    document.getElementById('note').value = '';
+    document.getElementById('skuRows').innerHTML = '';
+    photos = [];
+    initPhotoGrid();
+    document.getElementById('submitBtn').textContent = '提交';
+    document.getElementById('cancelBtn').style.display = 'none';
+    updateBtn();
 }
 
 let _confirmCb = null;
