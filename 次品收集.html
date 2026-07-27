@@ -295,7 +295,8 @@ function loadHistory() {
                 <span class="record-title">采购单 ${r.po_id}${tagHtml}</span>
                 <span class="badge ${statusClass}">${statusText}</span>
             </div>
-            <div class="record-time">${new Date(r.created_at).toLocaleString()} · <a href="javascript:void(0)" onclick="togglePhotos(${realIdx})" style="color:#4A90D9;">${photoCount}张照片</a>${noteDisplay?' · '+noteDisplay:''}</div>
+            <div class="record-time">${new Date(r.created_at).toLocaleString()} ${noteDisplay?' · '+noteDisplay:''}</div>
+            <div style="margin-top:6px;"><button onclick="togglePhotos(${realIdx})" style="padding:6px 14px;background:#f0f7ff;border:1px solid #4A90D9;border-radius:6px;color:#4A90D9;font-size:13px;font-weight:500;cursor:pointer;">📷 查看照片 (${photoCount})</button></div>
             ${photosHtml}
             <div class="record-actions">
                 ${r.status!=='done'?`<button onclick="markDone(${realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`:''}
@@ -385,8 +386,21 @@ function closeModal() { document.getElementById('imgModal').style.display = 'non
 
 function downloadImg() {
     const src = document.getElementById('modalImg').src;
-    const a = document.createElement('a');
-    a.href = src; a.download = 'defect_' + Date.now() + '.jpg'; a.click();
+    // base64转blob下载
+    fetch(src).then(r => r.blob()).then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'defect_' + Date.now() + '.jpg';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('下载中...', 'green');
+    }).catch(() => {
+        // 回退：新窗口打开
+        window.open(src, '_blank');
+    });
 }
 async function copyImg() {
     try {
