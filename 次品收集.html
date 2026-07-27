@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>次品照片收集</title>
+    <title>次品照片收集系统</title>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -57,13 +57,13 @@
 </head>
 <body>
 <div class="container">
-    <h1>📷 次品照片收集</h1>
+    <h1>📷 次品照片收集系统</h1>
 
     <!-- 收集模块 -->
-    <div class="card" style="padding:12px 16px;cursor:pointer;" onclick="toggleCollect(event)">
+    <div class="card" id="collectCard" style="padding:14px 16px;cursor:pointer;background:#f0f7ff;border:1px solid #d0e3f7;" onclick="toggleCollect(event)">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:16px;font-weight:600;color:#4A90D9;">📷 次品拍照</span>
-            <span id="collectArrow" style="font-size:12px;color:#999;">展开 ▼</span>
+            <span style="font-size:18px;font-weight:600;color:#4A90D9;">📷 次品拍照</span>
+            <span id="collectArrow" style="font-size:13px;color:#999;">展开 ▼</span>
         </div>
         <div id="collectForm" style="display:none;margin-top:12px;" onclick="event.stopPropagation();">
             <div style="margin-bottom:10px;">
@@ -189,6 +189,9 @@ function toggleCollect(e) {
     collectOpen = !collectOpen;
     document.getElementById('collectForm').style.display = collectOpen ? 'block' : 'none';
     document.getElementById('collectArrow').textContent = collectOpen ? '收起 ▲' : '展开 ▼';
+    const card = document.getElementById('collectCard');
+    if(collectOpen) { card.style.background = '#fff'; card.style.border = ''; }
+    else { card.style.background = '#f0f7ff'; card.style.border = '1px solid #d0e3f7'; }
 }
 
 // SKU rows — scan results display
