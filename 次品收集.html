@@ -118,15 +118,14 @@
 
 <!-- 图片预览弹窗 -->
 <div class="img-modal" id="imgModal" onclick="closeModal()">
-    <div style="position:absolute;top:50%;left:10px;transform:translateY(-50);"><button onclick="event.stopPropagation();prevImg()" style="padding:12px 16px;background:rgba(255,255,255,0.9);border:none;border-radius:50%;font-size:20px;cursor:pointer;">‹</button></div>
-    <img id="modalImg" src="" onclick="event.stopPropagation();">
-    <div style="position:absolute;top:50%;right:10px;transform:translateY(-50%);"><button onclick="event.stopPropagation();nextImg()" style="padding:12px 16px;background:rgba(255,255,255,0.9);border:none;border-radius:50%;font-size:20px;cursor:pointer;">›</button></div>
-    <div style="position:absolute;bottom:80px;color:#fff;font-size:14px;" id="imgCounter"></div>
-    <div class="img-modal-actions" onclick="event.stopPropagation()">
-        <button style="background:#4A90D9;" onclick="downloadImg()">下载</button>
-        <button style="background:#10b981;" onclick="copyImg()">复制</button>
-        <button style="background:#666;" onclick="closeModal()">关闭</button>
+    <img id="modalImg" src="" onclick="event.stopPropagation();" style="max-width:92%;max-height:70vh;object-fit:contain;border-radius:8px;">
+    <div style="color:#fff;font-size:14px;margin-top:12px;" id="imgCounter"></div>
+    <div style="display:flex;gap:16px;margin-top:16px;" onclick="event.stopPropagation()">
+        <button onclick="prevImg()" style="padding:10px 20px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:#fff;font-size:16px;cursor:pointer;">上一张</button>
+        <button onclick="downloadImg()" style="padding:10px 20px;background:#4A90D9;border:none;border-radius:8px;color:#fff;font-size:14px;cursor:pointer;">保存图片</button>
+        <button onclick="nextImg()" style="padding:10px 20px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:#fff;font-size:16px;cursor:pointer;">下一张</button>
     </div>
+    <button onclick="closeModal()" style="margin-top:12px;padding:8px 24px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#ccc;font-size:13px;cursor:pointer;">关闭</button>
 </div>
 
 <div class="confirm-overlay" id="confirmOverlay">
@@ -469,21 +468,10 @@ function closeModal() { document.getElementById('imgModal').style.display = 'non
 
 function downloadImg() {
     const src = document.getElementById('modalImg').src;
-    // base64转blob下载
-    fetch(src).then(r => r.blob()).then(blob => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'defect_' + Date.now() + '.jpg';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showToast('下载中...', 'green');
-    }).catch(() => {
-        // 回退：新窗口打开
-        window.open(src, '_blank');
-    });
+    // 手机上直接新窗口打开图片，长按保存到相册
+    const w = window.open('', '_blank');
+    w.document.write(`<html><head><title>长按保存图片</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#000;}img{max-width:100%;max-height:90vh;}p{color:#fff;font-size:14px;margin-top:12px;}</style></head><body><img src="${src}"><p>长按图片 → 保存到相册</p></body></html>`);
+    w.document.close();
 }
 async function copyImg() {
     try {
