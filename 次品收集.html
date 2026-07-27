@@ -53,6 +53,7 @@
                     <input type="text" id="poId" placeholder="输入或扫码" inputmode="numeric" pattern="[0-9]*" style="flex:1;">
                     <button onclick="startScan()" style="padding:12px 16px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:14px;white-space:nowrap;">扫码</button>
                 </div>
+                <div id="poHint" style="display:none;color:#e53e3e;font-size:12px;margin-top:6px;"></div>
             </div>
             <div style="margin-bottom:12px;">
                 <label>拍照上传</label>
@@ -163,10 +164,24 @@ function compressAndConvert(file) {
 
 function updateBtn() {
     const poId = document.getElementById('poId').value.trim();
-    document.getElementById('submitBtn').disabled = !(poId && photos.length > 0);
+    const valid = /^\d{6,}$/.test(poId);
+    document.getElementById('submitBtn').disabled = !(valid && photos.length > 0);
 }
 
-document.getElementById('poId').addEventListener('input', updateBtn);
+document.getElementById('poId').addEventListener('input', function() {
+    updateBtn();
+    const val = this.value.trim();
+    const hint = document.getElementById('poHint');
+    if (val && !/^\d+$/.test(val)) {
+        hint.textContent = '⚠️ 请输入纯数字';
+        hint.style.display = 'block';
+    } else if (val && val.length < 6) {
+        hint.textContent = '⚠️ 采购单号不少于6位';
+        hint.style.display = 'block';
+    } else {
+        hint.style.display = 'none';
+    }
+});
 
 async function submit() {
     const poId = document.getElementById('poId').value.trim();
