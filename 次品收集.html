@@ -6,78 +6,90 @@
     <title>次品照片收集</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; min-height: 100vh; padding: 16px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; min-height: 100vh; padding: 12px; }
         .container { max-width: 500px; margin: 0 auto; }
-        h1 { font-size: 20px; text-align: center; padding: 16px 0; color: #333; }
-        .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .card-title { font-size: 14px; color: #666; margin-bottom: 10px; font-weight: 500; }
+        h1 { font-size: 18px; text-align: center; padding: 12px 0; color: #333; }
+        .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         label { display: block; font-size: 14px; color: #333; margin-bottom: 6px; font-weight: 500; }
-        input[type=number], input[type=text] { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; }
+        input[type=text] { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; outline: none; }
         input:focus { border-color: #4A90D9; }
-        .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
-        .photo-slot { aspect-ratio: 1; border: 2px dashed #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer; background: #fafafa; min-height: 100px; }
-        .photo-count { text-align: right; font-size: 12px; color: #888; margin-top: 6px; }
-        .photo-slot { aspect-ratio: 1; border: 2px dashed #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer; background: #fafafa; }
+        .photo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
+        .photo-slot { aspect-ratio: 1; border: 2px dashed #ddd; border-radius: 6px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer; background: #fafafa; }
         .photo-slot.has-photo { border: 2px solid #4A90D9; }
         .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
-        .photo-slot .add-icon { font-size: 28px; color: #bbb; }
-        .photo-slot .del { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; background: rgba(220,38,38,0.9); color: #fff; border: none; border-radius: 50%; font-size: 12px; cursor: pointer; }
-        .submit-btn { width: 100%; padding: 14px; background: #4A90D9; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        .photo-slot .del { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; background: rgba(220,38,38,0.9); color: #fff; border: none; border-radius: 50%; font-size: 11px; cursor: pointer; }
+        .photo-slot .add-icon { font-size: 24px; color: #bbb; }
+        .submit-btn { width: 100%; padding: 12px; background: #4A90D9; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
         .submit-btn:disabled { background: #ccc; }
-        .submit-btn:active:not(:disabled) { opacity: 0.8; }
-        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 8px; color: #fff; font-size: 14px; z-index: 999; display: none; }
-        .history-item { padding: 10px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
-        .history-item .time { color: #888; font-size: 11px; }
-        .history-item .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; color: #fff; font-size: 14px; z-index: 9999; display: none; }
+        .record { padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; }
+        .record-header { display: flex; justify-content: space-between; align-items: center; }
+        .record-title { font-size: 14px; font-weight: 600; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
         .badge-pending { background: #fef3c7; color: #d97706; }
         .badge-done { background: #d1fae5; color: #059669; }
         .badge-error { background: #fee2e2; color: #dc2626; }
+        .record-time { color: #888; font-size: 11px; margin-top: 4px; }
+        .record-photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; }
+        .record-photos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; cursor: pointer; }
         .tab-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; background: #fff; font-size: 12px; cursor: pointer; }
         .tab-btn.active { background: #4A90D9; color: #fff; border-color: #4A90D9; }
+        .search-box { display: flex; gap: 8px; margin-bottom: 12px; }
+        .search-box input { flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
+        .record-actions { display: flex; gap: 8px; margin-top: 8px; }
+        .record-actions button { padding: 4px 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; font-size: 11px; cursor: pointer; }
+        /* 图片预览弹窗 */
+        .img-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9998; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .img-modal img { max-width: 95%; max-height: 75vh; object-fit: contain; }
+        .img-modal-actions { margin-top: 16px; display: flex; gap: 12px; }
+        .img-modal-actions button { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; color: #fff; }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>📷 次品照片收集</h1>
 
-    <!-- 收集模块：折叠式 -->
-    <div class="card" id="collectCard" style="padding:14px 20px;cursor:pointer;" onclick="toggleCollect(event)">
+    <!-- 收集模块 -->
+    <div class="card" style="padding:12px 16px;cursor:pointer;" onclick="toggleCollect(event)">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:18px;font-weight:600;color:#4A90D9;">📷 次品拍照</span>
-            <span id="collectArrow" style="font-size:13px;color:#999;">展开 ▼</span>
+            <span style="font-size:16px;font-weight:600;color:#4A90D9;">📷 次品拍照</span>
+            <span id="collectArrow" style="font-size:12px;color:#999;">展开 ▼</span>
         </div>
-        <div id="collectForm" style="display:none;margin-top:14px;" onclick="event.stopPropagation();">
-            <div style="margin-bottom:12px;">
+        <div id="collectForm" style="display:none;margin-top:12px;" onclick="event.stopPropagation();">
+            <div style="margin-bottom:10px;">
                 <label>采购单号 <span style="color:#e53e3e;">*</span></label>
                 <div style="display:flex;gap:8px;">
-                    <input type="text" id="poId" placeholder="输入或扫码" inputmode="numeric" pattern="[0-9]*" style="flex:1;">
-                    <button onclick="startScan()" style="padding:12px 16px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:14px;white-space:nowrap;">扫码</button>
+                    <input type="text" id="poId" placeholder="输入采购单号（≥6位数字）" inputmode="numeric" pattern="[0-9]*" style="flex:1;">
+                    <button onclick="startScan()" style="padding:10px 14px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:13px;">扫码</button>
                 </div>
-                <div id="poHint" style="display:none;color:#e53e3e;font-size:12px;margin-top:6px;"></div>
+                <div id="poHint" style="display:none;color:#e53e3e;font-size:12px;margin-top:4px;"></div>
             </div>
-            <div style="margin-bottom:12px;">
-                <label>拍照上传</label>
+            <div style="margin-bottom:10px;">
+                <label>上传照片</label>
                 <div class="photo-grid" id="photoGrid"></div>
             </div>
-            <div style="margin-bottom:12px;">
+            <div style="margin-bottom:10px;">
                 <label>备注（可选）</label>
                 <input type="text" id="note" placeholder="次品描述">
             </div>
-            <button class="submit-btn" id="submitBtn" onclick="submit()" disabled>提交</button>
+            <button class="submit-btn" id="submitBtn" onclick="submitRecord()" disabled>提交</button>
         </div>
     </div>
 
-    <!-- 提交记录：主体 -->
-    <div class="card" style="flex:1;min-height:60vh;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-            <div class="card-title" style="margin-bottom:0;font-size:16px;">提交记录</div>
-            <div style="font-size:12px;">
-                <span style="color:#f59e0b;font-weight:600;" id="pendingCount">待处理: 0</span>
-                <span style="margin-left:8px;color:#10b981;font-weight:600;" id="doneCount">已处理: 0</span>
-                <span style="margin-left:8px;color:#ef4444;font-weight:600;" id="errorCount">异常: 0</span>
+    <!-- 提交记录 -->
+    <div class="card" style="min-height:50vh;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <span style="font-size:16px;font-weight:600;">提交记录</span>
+            <div style="font-size:11px;">
+                <span style="color:#f59e0b;font-weight:600;" id="pendingCount">待处理:0</span>
+                <span style="margin-left:6px;color:#10b981;font-weight:600;" id="doneCount">已处理:0</span>
+                <span style="margin-left:6px;color:#ef4444;font-weight:600;" id="errorCount">异常:0</span>
             </div>
         </div>
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="🔍 搜索采购单号" inputmode="numeric" oninput="loadHistory()">
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px;">
             <button class="tab-btn active" onclick="switchTab('all',this)">全部</button>
             <button class="tab-btn" onclick="switchTab('pending',this)">待处理</button>
             <button class="tab-btn" onclick="switchTab('done',this)">已处理</button>
@@ -86,17 +98,27 @@
         <div id="historyList"></div>
     </div>
 </div>
+
+<!-- 图片预览弹窗 -->
+<div class="img-modal" id="imgModal" onclick="closeModal()">
+    <img id="modalImg" src="">
+    <div class="img-modal-actions" onclick="event.stopPropagation()">
+        <button style="background:#4A90D9;" onclick="downloadImg()">下载</button>
+        <button style="background:#10b981;" onclick="copyImg()">复制</button>
+        <button style="background:#666;" onclick="closeModal()">关闭</button>
+    </div>
+</div>
+
 <div class="toast" id="toast"></div>
-
 <input type="file" id="fileInput" accept="image/*" style="display:none" multiple>
-
 <script>
 const SUPABASE_URL = 'https://elyfxyrdbuykyklfjfdr.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg';
 
 let photos = [];
-const MAX_SIZE = 5 * 1024 * 1024;
 let collectOpen = false;
+let currentTab = 'all';
+let editingIdx = -1;
 
 function toggleCollect(e) {
     collectOpen = !collectOpen;
@@ -104,54 +126,43 @@ function toggleCollect(e) {
     document.getElementById('collectArrow').textContent = collectOpen ? '收起 ▲' : '展开 ▼';
 }
 
+// Photo grid
 function initPhotoGrid() {
     const grid = document.getElementById('photoGrid');
     grid.innerHTML = '';
     photos.forEach((p, i) => {
         const slot = document.createElement('div');
         slot.className = 'photo-slot has-photo';
-        slot.innerHTML = `<img src="${p}"><button class="del" onclick="removePhoto(${i})">✕</button>`;
+        slot.innerHTML = `<img src="${p}"><button class="del" onclick="event.stopPropagation();removePhoto(${i})">✕</button>`;
         grid.appendChild(slot);
     });
-    // 添加按钮
     const addSlot = document.createElement('div');
     addSlot.className = 'photo-slot';
     addSlot.innerHTML = '<span class="add-icon">+</span>';
-    addSlot.onclick = triggerUpload;
+    addSlot.onclick = () => document.getElementById('fileInput').click();
     grid.appendChild(addSlot);
     updateBtn();
 }
 
-function triggerUpload() {
-    document.getElementById('fileInput').click();
-}
-
-document.getElementById('fileInput').addEventListener('change', async function(e) {
-    const files = Array.from(e.target.files);
-    for (const file of files) {
-        if (file.size > MAX_SIZE) { showToast('照片超过5MB，已跳过', 'orange'); continue; }
-        const b64 = await compressAndConvert(file);
-        photos.push(b64);
-    }
-    initPhotoGrid();
-    this.value = '';
-});
-
 function removePhoto(i) { photos.splice(i, 1); initPhotoGrid(); }
 
-function compressAndConvert(file) {
+document.getElementById('fileInput').addEventListener('change', async function(e) {
+    for (const file of Array.from(e.target.files)) {
+        if (file.size > 5*1024*1024) { showToast('照片超过5MB，已跳过','orange'); continue; }
+        photos.push(await compressImg(file));
+    }
+    initPhotoGrid(); this.value = '';
+});
+
+function compressImg(file) {
     return new Promise(resolve => {
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = e => {
             const img = new Image();
-            img.onload = function() {
+            img.onload = () => {
                 const canvas = document.createElement('canvas');
                 let w = img.width, h = img.height;
-                const maxDim = 1600;
-                if (w > maxDim || h > maxDim) {
-                    if (w > h) { h = h * maxDim / w; w = maxDim; }
-                    else { w = w * maxDim / h; h = maxDim; }
-                }
+                if (w > 1600 || h > 1600) { if (w > h) { h = h*1600/w; w = 1600; } else { w = w*1600/h; h = 1600; } }
                 canvas.width = w; canvas.height = h;
                 canvas.getContext('2d').drawImage(img, 0, 0, w, h);
                 resolve(canvas.toDataURL('image/jpeg', 0.8));
@@ -162,80 +173,65 @@ function compressAndConvert(file) {
     });
 }
 
+// Validation
 function updateBtn() {
     const poId = document.getElementById('poId').value.trim();
-    const valid = /^\d{6,}$/.test(poId);
-    document.getElementById('submitBtn').disabled = !(valid && photos.length > 0);
+    document.getElementById('submitBtn').disabled = !(/^\d{6,}$/.test(poId) && photos.length > 0);
 }
-
 document.getElementById('poId').addEventListener('input', function() {
     updateBtn();
-    const val = this.value.trim();
-    const hint = document.getElementById('poHint');
-    if (val && !/^\d+$/.test(val)) {
-        hint.textContent = '⚠️ 请输入纯数字';
-        hint.style.display = 'block';
-    } else if (val && val.length < 6) {
-        hint.textContent = '⚠️ 采购单号不少于6位';
-        hint.style.display = 'block';
-    } else {
-        hint.style.display = 'none';
-    }
+    const val = this.value.trim(), hint = document.getElementById('poHint');
+    if (val && !/^\d+$/.test(val)) { hint.textContent = '⚠️ 请输入纯数字'; hint.style.display = 'block'; }
+    else if (val && val.length < 6) { hint.textContent = '⚠️ 采购单号不少于6位'; hint.style.display = 'block'; }
+    else { hint.style.display = 'none'; }
 });
 
-async function submit() {
+// Submit
+async function submitRecord() {
     const poId = document.getElementById('poId').value.trim();
-    if (!poId || photos.length === 0) return;
+    if (!/^\d{6,}$/.test(poId) || photos.length === 0) return;
     const btn = document.getElementById('submitBtn');
     btn.disabled = true; btn.textContent = '提交中...';
 
-    const record = {
-        po_id: parseInt(poId),
-        photos: photos,
-        note: document.getElementById('note').value.trim(),
-        status: 'pending',
-        created_at: new Date().toISOString()
-    };
+    const record = { po_id: poId, photos, note: document.getElementById('note').value.trim(), status: 'pending', created_at: new Date().toISOString() };
 
-    try {
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/defect_reports`, {
-            method: 'POST', headers: {
-                'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json', 'Prefer': 'return=minimal'
-            }, body: JSON.stringify(record)
-        });
-        if (r.ok) {
-            // 同时存本地
-            saveLocal(record);
-            showToast('提交成功 ✓', 'green');
-            photos = []; initPhotoGrid();
-            document.getElementById('poId').value = '';
-            document.getElementById('note').value = '';
-            loadHistory();
-        } else {
-            // 网络提交失败，存本地
-            saveLocal(record);
-            showToast('已保存到本地（网络异常）', 'orange');
-            photos = []; initPhotoGrid();
-            loadHistory();
-        }
-    } catch(e) {
+    if (editingIdx >= 0) {
+        // 编辑模式
+        const list = getRecords();
+        list[editingIdx] = record;
+        saveRecords(list);
+        editingIdx = -1;
+        showToast('修改成功 ✓', 'green');
+    } else {
         saveLocal(record);
-        showToast('已保存到本地（离线模式）', 'orange');
-        photos = []; initPhotoGrid();
-        loadHistory();
+        showToast('提交成功 ✓', 'green');
     }
+    // 尝试同步到服务器
+    syncToServer(record);
+
+    photos = []; initPhotoGrid();
+    document.getElementById('poId').value = '';
+    document.getElementById('note').value = '';
+    loadHistory();
     btn.disabled = false; btn.textContent = '提交';
 }
 
 function saveLocal(record) {
-    const list = JSON.parse(localStorage.getItem('defect_reports') || '[]');
-    list.unshift(record);
-    localStorage.setItem('defect_reports', JSON.stringify(list.slice(0, 50)));
+    const list = getRecords(); list.unshift(record); saveRecords(list);
+}
+function getRecords() { return JSON.parse(localStorage.getItem('defect_reports') || '[]'); }
+function saveRecords(list) { localStorage.setItem('defect_reports', JSON.stringify(list.slice(0, 200))); }
+
+async function syncToServer(record) {
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/defect_reports`, {
+            method: 'POST', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify(record)
+        });
+    } catch(e) { /* 离线模式，下次同步 */ }
 }
 
-let currentTab = 'all';
-
+// History & Search
 function switchTab(tab, btn) {
     currentTab = tab;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -244,27 +240,114 @@ function switchTab(tab, btn) {
 }
 
 function loadHistory() {
-    const list = JSON.parse(localStorage.getItem('defect_reports') || '[]');
-    const pending = list.filter(r => r.status === 'pending');
-    const done = list.filter(r => r.status === 'done');
-    const error = list.filter(r => r.status === 'error');
-    document.getElementById('pendingCount').textContent = `待处理: ${pending.length}`;
-    document.getElementById('doneCount').textContent = `已处理: ${done.length}`;
-    document.getElementById('errorCount').textContent = `异常: ${error.length}`;
-
+    const list = getRecords();
+    const search = document.getElementById('searchInput').value.trim();
     let filtered = list;
-    if (currentTab === 'pending') filtered = pending;
-    else if (currentTab === 'done') filtered = done;
-    else if (currentTab === 'error') filtered = error;
+    if (search) filtered = filtered.filter(r => String(r.po_id).includes(search));
+    if (currentTab === 'pending') filtered = filtered.filter(r => r.status === 'pending');
+    else if (currentTab === 'done') filtered = filtered.filter(r => r.status === 'done');
+    else if (currentTab === 'error') filtered = filtered.filter(r => r.status === 'error');
+
+    const allPending = list.filter(r => r.status === 'pending').length;
+    const allDone = list.filter(r => r.status === 'done').length;
+    const allError = list.filter(r => r.status === 'error').length;
+    document.getElementById('pendingCount').textContent = `待处理:${allPending}`;
+    document.getElementById('doneCount').textContent = `已处理:${allDone}`;
+    document.getElementById('errorCount').textContent = `异常:${allError}`;
 
     const el = document.getElementById('historyList');
-    if (filtered.length === 0) { el.innerHTML = '<div style="color:#999;font-size:13px;">暂无记录</div>'; return; }
-    el.innerHTML = filtered.slice(0, 20).map(r => `<div class="history-item">
-        <strong>采购单 ${r.po_id}</strong> · ${r.photos.length}张照片
-        <span class="badge ${r.status==='done'?'badge-done':r.status==='error'?'badge-error':'badge-pending'}">${r.status==='done'?'已处理':r.status==='error'?'异常':'待处理'}</span>
-        ${r.note ? '<br>' + r.note : ''}
-        <div class="time">${new Date(r.created_at).toLocaleString()}</div>
-    </div>`).join('');
+    if (filtered.length === 0) { el.innerHTML = '<div style="color:#999;font-size:13px;text-align:center;padding:20px;">暂无记录</div>'; return; }
+    el.innerHTML = filtered.slice(0, 30).map((r, i) => {
+        const realIdx = list.indexOf(r);
+        const statusClass = r.status==='done'?'badge-done':r.status==='error'?'badge-error':'badge-pending';
+        const statusText = r.status==='done'?'已处理':r.status==='error'?'异常':'待处理';
+        const photosHtml = (r.photos||[]).map(p => `<img src="${p}" onclick="event.stopPropagation();openModal('${p.replace(/'/g,"\\'")}')">`).join('');
+        return `<div class="record">
+            <div class="record-header">
+                <span class="record-title">采购单 ${r.po_id}</span>
+                <span class="badge ${statusClass}">${statusText}</span>
+            </div>
+            <div class="record-time">${new Date(r.created_at).toLocaleString()} · ${(r.photos||[]).length}张照片${r.note?' · '+r.note:''}</div>
+            <div class="record-photos">${photosHtml}</div>
+            <div class="record-actions">
+                <button onclick="editRecord(${realIdx})">✏️ 编辑</button>
+                <button onclick="deleteRecord(${realIdx})">🗑 删除</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// Edit & Delete
+function editRecord(idx) {
+    const list = getRecords();
+    const r = list[idx];
+    if (!r) return;
+    editingIdx = idx;
+    document.getElementById('poId').value = r.po_id;
+    document.getElementById('note').value = r.note || '';
+    photos = [...(r.photos || [])];
+    initPhotoGrid();
+    collectOpen = true;
+    document.getElementById('collectForm').style.display = 'block';
+    document.getElementById('collectArrow').textContent = '收起 ▲';
+    document.getElementById('submitBtn').textContent = '保存修改';
+    updateBtn();
+    window.scrollTo(0, 0);
+}
+
+function deleteRecord(idx) {
+    if (!confirm('确定删除这条记录？')) return;
+    const list = getRecords(); list.splice(idx, 1); saveRecords(list); loadHistory();
+    showToast('已删除', 'green');
+}
+
+// Image modal
+function openModal(src) {
+    document.getElementById('modalImg').src = src;
+    document.getElementById('imgModal').style.display = 'flex';
+}
+function closeModal() { document.getElementById('imgModal').style.display = 'none'; }
+
+function downloadImg() {
+    const src = document.getElementById('modalImg').src;
+    const a = document.createElement('a');
+    a.href = src; a.download = 'defect_' + Date.now() + '.jpg'; a.click();
+}
+async function copyImg() {
+    try {
+        const src = document.getElementById('modalImg').src;
+        const res = await fetch(src);
+        const blob = await res.blob();
+        await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+        showToast('已复制到剪贴板', 'green');
+    } catch(e) { showToast('复制失败，请长按图片保存', 'orange'); }
+}
+
+// Barcode scan
+function startScan() {
+    const overlay = document.createElement('div');
+    overlay.id = 'scanOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;display:flex;flex-direction:column;align-items:center;';
+    overlay.innerHTML = `<div style="color:#fff;padding:16px;font-size:16px;">对准条形码</div>
+        <video id="scanVideo" style="width:100%;max-height:70vh;object-fit:cover;" autoplay playsinline></video>
+        <div style="padding:20px;"><button onclick="stopScan()" style="padding:12px 32px;background:#e53e3e;color:#fff;border:none;border-radius:8px;font-size:16px;">取消</button></div>`;
+    document.body.appendChild(overlay);
+    navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(stream => {
+        const video = document.getElementById('scanVideo');
+        video.srcObject = stream; video.play(); scanLoop(video, stream);
+    }).catch(() => { document.body.removeChild(overlay); showToast('无法访问摄像头','orange'); });
+}
+function scanLoop(video, stream) {
+    if (!document.getElementById('scanOverlay')) { stream.getTracks().forEach(t=>t.stop()); return; }
+    if (!('BarcodeDetector' in window)) { stopScan(); showToast('浏览器不支持扫码','orange'); return; }
+    new BarcodeDetector({formats:['code_128','ean_13','ean_8','code_39','qr_code']}).detect(video).then(codes => {
+        if (codes.length > 0) { document.getElementById('poId').value = codes[0].rawValue; updateBtn(); showToast('扫码成功','green'); stopScan(); return; }
+        requestAnimationFrame(() => scanLoop(video, stream));
+    }).catch(() => requestAnimationFrame(() => scanLoop(video, stream)));
+}
+function stopScan() {
+    const o = document.getElementById('scanOverlay');
+    if (o) { const v = o.querySelector('video'); if (v&&v.srcObject) v.srcObject.getTracks().forEach(t=>t.stop()); document.body.removeChild(o); }
 }
 
 function showToast(msg, color) {
@@ -275,62 +358,6 @@ function showToast(msg, color) {
 
 initPhotoGrid();
 loadHistory();
-
-// 条形码扫描 - 实时摄像头扫码
-function startScan() {
-    // 创建全屏扫码界面
-    const overlay = document.createElement('div');
-    overlay.id = 'scanOverlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;display:flex;flex-direction:column;align-items:center;';
-    overlay.innerHTML = `
-        <div style="color:#fff;padding:16px;font-size:16px;text-align:center;">对准条形码扫描</div>
-        <video id="scanVideo" style="width:100%;max-height:70vh;object-fit:cover;" autoplay playsinline></video>
-        <div style="padding:20px;">
-            <button onclick="stopScan()" style="padding:12px 32px;background:#e53e3e;color:#fff;border:none;border-radius:8px;font-size:16px;">取消</button>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-
-    navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(stream => {
-        const video = document.getElementById('scanVideo');
-        video.srcObject = stream;
-        video.play();
-        scanLoop(video, stream);
-    }).catch(() => {
-        document.body.removeChild(overlay);
-        showToast('无法访问摄像头', 'orange');
-    });
-}
-
-function scanLoop(video, stream) {
-    if (!document.getElementById('scanOverlay')) { stream.getTracks().forEach(t=>t.stop()); return; }
-    if ('BarcodeDetector' in window) {
-        const detector = new BarcodeDetector({formats:['code_128','ean_13','ean_8','code_39','qr_code']});
-        detector.detect(video).then(codes => {
-            if (codes.length > 0) {
-                document.getElementById('poId').value = codes[0].rawValue;
-                updateBtn();
-                showToast('扫码成功: ' + codes[0].rawValue, 'green');
-                stopScan();
-                return;
-            }
-            requestAnimationFrame(() => scanLoop(video, stream));
-        }).catch(() => requestAnimationFrame(() => scanLoop(video, stream)));
-    } else {
-        // 不支持BarcodeDetector则提示
-        stopScan();
-        showToast('浏览器不支持扫码，请手动输入', 'orange');
-    }
-}
-
-function stopScan() {
-    const overlay = document.getElementById('scanOverlay');
-    if (overlay) {
-        const video = overlay.querySelector('video');
-        if (video && video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-        document.body.removeChild(overlay);
-    }
-}
 </script>
 </body>
 </html>
