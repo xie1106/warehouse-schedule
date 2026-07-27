@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>次品照片收集</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; min-height: 100vh; padding: 16px; }
+        .container { max-width: 500px; margin: 0 auto; }
+        h1 { font-size: 20px; text-align: center; padding: 16px 0; color: #333; }
+        .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .card-title { font-size: 14px; color: #666; margin-bottom: 10px; font-weight: 500; }
+        label { display: block; font-size: 14px; color: #333; margin-bottom: 6px; font-weight: 500; }
+        input[type=number], input[type=text] { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; }
+        input:focus { border-color: #4A90D9; }
+        .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+        .photo-slot { aspect-ratio: 1; border: 2px dashed #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer; background: #fafafa; }
+        .photo-slot.has-photo { border: 2px solid #4A90D9; }
+        .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
+        .photo-slot .add-icon { font-size: 28px; color: #bbb; }
+        .photo-slot .del { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; background: rgba(220,38,38,0.9); color: #fff; border: none; border-radius: 50%; font-size: 12px; cursor: pointer; }
+        .submit-btn { width: 100%; padding: 14px; background: #4A90D9; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        .submit-btn:disabled { background: #ccc; }
+        .submit-btn:active:not(:disabled) { opacity: 0.8; }
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 8px; color: #fff; font-size: 14px; z-index: 999; display: none; }
+        .history-item { padding: 10px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
+        .history-item .time { color: #888; font-size: 11px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>📷 次品照片收集</h1>
+
+    <div class="card">
+        <label>采购单号</label>
+        <input type="number" id="poId" placeholder="输入采购单号" inputmode="numeric">
+        <div id="poInfo" style="margin-top:10px;font-size:13px;color:#666;"></div>
+    </div>
+
+    <div class="card" id="photoCard">
+        <div class="card-title">拍照上传（最多3张，每张≤5MB）</div>
+        <div class="photo-grid" id="photoGrid"></div>
+    </div>
+
+    <div class="card">
+        <label>备注（可选）</label>
+        <input type="text" id="note" placeholder="次品描述">
+    </div>
+
+    <button class="submit-btn" id="submitBtn" onclick="submit()" disabled>提交</button>
+
+    <div class="card" style="margin-top:16px;" id="historyCard">
+        <div class="card-title">已提交记录</div>
+        <div id="historyList"></div>
+    </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" multiple>
+
+<script>
+const SUPABASE_URL = 'https://elyfxyrdbuykyklfjfdr.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg';
+
+let photos = []; // base64 strings
+const MAX_PHOTOS = 3;
+const MAX_SIZE = 5 * 1024 * 1024;
+
+function initPhotoGrid() {
+    const grid = document.getElementById('photoGrid');
+    grid.innerHTML = '';
+    for (let i = 0; i < MAX_PHOTOS; i++) {
+        const slot = document.createElement('div');
+        slot.className = 'photo-slot' + (photos[i] ? ' has-photo' : '');
+        if (photos[i]) {
+            slot.innerHTML = `<img src="${photos[i]}"><button class="del" onclick="removePhoto(${i})">✕</button>`;
+        } else {
+            slot.innerHTML = '<span class="add-icon">+</span>';
+            slot.onclick = () => triggerUpload(i);
+        }
+        grid.appendChild(slot);
+    }
+    updateBtn();
+}
+
+function triggerUpload() {
+    if (photos.length >= MAX_PHOTOS) { showToast('最多3张', 'orange'); return; }
+    document.getElementById('fileInput').click();
+}
+
+document.getElementById('fileInput').addEventListener('change', async function(e) {
+    const files = Array.from(e.target.files);
+    for (const file of files) {
+        if (photos.length >= MAX_PHOTOS) break;
+        if (file.size > MAX_SIZE) { showToast('照片超过5MB，已跳过', 'orange'); continue; }
+        const b64 = await compressAndConvert(file);
+        photos.push(b64);
+    }
+    initPhotoGrid();
+    this.value = '';
+});
+
+function removePhoto(i) { photos.splice(i, 1); initPhotoGrid(); }
+
+function compressAndConvert(file) {
+    return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                let w = img.width, h = img.height;
+                const maxDim = 1600;
+                if (w > maxDim || h > maxDim) {
+                    if (w > h) { h = h * maxDim / w; w = maxDim; }
+                    else { w = w * maxDim / h; h = maxDim; }
+                }
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                resolve(canvas.toDataURL('image/jpeg', 0.8));
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function updateBtn() {
+    const poId = document.getElementById('poId').value.trim();
+    document.getElementById('submitBtn').disabled = !(poId && photos.length > 0);
+}
+
+document.getElementById('poId').addEventListener('input', updateBtn);
+
+async function submit() {
+    const poId = document.getElementById('poId').value.trim();
+    if (!poId || photos.length === 0) return;
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true; btn.textContent = '提交中...';
+
+    const record = {
+        po_id: parseInt(poId),
+        photos: photos,
+        note: document.getElementById('note').value.trim(),
+        status: 'pending',
+        created_at: new Date().toISOString()
+    };
+
+    try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/defect_reports`, {
+            method: 'POST', headers: {
+                'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json', 'Prefer': 'return=minimal'
+            }, body: JSON.stringify(record)
+        });
+        if (r.ok) {
+            // 同时存本地
+            saveLocal(record);
+            showToast('提交成功 ✓', 'green');
+            photos = []; initPhotoGrid();
+            document.getElementById('poId').value = '';
+            document.getElementById('note').value = '';
+            loadHistory();
+        } else {
+            // 网络提交失败，存本地
+            saveLocal(record);
+            showToast('已保存到本地（网络异常）', 'orange');
+            photos = []; initPhotoGrid();
+            loadHistory();
+        }
+    } catch(e) {
+        saveLocal(record);
+        showToast('已保存到本地（离线模式）', 'orange');
+        photos = []; initPhotoGrid();
+        loadHistory();
+    }
+    btn.disabled = false; btn.textContent = '提交';
+}
+
+function saveLocal(record) {
+    const list = JSON.parse(localStorage.getItem('defect_reports') || '[]');
+    list.unshift(record);
+    localStorage.setItem('defect_reports', JSON.stringify(list.slice(0, 50)));
+}
+
+function loadHistory() {
+    const list = JSON.parse(localStorage.getItem('defect_reports') || '[]');
+    const el = document.getElementById('historyList');
+    if (list.length === 0) { el.innerHTML = '<div style="color:#999;font-size:13px;">暂无记录</div>'; return; }
+    el.innerHTML = list.slice(0, 10).map(r => `<div class="history-item">
+        <strong>采购单 ${r.po_id}</strong> · ${r.photos.length}张照片
+        ${r.note ? ' · ' + r.note : ''}
+        <div class="time">${new Date(r.created_at).toLocaleString()}</div>
+    </div>`).join('');
+}
+
+function showToast(msg, color) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.style.background = color; t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 2500);
+}
+
+initPhotoGrid();
+loadHistory();
+</script>
+</body>
+</html>
