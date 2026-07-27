@@ -81,7 +81,7 @@
                 <label>次品商品明细 <span style="color:#e53e3e;">*</span></label>
                 <div id="skuRows"></div>
                 <div style="display:flex;gap:6px;align-items:center;margin-top:8px;">
-                    <button onclick="scanSkuCode()" style="width:100%;padding:10px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;">📷 扫描次品条码</button>
+                    <button onclick="scanSkuCode()" style="width:100%;padding:10px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;">📷 扫描次品二维码</button>
                 </div>
                 <p style="font-size:11px;color:#999;margin-top:4px;text-align:center;">逐件扫描，同SKU自动累加数量</p>
             </div>
@@ -186,14 +186,14 @@ function renderSkuRows() {
 function scanSkuCode() {
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;display:flex;flex-direction:column;align-items:center;';
-    overlay.innerHTML = `<div style="color:#fff;padding:16px;font-size:16px;">扫描次品吊牌条码</div>
-        <div id="skuScanReader" style="width:100%;max-width:400px;"></div>
+    overlay.innerHTML = `<div style="color:#fff;padding:16px;font-size:16px;">扫描次品吊牌二维码</div>
+        <div id="skuScanReader" style="width:100%;"></div>
         <div style="padding:20px;"><button onclick="stopSkuScan()" style="padding:12px 32px;background:#e53e3e;color:#fff;border:none;border-radius:8px;font-size:16px;">取消</button></div>`;
     document.body.appendChild(overlay);
     window._skuScanOverlay = overlay;
     const scanner = new Html5Qrcode("skuScanReader");
     window._skuScanner = scanner;
-    scanner.start({facingMode:"environment"},{fps:15,qrbox:{width:320,height:160}}, code => {
+    scanner.start({facingMode:"environment"},{fps:15,qrbox:250}, code => {
         addOrIncrementSku(code);
         playBeep('success');
         showToast('✓ ' + code, 'green');
