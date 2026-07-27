@@ -576,6 +576,8 @@ function confirmResolve(val) {
 }
 
 async function quickDelete(idx) {
+    const ok = await showConfirm('确定删除这条记录？');
+    if (!ok) return;
     showToast('正在删除...', '#666');
     const list = getRecords();
     const rec = list[idx];
