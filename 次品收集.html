@@ -45,6 +45,14 @@
         .img-modal img { max-width: 95%; max-height: 75vh; object-fit: contain; }
         .img-modal-actions { margin-top: 16px; display: flex; gap: 12px; }
         .img-modal-actions button { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; color: #fff; }
+        /* 自定义确认弹窗 */
+        .confirm-overlay { position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:9998;display:none;align-items:center;justify-content:center; }
+        .confirm-box { background:#fff;border-radius:14px;padding:24px;text-align:center;max-width:280px;width:80%; }
+        .confirm-box p { font-size:16px;margin-bottom:20px;color:#333; }
+        .confirm-btns { display:flex;gap:12px; }
+        .confirm-btns button { flex:1;padding:10px;border:none;border-radius:8px;font-size:15px;font-weight:500;cursor:pointer; }
+        .confirm-cancel { background:#f0f0f0;color:#333; }
+        .confirm-ok { background:#e53e3e;color:#fff; }
     </style>
 </head>
 <body>
@@ -121,6 +129,15 @@
     </div>
 </div>
 
+<div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-box">
+        <p id="confirmMsg">确定删除这条记录？</p>
+        <div class="confirm-btns">
+            <button class="confirm-cancel" onclick="confirmResolve(false)">取消</button>
+            <button class="confirm-ok" onclick="confirmResolve(true)">确定</button>
+        </div>
+    </div>
+</div>
 <div class="toast" id="toast"></div>
 <input type="file" id="fileInput" accept="image/*" style="display:none" multiple>
 <script>
@@ -351,8 +368,22 @@ function editRecord(idx) {
     window.scrollTo(0, 0);
 }
 
+let _confirmCb = null;
+function showConfirm(msg) {
+    return new Promise(resolve => {
+        document.getElementById('confirmMsg').textContent = msg;
+        document.getElementById('confirmOverlay').style.display = 'flex';
+        _confirmCb = resolve;
+    });
+}
+function confirmResolve(val) {
+    document.getElementById('confirmOverlay').style.display = 'none';
+    if (_confirmCb) { _confirmCb(val); _confirmCb = null; }
+}
+
 async function deleteRecord(idx) {
-    if (!confirm('确定删除这条记录？')) return;
+    const ok = await showConfirm('确定删除这条记录？');
+    if (!ok) return;
     const list = getRecords();
     const rec = list[idx];
     if (rec && rec.id) {
