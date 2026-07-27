@@ -292,11 +292,10 @@ function loadHistory() {
         const photoCount = (r.photos||[]).length || '?';
         return `<div class="record">
             <div class="record-header">
-                <span class="record-title">采购单 ${r.po_id}${tagHtml}</span>
+                <span class="record-title">采购单 ${r.po_id}${tagHtml} <button onclick="togglePhotos(${realIdx})" style="padding:3px 10px;background:#f0f7ff;border:1px solid #4A90D9;border-radius:6px;color:#4A90D9;font-size:12px;cursor:pointer;margin-left:8px;">查看图片 (${photoCount})</button></span>
                 <span class="badge ${statusClass}">${statusText}</span>
             </div>
-            <div class="record-time">${new Date(r.created_at).toLocaleString()} ${noteDisplay?' · '+noteDisplay:''}</div>
-            <div style="margin-top:6px;"><button onclick="togglePhotos(${realIdx})" style="padding:6px 14px;background:#f0f7ff;border:1px solid #4A90D9;border-radius:6px;color:#4A90D9;font-size:13px;font-weight:500;cursor:pointer;">查看图片 (${photoCount})</button></div>
+            <div class="record-time">${new Date(r.created_at).toLocaleString()}${noteDisplay?' · '+noteDisplay:''}</div>
             ${photosHtml}
             <div class="record-actions">
                 ${r.status!=='done'?`<button onclick="markDone(${realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`:`<button onclick="markUndone(${realIdx})" style="color:#d97706;border-color:#d97706;">↩ 反完成</button>`}
