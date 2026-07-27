@@ -331,7 +331,7 @@ function loadHistory() {
         const isNon1688 = (r.note||'').includes('[系统:非1688');
         const tagHtml = is1688 ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:#1677ff;color:#fff;margin-left:6px;">1688</span>' : isNon1688 ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:#faad14;color:#fff;margin-left:6px;">非1688</span>' : '';
         const noteDisplay = (r.note||'').replace(/\s*\[系统:[^\]]*\]/g, '').replace(/\s*\[1688:[^\]]*\]/g, '').trim();
-        const photosHtml = `<div class="record-photos" id="photos_${realIdx}" style="display:none;"></div>`;
+        const photosHtml = `<div class="record-photos" id="photos_${realIdx}" data-poid="${r.po_id}" style="display:none;"></div>`;
         const photoCount = (r.photos||[]).length || '?';
         return `<div class="record">
             <div class="record-header">
@@ -437,7 +437,8 @@ async function togglePhotos(idx) {
                     const data = await r.json();
                     const photos = (data[0] && data[0].photos) || [];
                     el.dataset.photos = JSON.stringify(photos);
-                    el.innerHTML = photos.map((p, pi) => `<img src="${p}" onclick="event.stopPropagation();openModal(null, JSON.parse(this.parentElement.dataset.photos), ${pi})">`).join('');
+                    const poId = el.dataset.poid || '';
+                    el.innerHTML = photos.map((p, pi) => `<img src="${p}" onclick="event.stopPropagation();openModal(null, JSON.parse(this.parentElement.dataset.photos), ${pi}, '${poId}')">`).join('');
                     el.dataset.loaded = '1';
                 }
             }
@@ -451,9 +452,12 @@ async function togglePhotos(idx) {
 let modalPhotos = [];
 let modalIndex = 0;
 
-function openModal(src, photos, idx) {
+let modalPoId = '';
+
+function openModal(src, photos, idx, poId) {
     if (photos) { modalPhotos = photos; modalIndex = idx || 0; }
     else { modalPhotos = [src]; modalIndex = 0; }
+    if (poId) modalPoId = poId;
     document.getElementById('modalImg').src = modalPhotos[modalIndex];
     document.getElementById('imgCounter').textContent = `${modalIndex+1} / ${modalPhotos.length}`;
     document.getElementById('imgModal').style.display = 'flex';
@@ -468,14 +472,18 @@ function closeModal() { document.getElementById('imgModal').style.display = 'non
 
 function downloadImg() {
     const src = document.getElementById('modalImg').src;
-    const a = document.createElement('a');
-    a.href = src;
-    a.download = 'defect_' + Date.now() + '.jpg';
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    showToast('已保存 ✓', 'green');
+    const filename = `${modalPoId}_${modalIndex+1}.jpg`;
+    fetch(src).then(r => r.blob()).then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast('已保存 ✓', 'green');
+    }).catch(() => showToast('保存失败，请长按图片保存', 'orange'));
 }
 async function copyImg() {
     try {
