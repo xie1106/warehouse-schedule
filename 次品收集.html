@@ -14,6 +14,7 @@
         label { display: block; font-size: 14px; color: #333; margin-bottom: 6px; font-weight: 500; }
         input[type=text] { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; outline: none; }
         input:focus { border-color: #4A90D9; }
+        #poId::placeholder { font-size: 12px; color: #ccc; }
         .photo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
         .photo-slot { aspect-ratio: 1; border: 2px dashed #ddd; border-radius: 6px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer; background: #fafafa; }
         .photo-slot.has-photo { border: 2px solid #4A90D9; }
@@ -61,7 +62,7 @@
                 <label>采购单号 <span style="color:#e53e3e;">*</span></label>
                 <div style="display:flex;gap:8px;">
                     <div style="flex:1;position:relative;">
-                        <input type="text" id="poId" placeholder="输入采购单号（≥6位数字）" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding-right:32px;">
+                        <input type="text" id="poId" placeholder="请输入正确采购单号" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding-right:32px;">
                         <button onclick="document.getElementById('poId').value='';updateBtn();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;color:#999;cursor:pointer;padding:4px;">✕</button>
                     </div>
                     <button onclick="startScan()" style="padding:10px 20px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:14px;min-width:60px;">扫码</button>
