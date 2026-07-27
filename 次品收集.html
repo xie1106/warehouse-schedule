@@ -97,7 +97,7 @@
             <button onclick="searchScan()" style="padding:8px 14px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:13px;">扫码</button>
         </div>
         <div style="display:flex;gap:6px;margin-bottom:10px;">
-            <button class="tab-btn active" onclick="switchTab('all',this)">全部</button>
+            <button class="tab-btn active" onclick="switchTab('all',this)">待办</button>
             <button class="tab-btn" onclick="switchTab('pending',this)">待处理</button>
             <button class="tab-btn" onclick="switchTab('done',this)">已处理</button>
             <button class="tab-btn" onclick="switchTab('error',this)">异常</button>
@@ -262,7 +262,8 @@ function loadHistory() {
     const search = document.getElementById('searchInput').value.trim();
     let filtered = list;
     if (search) filtered = filtered.filter(r => String(r.po_id).includes(search));
-    if (currentTab === 'pending') filtered = filtered.filter(r => r.status === 'pending');
+    if (currentTab === 'all') filtered = filtered.filter(r => r.status !== 'done');
+    else if (currentTab === 'pending') filtered = filtered.filter(r => r.status === 'pending');
     else if (currentTab === 'done') filtered = filtered.filter(r => r.status === 'done');
     else if (currentTab === 'error') filtered = filtered.filter(r => r.status === 'error');
 
@@ -288,6 +289,7 @@ function loadHistory() {
             <div class="record-time">${new Date(r.created_at).toLocaleString()} · ${(r.photos||[]).length}张照片${r.note?' · '+r.note:''}</div>
             <div class="record-photos">${photosHtml}</div>
             <div class="record-actions">
+                ${r.status!=='done'?`<button onclick="markDone(${realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`:''}
                 <button onclick="editRecord(${realIdx})">✏️ 编辑</button>
                 <button onclick="deleteRecord(${realIdx})">🗑 删除</button>
             </div>
@@ -324,6 +326,19 @@ async function deleteRecord(idx) {
     }
     await fetchRecords();
     showToast('已删除', 'green');
+}
+
+async function markDone(idx) {
+    const list = getRecords();
+    const rec = list[idx];
+    if (rec && rec.id) {
+        await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, {
+            method: 'PATCH', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'done' })
+        });
+    }
+    await fetchRecords();
+    showToast('已标记完成', 'green');
 }
 
 // Image modal
