@@ -15,6 +15,8 @@
         input[type=number], input[type=text] { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; }
         input:focus { border-color: #4A90D9; }
         .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+        .photo-slot { aspect-ratio: 1; border: 2px dashed #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer; background: #fafafa; min-height: 100px; }
+        .photo-count { text-align: right; font-size: 12px; color: #888; margin-top: 6px; }
         .photo-slot { aspect-ratio: 1; border: 2px dashed #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer; background: #fafafa; }
         .photo-slot.has-photo { border: 2px solid #4A90D9; }
         .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
@@ -34,12 +36,15 @@
 
     <div class="card">
         <label>采购单号</label>
-        <input type="number" id="poId" placeholder="输入采购单号" inputmode="numeric">
+        <div style="display:flex;gap:8px;">
+            <input type="number" id="poId" placeholder="输入或扫码" inputmode="numeric" style="flex:1;">
+            <button onclick="startScan()" style="padding:12px 16px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:14px;white-space:nowrap;">📷 扫码</button>
+        </div>
         <div id="poInfo" style="margin-top:10px;font-size:13px;color:#666;"></div>
     </div>
 
     <div class="card" id="photoCard">
-        <div class="card-title">拍照上传（最多3张，每张≤5MB）</div>
+        <div class="card-title">拍照上传（不限张数）</div>
         <div class="photo-grid" id="photoGrid"></div>
     </div>
 
@@ -64,35 +69,33 @@ const SUPABASE_URL = 'https://elyfxyrdbuykyklfjfdr.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg';
 
 let photos = []; // base64 strings
-const MAX_PHOTOS = 3;
 const MAX_SIZE = 5 * 1024 * 1024;
 
 function initPhotoGrid() {
     const grid = document.getElementById('photoGrid');
     grid.innerHTML = '';
-    for (let i = 0; i < MAX_PHOTOS; i++) {
+    photos.forEach((p, i) => {
         const slot = document.createElement('div');
-        slot.className = 'photo-slot' + (photos[i] ? ' has-photo' : '');
-        if (photos[i]) {
-            slot.innerHTML = `<img src="${photos[i]}"><button class="del" onclick="removePhoto(${i})">✕</button>`;
-        } else {
-            slot.innerHTML = '<span class="add-icon">+</span>';
-            slot.onclick = () => triggerUpload(i);
-        }
+        slot.className = 'photo-slot has-photo';
+        slot.innerHTML = `<img src="${p}"><button class="del" onclick="removePhoto(${i})">✕</button>`;
         grid.appendChild(slot);
-    }
+    });
+    // 添加按钮
+    const addSlot = document.createElement('div');
+    addSlot.className = 'photo-slot';
+    addSlot.innerHTML = '<span class="add-icon">+</span>';
+    addSlot.onclick = triggerUpload;
+    grid.appendChild(addSlot);
     updateBtn();
 }
 
 function triggerUpload() {
-    if (photos.length >= MAX_PHOTOS) { showToast('最多3张', 'orange'); return; }
     document.getElementById('fileInput').click();
 }
 
 document.getElementById('fileInput').addEventListener('change', async function(e) {
     const files = Array.from(e.target.files);
     for (const file of files) {
-        if (photos.length >= MAX_PHOTOS) break;
         if (file.size > MAX_SIZE) { showToast('照片超过5MB，已跳过', 'orange'); continue; }
         const b64 = await compressAndConvert(file);
         photos.push(b64);
@@ -203,6 +206,55 @@ function showToast(msg, color) {
 
 initPhotoGrid();
 loadHistory();
+
+// 条形码扫描
+function startScan() {
+    if (!('BarcodeDetector' in window)) {
+        // 回退：用相机拍照识别
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'environment';
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            img.onload = async () => {
+                try {
+                    const detector = new BarcodeDetector({formats:['code_128','ean_13','ean_8','code_39']});
+                    const codes = await detector.detect(img);
+                    if (codes.length > 0) {
+                        document.getElementById('poId').value = codes[0].rawValue;
+                        updateBtn();
+                        showToast('扫码成功: ' + codes[0].rawValue, 'green');
+                    } else {
+                        showToast('未识别到条形码', 'orange');
+                    }
+                } catch(err) {
+                    showToast('设备不支持扫码，请手动输入', 'orange');
+                }
+            };
+        };
+        input.click();
+        return;
+    }
+    // 使用BarcodeDetector API
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
+    input.onchange = async (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        const bitmap = await createImageBitmap(file);
+        const detector = new BarcodeDetector({formats:['code_128','ean_13','ean_8','code_39']});
+        const codes = await detector.detect(bitmap);
+        if (codes.length > 0) {
+            document.getElementById('poId').value = codes[0].rawValue;
+            updateBtn();
+            showToast('扫码成功: ' + codes[0].rawValue, 'green');
+        } else { showToast('未识别到条形码', 'orange'); }
+    };
+    input.click();
+}
 </script>
 </body>
 </html>
