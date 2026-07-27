@@ -147,7 +147,6 @@
 </div>
 <div class="toast" id="toast"></div>
 <input type="file" id="fileInput" accept="image/*" style="display:none" multiple>
-<input type="file" id="fileInputCamera" accept="image/*" capture="environment" style="display:none" multiple>
 <script>
 const SUPABASE_URL = 'https://elyfxyrdbuykyklfjfdr.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg';
@@ -240,14 +239,47 @@ function showPhotoMenu() {
     overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
     overlay.innerHTML = `<div style="width:100%;max-width:400px;padding:12px;margin-bottom:env(safe-area-inset-bottom);">
         <div style="background:#fff;border-radius:14px;overflow:hidden;">
-            <button onclick="this.closest('div[style]').parentElement.parentElement.remove();document.getElementById('fileInputCamera').click();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#333;border-bottom:1px solid #eee;cursor:pointer;">📷 拍照</button>
-            <button onclick="this.closest('div[style]').parentElement.parentElement.remove();document.getElementById('fileInput').click();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#333;cursor:pointer;">🖼 手机图片</button>
+            <button onclick="this.closest('div[style*=fixed]').remove();openJsCamera();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#333;border-bottom:1px solid #eee;cursor:pointer;">📷 拍照</button>
+            <button onclick="this.closest('div[style*=fixed]').remove();document.getElementById('fileInput').click();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#333;cursor:pointer;">🖼 手机图片</button>
         </div>
         <div style="background:#fff;border-radius:14px;margin-top:8px;">
-            <button onclick="this.closest('div[style]').parentElement.parentElement.remove();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#666;cursor:pointer;">取消</button>
+            <button onclick="this.closest('div[style*=fixed]').remove();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#666;cursor:pointer;">取消</button>
         </div>
     </div>`;
     document.body.appendChild(overlay);
+}
+
+// JS Camera (bypasses WeChat file picker)
+function openJsCamera() {
+    const overlay = document.createElement('div');
+    overlay.id = 'cameraOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;display:flex;flex-direction:column;';
+    overlay.innerHTML = `<video id="cameraVideo" autoplay playsinline style="flex:1;object-fit:cover;"></video>
+        <div style="display:flex;justify-content:center;align-items:center;padding:20px;gap:30px;background:#111;">
+            <button onclick="closeJsCamera()" style="padding:12px 24px;background:#666;color:#fff;border:none;border-radius:8px;font-size:15px;">取消</button>
+            <button onclick="capturePhoto()" style="width:64px;height:64px;background:#fff;border:3px solid #ccc;border-radius:50%;cursor:pointer;"></button>
+            <div style="width:70px;"></div>
+        </div>`;
+    document.body.appendChild(overlay);
+    navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}})
+        .then(stream => { window._camStream = stream; document.getElementById('cameraVideo').srcObject = stream; })
+        .catch(err => { showToast('无法打开相机: '+err.message,'red'); closeJsCamera(); });
+}
+function capturePhoto() {
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob(async blob => {
+        photos.push(await compressImg(blob));
+        initPhotoGrid();
+        closeJsCamera();
+    }, 'image/jpeg', 0.85);
+}
+function closeJsCamera() {
+    if(window._camStream) { window._camStream.getTracks().forEach(t=>t.stop()); window._camStream=null; }
+    const ov = document.getElementById('cameraOverlay');
+    if(ov) ov.remove();
 }
 
 // Photo grid
@@ -265,7 +297,7 @@ function initPhotoGrid() {
     addSlot.innerHTML = '<span class="add-icon">+</span>';
     let pressTimer;
     addSlot.addEventListener('touchstart', (e) => {
-        pressTimer = setTimeout(() => { pressTimer = 'long'; document.getElementById('fileInputCamera').click(); }, 500);
+        pressTimer = setTimeout(() => { pressTimer = 'long'; openJsCamera(); }, 500);
     });
     addSlot.addEventListener('touchend', (e) => {
         if (pressTimer === 'long') { e.preventDefault(); return; }
@@ -281,13 +313,6 @@ function initPhotoGrid() {
 function removePhoto(i) { photos.splice(i, 1); initPhotoGrid(); }
 
 document.getElementById('fileInput').addEventListener('change', async function(e) {
-    for (const file of Array.from(e.target.files)) {
-        if (file.size > 5*1024*1024) { showToast('照片超过5MB，已跳过','orange'); continue; }
-        photos.push(await compressImg(file));
-    }
-    initPhotoGrid(); this.value = '';
-});
-document.getElementById('fileInputCamera').addEventListener('change', async function(e) {
     for (const file of Array.from(e.target.files)) {
         if (file.size > 5*1024*1024) { showToast('照片超过5MB，已跳过','orange'); continue; }
         photos.push(await compressImg(file));
