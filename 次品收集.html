@@ -414,7 +414,12 @@ async function submitRecord() {
         if (code && qty > 0) skuItems.push({ code, qty });
     });
 
-    const record = { po_id: poId, photos: photoUrls, note: document.getElementById('note').value.trim(), status: 'pending', created_at: new Date().toISOString(), sku_items: skuItems };
+    const noteText = document.getElementById('note').value.trim();
+    const skuStr = skuItems.map(s => s.code + '×' + s.qty).join(', ');
+    const fullNote = skuStr + (noteText ? ' | ' + noteText : '');
+    const record = { po_id: poId, photos: photoUrls, note: fullNote, status: 'pending', created_at: new Date().toISOString() };
+    // 本地也存sku_items用于显示
+    record._sku_items = skuItems;
 
     if (editingIdx >= 0) {
         const list = getRecords();
@@ -446,9 +451,10 @@ function saveRecords(list) {}
 
 async function syncToServer(record) {
     try {
+        const {_sku_items, ...dbRecord} = record;
         await fetch(`${SUPABASE_URL}/rest/v1/defect_reports`, {
             method: 'POST', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-            body: JSON.stringify(record)
+            body: JSON.stringify(dbRecord)
         });
     } catch(e) {}
 }
