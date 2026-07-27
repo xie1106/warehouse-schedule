@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>方案A - 自动拉取SKU列表</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; min-height: 100vh; padding: 12px; }
+        .container { max-width: 500px; margin: 0 auto; }
+        h1 { font-size: 18px; text-align: center; padding: 12px 0; color: #333; }
+        .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        label { display: block; font-size: 14px; color: #333; margin-bottom: 6px; font-weight: 500; }
+        input[type=text] { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; outline: none; }
+        input:focus { border-color: #4A90D9; }
+        .sku-list { margin-top: 12px; }
+        .sku-item { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; }
+        .sku-item.selected { border-color: #4A90D9; background: #f0f7ff; }
+        .sku-checkbox { width: 20px; height: 20px; accent-color: #4A90D9; }
+        .sku-info { flex: 1; }
+        .sku-code { font-size: 14px; font-weight: 600; color: #333; }
+        .sku-detail { font-size: 12px; color: #888; margin-top: 2px; }
+        .sku-qty { width: 60px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; text-align: center; }
+        .sku-qty-label { font-size: 11px; color: #666; }
+        .loading { text-align: center; padding: 20px; color: #888; font-size: 13px; }
+        .submit-btn { width: 100%; padding: 12px; background: #4A90D9; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 12px; }
+        .submit-btn:disabled { background: #ccc; }
+        .photo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
+        .photo-slot { aspect-ratio: 1; border: 2px dashed #ddd; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #fafafa; }
+        .photo-slot .add-icon { font-size: 24px; color: #bbb; }
+        .hint { font-size: 12px; color: #e53e3e; margin-top: 4px; }
+        .desc { font-size: 12px; color: #999; margin-top: 8px; text-align: center; line-height: 1.6; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>次品收集 — 方案A</h1>
+    <p class="desc">输入采购单号后自动拉取SKU列表<br>勾选次品SKU并填写数量</p>
+
+    <div class="card">
+        <label>采购单号</label>
+        <input type="text" id="poId" placeholder="输入或扫码采购单号" oninput="onPoIdChange()">
+        
+        <div id="skuArea" style="display:none;">
+            <div class="loading" id="skuLoading">正在从聚水潭获取商品列表...</div>
+            <div class="sku-list" id="skuList"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <label>拍照上传</label>
+        <p class="hint">需要吊牌、次品位置的清晰图片</p>
+        <div class="photo-grid">
+            <div class="photo-slot"><span class="add-icon">+</span></div>
+        </div>
+    </div>
+
+    <button class="submit-btn" disabled>提交</button>
+</div>
+
+<script>
+let debounceTimer;
+function onPoIdChange() {
+    const val = document.getElementById('poId').value.trim();
+    clearTimeout(debounceTimer);
+    if (val.length >= 6 && /^\d+$/.test(val)) {
+        debounceTimer = setTimeout(() => fetchSkuList(val), 800);
+    } else {
+        document.getElementById('skuArea').style.display = 'none';
+    }
+}
+
+function fetchSkuList(poId) {
+    const area = document.getElementById('skuArea');
+    const loading = document.getElementById('skuLoading');
+    const list = document.getElementById('skuList');
+    area.style.display = 'block';
+    loading.style.display = 'block';
+    list.innerHTML = '';
+    
+    // 模拟从聚水潭获取数据（实际会调用API）
+    setTimeout(() => {
+        loading.style.display = 'none';
+        const mockSkus = [
+            { code: 'G699322S', name: '牛仔裤', spec: '蓝色;S', qty: 1 },
+            { code: 'G699322M', name: '牛仔裤', spec: '蓝色;M', qty: 2 },
+        ];
+        list.innerHTML = mockSkus.map((s, i) => `
+            <div class="sku-item" onclick="toggleSku(this)">
+                <input type="checkbox" class="sku-checkbox" data-code="${s.code}">
+                <div class="sku-info">
+                    <div class="sku-code">${s.code}</div>
+                    <div class="sku-detail">${s.name} | ${s.spec} | 采购${s.qty}件</div>
+                </div>
+                <div>
+                    <div class="sku-qty-label">次品数</div>
+                    <input type="number" class="sku-qty" min="1" max="${s.qty}" value="1" disabled>
+                </div>
+            </div>
+        `).join('');
+    }, 1500);
+}
+
+function toggleSku(el) {
+    const cb = el.querySelector('.sku-checkbox');
+    const qty = el.querySelector('.sku-qty');
+    cb.checked = !cb.checked;
+    qty.disabled = !cb.checked;
+    el.classList.toggle('selected', cb.checked);
+}
+</script>
+</body>
+</html>
