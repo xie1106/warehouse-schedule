@@ -163,9 +163,9 @@ function playBeep(type) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain); gain.connect(ctx.destination);
-        if(type === 'error') { osc.frequency.value = 200; gain.gain.value = 0.3; }
-        else { osc.frequency.value = 800; gain.gain.value = 0.2; }
-        osc.start(); osc.stop(ctx.currentTime + 0.15);
+        if(type === 'error') { osc.frequency.value = 200; gain.gain.value = 0.4; osc.start(); osc.stop(ctx.currentTime + 0.3); }
+        else if(type === 'shutter') { osc.frequency.value = 1200; gain.gain.value = 0.15; osc.start(); osc.stop(ctx.currentTime + 0.08); }
+        else { osc.frequency.value = 800; gain.gain.value = 0.2; osc.start(); osc.stop(ctx.currentTime + 0.15); }
     } catch(e) {}
 }
 
@@ -266,6 +266,7 @@ function openJsCamera() {
         .catch(err => { showToast('无法打开相机: '+err.message,'red'); closeJsCamera(); });
 }
 function capturePhoto() {
+    playBeep('shutter');
     const video = document.getElementById('cameraVideo');
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth; canvas.height = video.videoHeight;
