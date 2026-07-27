@@ -60,8 +60,11 @@
             <div style="margin-bottom:10px;">
                 <label>采购单号 <span style="color:#e53e3e;">*</span></label>
                 <div style="display:flex;gap:8px;">
-                    <input type="text" id="poId" placeholder="输入采购单号（≥6位数字）" inputmode="numeric" pattern="[0-9]*" style="flex:1;">
-                    <button onclick="startScan()" style="padding:10px 14px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:13px;">扫码</button>
+                    <div style="flex:1;position:relative;">
+                        <input type="text" id="poId" placeholder="输入采购单号（≥6位数字）" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding-right:32px;">
+                        <button onclick="document.getElementById('poId').value='';updateBtn();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;color:#999;cursor:pointer;padding:4px;">✕</button>
+                    </div>
+                    <button onclick="startScan()" style="padding:10px 20px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:14px;min-width:60px;">扫码</button>
                 </div>
                 <div id="poHint" style="display:none;color:#e53e3e;font-size:12px;margin-top:4px;"></div>
             </div>
