@@ -575,6 +575,7 @@ function confirmResolve(val) {
 }
 
 async function quickDelete(idx) {
+    showToast('正在删除...', '#666');
     const list = getRecords();
     const rec = list[idx];
     if (rec && rec.id) {
@@ -583,7 +584,7 @@ async function quickDelete(idx) {
         });
     }
     await fetchRecords();
-    showToast('已删除', 'green');
+    showToast('已删除 ✓', 'green');
 }
 
 async function deleteRecord(idx) {
