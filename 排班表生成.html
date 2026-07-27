@@ -1650,23 +1650,13 @@
                 let cell = '';
                 if (status === 'rest' || status === 'designated') {
                     cell = '休';
-                } else if (status === 'annual') {
-                    cell = '年假';
-                } else if (status === 'leave') {
-                    cell = '请假';
-                } else if (status === 'transfer') {
-                    cell = '调休';
-                } else if (status === 'marriage') {
-                    cell = '婚假';
-                } else if (status === 'prenatal') {
-                    cell = '产检';
-                } else if (status === 'maternity') {
-                    cell = '产假';
                 } else if (status === 'duty' && dow === 0) {
                     cell = '上班SP';
                 } else if (status === 'duty') {
                     cell = '仓库';
                 } else if (status === 'work' && dow === 0) {
+                    cell = '上班SP';
+                } else if (dow === 0) {
                     cell = '上班SP';
                 } else {
                     cell = '仓库';
