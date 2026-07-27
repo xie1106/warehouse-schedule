@@ -110,7 +110,10 @@
 
 <!-- 图片预览弹窗 -->
 <div class="img-modal" id="imgModal" onclick="closeModal()">
-    <img id="modalImg" src="">
+    <div style="position:absolute;top:50%;left:10px;transform:translateY(-50);"><button onclick="event.stopPropagation();prevImg()" style="padding:12px 16px;background:rgba(255,255,255,0.9);border:none;border-radius:50%;font-size:20px;cursor:pointer;">‹</button></div>
+    <img id="modalImg" src="" onclick="event.stopPropagation();">
+    <div style="position:absolute;top:50%;right:10px;transform:translateY(-50%);"><button onclick="event.stopPropagation();nextImg()" style="padding:12px 16px;background:rgba(255,255,255,0.9);border:none;border-radius:50%;font-size:20px;cursor:pointer;">›</button></div>
+    <div style="position:absolute;bottom:80px;color:#fff;font-size:14px;" id="imgCounter"></div>
     <div class="img-modal-actions" onclick="event.stopPropagation()">
         <button style="background:#4A90D9;" onclick="downloadImg()">下载</button>
         <button style="background:#10b981;" onclick="copyImg()">复制</button>
@@ -292,7 +295,7 @@ function loadHistory() {
         const photoCount = (r.photos||[]).length || '?';
         return `<div class="record">
             <div class="record-header">
-                <span class="record-title">采购单 ${r.po_id}${tagHtml} <button onclick="togglePhotos(${realIdx})" style="padding:4px 12px;background:#fff;border:1.5px solid #4A90D9;border-radius:14px;color:#4A90D9;font-size:12px;cursor:pointer;margin-left:8px;">查看图片 (${photoCount})</button></span>
+                <span class="record-title">采购单 ${r.po_id}${tagHtml} <button onclick="togglePhotos(${realIdx})" style="padding:4px 12px;background:#fff;border:1.5px solid #4A90D9;border-radius:14px;color:#4A90D9;font-size:12px;cursor:pointer;margin-left:8px;">查看图片</button></span>
                 <span class="badge ${statusClass}">${statusText}</span>
             </div>
             <div class="record-time">${new Date(r.created_at).toLocaleString()}${noteDisplay?' · '+noteDisplay:''}</div>
@@ -379,7 +382,8 @@ async function togglePhotos(idx) {
                 if (r.ok) {
                     const data = await r.json();
                     const photos = (data[0] && data[0].photos) || [];
-                    el.innerHTML = photos.map(p => `<img src="${p}" onclick="event.stopPropagation();openModal('${p.replace(/'/g,"\\'")}')">`).join('');
+                    el.dataset.photos = JSON.stringify(photos);
+                    el.innerHTML = photos.map((p, pi) => `<img src="${p}" onclick="event.stopPropagation();openModal(null, JSON.parse(this.parentElement.dataset.photos), ${pi})">`).join('');
                     el.dataset.loaded = '1';
                 }
             }
@@ -390,9 +394,21 @@ async function togglePhotos(idx) {
 }
 
 // Image modal
-function openModal(src) {
-    document.getElementById('modalImg').src = src;
+let modalPhotos = [];
+let modalIndex = 0;
+
+function openModal(src, photos, idx) {
+    if (photos) { modalPhotos = photos; modalIndex = idx || 0; }
+    else { modalPhotos = [src]; modalIndex = 0; }
+    document.getElementById('modalImg').src = modalPhotos[modalIndex];
+    document.getElementById('imgCounter').textContent = `${modalIndex+1} / ${modalPhotos.length}`;
     document.getElementById('imgModal').style.display = 'flex';
+}
+function prevImg() {
+    if (modalIndex > 0) { modalIndex--; document.getElementById('modalImg').src = modalPhotos[modalIndex]; document.getElementById('imgCounter').textContent = `${modalIndex+1} / ${modalPhotos.length}`; }
+}
+function nextImg() {
+    if (modalIndex < modalPhotos.length - 1) { modalIndex++; document.getElementById('modalImg').src = modalPhotos[modalIndex]; document.getElementById('imgCounter').textContent = `${modalIndex+1} / ${modalPhotos.length}`; }
 }
 function closeModal() { document.getElementById('imgModal').style.display = 'none'; }
 
