@@ -92,6 +92,7 @@
         </div>
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="🔍 搜索采购单号" inputmode="numeric" oninput="loadHistory()">
+            <button onclick="searchScan()" style="padding:8px 14px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:13px;">扫码</button>
         </div>
         <div style="display:flex;gap:6px;margin-bottom:10px;">
             <button class="tab-btn active" onclick="switchTab('all',this)">全部</button>
@@ -346,6 +347,32 @@ async function copyImg() {
 }
 
 // Barcode scan
+function searchScan() {
+    const overlay = document.createElement('div');
+    overlay.id = 'scanOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;display:flex;flex-direction:column;align-items:center;';
+    overlay.innerHTML = `<div style="color:#fff;padding:16px;font-size:16px;">扫码搜索采购单</div>
+        <div id="searchScanReader" style="width:100%;max-width:400px;"></div>
+        <div style="padding:20px;"><button onclick="stopSearchScan()" style="padding:12px 32px;background:#e53e3e;color:#fff;border:none;border-radius:8px;font-size:16px;">取消</button></div>`;
+    document.body.appendChild(overlay);
+    window._searchScanner = new Html5Qrcode("searchScanReader");
+    window._searchScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 280, height: 120 } },
+        (text) => {
+            document.getElementById('searchInput').value = text;
+            loadHistory();
+            showToast('扫码成功', 'green');
+            stopSearchScan();
+        }, () => {}
+    ).catch(() => { stopSearchScan(); showToast('无法启动扫码', 'orange'); });
+}
+function stopSearchScan() {
+    if (window._searchScanner) { window._searchScanner.stop().catch(()=>{}); window._searchScanner = null; }
+    const o = document.getElementById('scanOverlay');
+    if (o) document.body.removeChild(o);
+}
+
 let html5Scanner = null;
 function startScan() {
     const overlay = document.createElement('div');
