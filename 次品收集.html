@@ -78,6 +78,20 @@
                 <div id="poHint" style="display:none;color:#e53e3e;font-size:12px;margin-top:4px;"></div>
             </div>
             <div style="margin-bottom:10px;">
+                <label>次品商品明细 <span style="color:#e53e3e;">*</span></label>
+                <div id="skuRows">
+                    <div class="sku-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+                        <div style="flex:1;display:flex;gap:6px;">
+                            <input type="text" class="sku-input" placeholder="SKU编码（扫吊牌）" style="flex:1;padding:8px 10px;font-size:13px;" oninput="updateBtn()">
+                            <button onclick="scanSkuCode(this)" style="padding:8px 12px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:12px;white-space:nowrap;">扫码</button>
+                        </div>
+                        <input type="number" class="sku-qty" min="1" value="1" style="width:55px;padding:8px;text-align:center;border:1px solid #ddd;border-radius:8px;font-size:13px;">
+                        <span style="font-size:11px;color:#888;">件</span>
+                    </div>
+                </div>
+                <div onclick="addSkuRow()" style="padding:8px;border:1.5px dashed #4A90D9;border-radius:8px;background:#f0f7ff;color:#4A90D9;font-size:12px;text-align:center;cursor:pointer;margin-top:6px;">+ 添加另一个SKU</div>
+            </div>
+            <div style="margin-bottom:10px;">
                 <label>上传照片</label>
                 <div style="font-size:11px;color:#e53e3e;margin-bottom:4px;">需要吊牌、次品位置的清晰图片</div>
                 <div class="photo-grid" id="photoGrid"></div>
@@ -154,6 +168,40 @@ function toggleCollect(e) {
     document.getElementById('collectArrow').textContent = collectOpen ? '收起 ▲' : '展开 ▼';
 }
 
+// SKU rows
+function addSkuRow() {
+    const row = document.createElement('div');
+    row.className = 'sku-row';
+    row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;';
+    row.innerHTML = `<div style="flex:1;display:flex;gap:6px;">
+        <input type="text" class="sku-input" placeholder="SKU编码（扫吊牌）" style="flex:1;padding:8px 10px;font-size:13px;border:1px solid #ddd;border-radius:8px;">
+        <button onclick="scanSkuCode(this)" style="padding:8px 12px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:12px;white-space:nowrap;">扫码</button>
+    </div>
+    <input type="number" class="sku-qty" min="1" value="1" style="width:55px;padding:8px;text-align:center;border:1px solid #ddd;border-radius:8px;font-size:13px;">
+    <span style="font-size:11px;color:#888;">件</span>
+    <button onclick="this.parentElement.remove();updateBtn();" style="width:28px;height:28px;border:none;background:#fee2e2;color:#dc2626;border-radius:6px;font-size:14px;cursor:pointer;">×</button>`;
+    document.getElementById('skuRows').appendChild(row);
+}
+
+function scanSkuCode(btn) {
+    const input = btn.parentElement.querySelector('.sku-input');
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;display:flex;flex-direction:column;align-items:center;';
+    overlay.innerHTML = `<div style="color:#fff;padding:16px;font-size:16px;">扫描吊牌条码</div>
+        <div id="skuScanReader" style="width:100%;max-width:400px;"></div>
+        <div style="padding:20px;"><button onclick="stopSkuScan()" style="padding:12px 32px;background:#e53e3e;color:#fff;border:none;border-radius:8px;font-size:16px;">取消</button></div>`;
+    document.body.appendChild(overlay);
+    window._skuScanOverlay = overlay;
+    window._skuScanInput = input;
+    const scanner = new Html5Qrcode("skuScanReader");
+    window._skuScanner = scanner;
+    scanner.start({facingMode:"environment"},{fps:10,qrbox:250}, code => { input.value = code; stopSkuScan(); updateBtn(); });
+}
+function stopSkuScan() {
+    if(window._skuScanner) window._skuScanner.stop().catch(()=>{});
+    if(window._skuScanOverlay) window._skuScanOverlay.remove();
+}
+
 // Photo grid
 function initPhotoGrid() {
     const grid = document.getElementById('photoGrid');
@@ -204,7 +252,9 @@ function compressImg(file) {
 // Validation
 function updateBtn() {
     const poId = document.getElementById('poId').value.trim();
-    document.getElementById('submitBtn').disabled = !(/^\d{6,}$/.test(poId) && photos.length > 0);
+    const skuInputs = document.querySelectorAll('.sku-input');
+    const hasAnySku = Array.from(skuInputs).some(i => i.value.trim().length > 0);
+    document.getElementById('submitBtn').disabled = !(/^\d{6,}$/.test(poId) && photos.length > 0 && hasAnySku);
 }
 document.getElementById('poId').addEventListener('input', function() {
     updateBtn();
@@ -246,7 +296,15 @@ async function submitRecord() {
     }
     btn.textContent = '提交中...';
 
-    const record = { po_id: poId, photos: photoUrls, note: document.getElementById('note').value.trim(), status: 'pending', created_at: new Date().toISOString() };
+    // 收集SKU信息
+    const skuItems = [];
+    document.querySelectorAll('.sku-row').forEach(row => {
+        const code = row.querySelector('.sku-input').value.trim();
+        const qty = parseInt(row.querySelector('.sku-qty').value) || 0;
+        if (code && qty > 0) skuItems.push({ code, qty });
+    });
+
+    const record = { po_id: poId, photos: photoUrls, note: document.getElementById('note').value.trim(), status: 'pending', created_at: new Date().toISOString(), sku_items: skuItems };
 
     if (editingIdx >= 0) {
         const list = getRecords();
@@ -267,6 +325,14 @@ async function submitRecord() {
     photos = []; initPhotoGrid();
     document.getElementById('poId').value = '';
     document.getElementById('note').value = '';
+    document.getElementById('skuRows').innerHTML = `<div class="sku-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+        <div style="flex:1;display:flex;gap:6px;">
+            <input type="text" class="sku-input" placeholder="SKU编码（扫吊牌）" style="flex:1;padding:8px 10px;font-size:13px;border:1px solid #ddd;border-radius:8px;" oninput="updateBtn()">
+            <button onclick="scanSkuCode(this)" style="padding:8px 12px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:12px;white-space:nowrap;">扫码</button>
+        </div>
+        <input type="number" class="sku-qty" min="1" value="1" style="width:55px;padding:8px;text-align:center;border:1px solid #ddd;border-radius:8px;font-size:13px;">
+        <span style="font-size:11px;color:#888;">件</span>
+    </div>`;
     await fetchRecords();
     btn.disabled = false; btn.textContent = '提交';
 }
