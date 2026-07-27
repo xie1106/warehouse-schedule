@@ -162,6 +162,19 @@ let collectOpen = false;
 let currentTab = 'all';
 let editingIdx = -1;
 
+// Audio context for beep
+function playBeep(type) {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        if(type === 'error') { osc.frequency.value = 200; gain.gain.value = 0.3; }
+        else { osc.frequency.value = 800; gain.gain.value = 0.2; }
+        osc.start(); osc.stop(ctx.currentTime + 0.15);
+    } catch(e) {}
+}
+
 function toggleCollect(e) {
     collectOpen = !collectOpen;
     document.getElementById('collectForm').style.display = collectOpen ? 'block' : 'none';
@@ -174,7 +187,7 @@ function addSkuRow() {
     row.className = 'sku-row';
     row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;';
     row.innerHTML = `<div style="flex:1;display:flex;gap:6px;">
-        <input type="text" class="sku-input" placeholder="SKU编码（扫吊牌）" style="flex:1;padding:8px 10px;font-size:13px;border:1px solid #ddd;border-radius:8px;">
+        <input type="text" class="sku-input" placeholder="SKU编码（扫吊牌）" style="flex:1;padding:8px 10px;font-size:13px;border:1px solid #ddd;border-radius:8px;" oninput="updateBtn()">
         <button onclick="scanSkuCode(this)" style="padding:8px 12px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:12px;white-space:nowrap;">扫码</button>
     </div>
     <input type="number" class="sku-qty" min="1" value="1" style="width:55px;padding:8px;text-align:center;border:1px solid #ddd;border-radius:8px;font-size:13px;">
@@ -183,20 +196,56 @@ function addSkuRow() {
     document.getElementById('skuRows').appendChild(row);
 }
 
+// SKU扫码：逐件扫描，同SKU累加数量
 function scanSkuCode(btn) {
-    const input = btn.parentElement.querySelector('.sku-input');
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;display:flex;flex-direction:column;align-items:center;';
-    overlay.innerHTML = `<div style="color:#fff;padding:16px;font-size:16px;">扫描吊牌条码</div>
+    overlay.innerHTML = `<div style="color:#fff;padding:16px;font-size:16px;">逐件扫描吊牌条码</div>
+        <div style="color:#aaa;font-size:13px;margin-bottom:8px;">同SKU自动累加数量</div>
         <div id="skuScanReader" style="width:100%;max-width:400px;"></div>
-        <div style="padding:20px;"><button onclick="stopSkuScan()" style="padding:12px 32px;background:#e53e3e;color:#fff;border:none;border-radius:8px;font-size:16px;">取消</button></div>`;
+        <div style="padding:16px;color:#0f0;font-size:14px;" id="skuScanStatus"></div>
+        <div style="padding:10px;"><button onclick="stopSkuScan()" style="padding:12px 32px;background:#e53e3e;color:#fff;border:none;border-radius:8px;font-size:16px;">完成扫码</button></div>`;
     document.body.appendChild(overlay);
     window._skuScanOverlay = overlay;
-    window._skuScanInput = input;
+    window._lastSkuScanTime = 0;
     const scanner = new Html5Qrcode("skuScanReader");
     window._skuScanner = scanner;
-    scanner.start({facingMode:"environment"},{fps:10,qrbox:250}, code => { input.value = code; stopSkuScan(); updateBtn(); });
+    scanner.start({facingMode:"environment"},{fps:10,qrbox:250}, code => {
+        const now = Date.now();
+        if (now - window._lastSkuScanTime < 2000) return; // 防重复
+        window._lastSkuScanTime = now;
+        addOrIncrementSku(code);
+        playBeep('success');
+        document.getElementById('skuScanStatus').textContent = '✓ ' + code + ' (已添加)';
+    });
 }
+
+function addOrIncrementSku(code) {
+    const rows = document.querySelectorAll('.sku-row');
+    for (const row of rows) {
+        const input = row.querySelector('.sku-input');
+        if (input.value.trim().toUpperCase() === code.toUpperCase()) {
+            const qtyInput = row.querySelector('.sku-qty');
+            qtyInput.value = parseInt(qtyInput.value || 0) + 1;
+            updateBtn();
+            return;
+        }
+    }
+    // 检查第一行是否空的
+    const firstInput = rows[0] && rows[0].querySelector('.sku-input');
+    if (firstInput && firstInput.value.trim() === '') {
+        firstInput.value = code;
+        updateBtn();
+        return;
+    }
+    // 新增一行
+    addSkuRow();
+    const newRows = document.querySelectorAll('.sku-row');
+    const lastRow = newRows[newRows.length - 1];
+    lastRow.querySelector('.sku-input').value = code;
+    updateBtn();
+}
+
 function stopSkuScan() {
     if(window._skuScanner) window._skuScanner.stop().catch(()=>{});
     if(window._skuScanOverlay) window._skuScanOverlay.remove();
@@ -603,8 +652,14 @@ function startScan() {
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 280, height: 120 } },
         (text) => {
+            if (!/^\d{6,}$/.test(text)) {
+                playBeep('error');
+                showToast('⚠️ 无效单号: ' + text, 'orange');
+                return; // 不关闭扫码，继续扫
+            }
             document.getElementById('poId').value = text;
             updateBtn();
+            playBeep('success');
             showToast('扫码成功: ' + text, 'green');
             stopScan();
         },
