@@ -146,7 +146,8 @@
     </div>
 </div>
 <div class="toast" id="toast"></div>
-<input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none" multiple>
+<input type="file" id="fileInput" accept="image/*" style="display:none" multiple>
+<input type="file" id="fileInputCamera" accept="image/*" capture="environment" style="display:none" multiple>
 <script>
 const SUPABASE_URL = 'https://elyfxyrdbuykyklfjfdr.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg';
@@ -232,6 +233,23 @@ function stopSkuScan() {
     if(window._skuScanOverlay) window._skuScanOverlay.remove();
 }
 
+// Photo menu
+function showPhotoMenu() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:9998;display:flex;align-items:flex-end;justify-content:center;';
+    overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `<div style="width:100%;max-width:400px;padding:12px;margin-bottom:env(safe-area-inset-bottom);">
+        <div style="background:#fff;border-radius:14px;overflow:hidden;">
+            <button onclick="this.closest('div[style]').parentElement.parentElement.remove();document.getElementById('fileInputCamera').click();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#333;border-bottom:1px solid #eee;cursor:pointer;">📷 拍照</button>
+            <button onclick="this.closest('div[style]').parentElement.parentElement.remove();document.getElementById('fileInput').click();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#333;cursor:pointer;">🖼 手机图片</button>
+        </div>
+        <div style="background:#fff;border-radius:14px;margin-top:8px;">
+            <button onclick="this.closest('div[style]').parentElement.parentElement.remove();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#666;cursor:pointer;">取消</button>
+        </div>
+    </div>`;
+    document.body.appendChild(overlay);
+}
+
 // Photo grid
 function initPhotoGrid() {
     const grid = document.getElementById('photoGrid');
@@ -245,7 +263,17 @@ function initPhotoGrid() {
     const addSlot = document.createElement('div');
     addSlot.className = 'photo-slot';
     addSlot.innerHTML = '<span class="add-icon">+</span>';
-    addSlot.onclick = () => document.getElementById('fileInput').click();
+    let pressTimer;
+    addSlot.addEventListener('touchstart', (e) => {
+        pressTimer = setTimeout(() => { pressTimer = 'long'; document.getElementById('fileInputCamera').click(); }, 500);
+    });
+    addSlot.addEventListener('touchend', (e) => {
+        if (pressTimer === 'long') { e.preventDefault(); return; }
+        clearTimeout(pressTimer);
+        showPhotoMenu();
+    });
+    addSlot.addEventListener('touchmove', () => { clearTimeout(pressTimer); });
+    addSlot.onclick = (e) => { if(e.pointerType !== 'touch') showPhotoMenu(); };
     grid.appendChild(addSlot);
     updateBtn();
 }
@@ -253,6 +281,13 @@ function initPhotoGrid() {
 function removePhoto(i) { photos.splice(i, 1); initPhotoGrid(); }
 
 document.getElementById('fileInput').addEventListener('change', async function(e) {
+    for (const file of Array.from(e.target.files)) {
+        if (file.size > 5*1024*1024) { showToast('照片超过5MB，已跳过','orange'); continue; }
+        photos.push(await compressImg(file));
+    }
+    initPhotoGrid(); this.value = '';
+});
+document.getElementById('fileInputCamera').addEventListener('change', async function(e) {
     for (const file of Array.from(e.target.files)) {
         if (file.size > 5*1024*1024) { showToast('照片超过5MB，已跳过','orange'); continue; }
         photos.push(await compressImg(file));
