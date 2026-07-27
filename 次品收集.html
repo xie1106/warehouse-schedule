@@ -31,6 +31,7 @@
         .history-item .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
         .badge-pending { background: #fef3c7; color: #d97706; }
         .badge-done { background: #d1fae5; color: #059669; }
+        .badge-error { background: #fee2e2; color: #dc2626; }
         .tab-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; background: #fff; font-size: 12px; cursor: pointer; }
         .tab-btn.active { background: #4A90D9; color: #fff; border-color: #4A90D9; }
     </style>
@@ -66,12 +67,14 @@
             <div style="font-size:12px;">
                 <span style="color:#f59e0b;font-weight:600;" id="pendingCount">待处理: 0</span>
                 <span style="margin-left:8px;color:#10b981;font-weight:600;" id="doneCount">已处理: 0</span>
+                <span style="margin-left:8px;color:#ef4444;font-weight:600;" id="errorCount">异常: 0</span>
             </div>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:12px;">
             <button class="tab-btn active" onclick="switchTab('all',this)">全部</button>
             <button class="tab-btn" onclick="switchTab('pending',this)">待处理</button>
             <button class="tab-btn" onclick="switchTab('done',this)">已处理</button>
+            <button class="tab-btn" onclick="switchTab('error',this)">异常</button>
         </div>
         <div id="historyList"></div>
     </div>
@@ -216,18 +219,21 @@ function loadHistory() {
     const list = JSON.parse(localStorage.getItem('defect_reports') || '[]');
     const pending = list.filter(r => r.status === 'pending');
     const done = list.filter(r => r.status === 'done');
+    const error = list.filter(r => r.status === 'error');
     document.getElementById('pendingCount').textContent = `待处理: ${pending.length}`;
     document.getElementById('doneCount').textContent = `已处理: ${done.length}`;
+    document.getElementById('errorCount').textContent = `异常: ${error.length}`;
 
     let filtered = list;
     if (currentTab === 'pending') filtered = pending;
     else if (currentTab === 'done') filtered = done;
+    else if (currentTab === 'error') filtered = error;
 
     const el = document.getElementById('historyList');
     if (filtered.length === 0) { el.innerHTML = '<div style="color:#999;font-size:13px;">暂无记录</div>'; return; }
     el.innerHTML = filtered.slice(0, 20).map(r => `<div class="history-item">
         <strong>采购单 ${r.po_id}</strong> · ${r.photos.length}张照片
-        <span class="badge ${r.status==='done'?'badge-done':'badge-pending'}">${r.status==='done'?'已处理':'待处理'}</span>
+        <span class="badge ${r.status==='done'?'badge-done':r.status==='error'?'badge-error':'badge-pending'}">${r.status==='done'?'已处理':r.status==='error'?'异常':'待处理'}</span>
         ${r.note ? '<br>' + r.note : ''}
         <div class="time">${new Date(r.created_at).toLocaleString()}</div>
     </div>`).join('');
