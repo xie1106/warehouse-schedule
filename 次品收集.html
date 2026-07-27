@@ -518,7 +518,7 @@ function loadHistory() {
             <div class="record-actions">
                 ${r.status!=='done'?`<button onclick="markDone(${realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`:`<button onclick="markUndone(${realIdx})" style="color:#d97706;border-color:#d97706;">↩ 反完成</button>`}
                 <button onclick="editRecord(${realIdx})">✏️ 编辑</button>
-                <button onclick="deleteRecord(${realIdx})">🗑 删除</button>
+                <button onclick="quickDelete(${realIdx})" style="color:#dc2626;border-color:#dc2626;">✕ 删除</button>
             </div>
         </div>`;
     }).join('');
@@ -553,6 +553,18 @@ function showConfirm(msg) {
 function confirmResolve(val) {
     document.getElementById('confirmOverlay').style.display = 'none';
     if (_confirmCb) { _confirmCb(val); _confirmCb = null; }
+}
+
+async function quickDelete(idx) {
+    const list = getRecords();
+    const rec = list[idx];
+    if (rec && rec.id) {
+        await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, {
+            method: 'DELETE', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+    }
+    await fetchRecords();
+    showToast('已删除', 'green');
 }
 
 async function deleteRecord(idx) {
