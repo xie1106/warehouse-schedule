@@ -916,17 +916,40 @@ window.addEventListener('beforeunload', function(e) {
     }
 });
 
-// 页面向下滑动时自动收起次品拍照
+// 页面向下滑动时自动收起次品拍照，在次品拍照区域内上滑收起/下滑展开
 let _touchStartY = 0;
-document.addEventListener('touchstart', function(e) { _touchStartY = e.touches[0].clientY; }, {passive: true});
+let _touchInCollect = false;
+document.addEventListener('touchstart', function(e) {
+    _touchStartY = e.touches[0].clientY;
+    _touchInCollect = !!e.target.closest('#collectCard');
+}, {passive: true});
 document.addEventListener('touchmove', function(e) {
     const dy = _touchStartY - e.touches[0].clientY;
-    if (collectOpen && dy > 20) {
-        collectOpen = false;
-        document.getElementById('collectForm').style.maxHeight = '0';
-        document.getElementById('collectArrow').textContent = '展开 ▼';
-        const card = document.getElementById('collectCard');
-        card.style.background = '#f0f7ff'; card.style.border = '1px solid #d0e3f7';
+    if (_touchInCollect) {
+        // 在次品拍照区域：上滑收起，下滑展开
+        if (collectOpen && dy > 30) {
+            collectOpen = false;
+            document.getElementById('collectForm').style.maxHeight = '0';
+            document.getElementById('collectArrow').textContent = '展开 ▼';
+            const card = document.getElementById('collectCard');
+            card.style.background = '#f0f7ff'; card.style.border = '1px solid #d0e3f7';
+        } else if (!collectOpen && dy < -30) {
+            collectOpen = true;
+            const form = document.getElementById('collectForm');
+            form.style.maxHeight = form.scrollHeight + 2000 + 'px';
+            document.getElementById('collectArrow').textContent = '收起 ▲';
+            const card = document.getElementById('collectCard');
+            card.style.background = '#fff'; card.style.border = '';
+        }
+    } else {
+        // 其他区域：向下滑收起
+        if (collectOpen && dy > 20) {
+            collectOpen = false;
+            document.getElementById('collectForm').style.maxHeight = '0';
+            document.getElementById('collectArrow').textContent = '展开 ▼';
+            const card = document.getElementById('collectCard');
+            card.style.background = '#f0f7ff'; card.style.border = '1px solid #d0e3f7';
+        }
     }
 }, {passive: true});
 
