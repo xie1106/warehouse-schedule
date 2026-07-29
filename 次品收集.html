@@ -581,7 +581,7 @@ function loadHistory() {
                 const noteDisplay = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
                 html += `<div style="padding:8px 10px;background:${items.indexOf(r)%2===0?'#eef4fb':'#f8fafc'};border-left:4px solid #2b7de9;border-radius:0 6px 6px 0;margin-bottom:6px;font-size:12px;">
                     <span style="color:#999;">${new Date(r.created_at).toLocaleString()}</span> · ${noteDisplay}
-                    <button onclick="quickDelete(${r._realIdx})" style="float:right;border:none;background:none;color:#dc2626;font-size:11px;cursor:pointer;">✕</button>
+                    <button onclick="deleteAndEdit(${r._realIdx},'${g.po_id}')" style="float:right;border:none;background:none;color:#dc2626;font-size:11px;cursor:pointer;">✕</button>
                 </div>`;
             });
             html += `</div>`;
@@ -646,6 +646,25 @@ async function markDoneGroup(poId) {
     }
     loadHistory();
     showToast('已全部完成 ✓', 'green');
+}
+
+async function deleteAndEdit(idx, poId) {
+    const ok = await showConfirm('删除这条后将进入编辑模式');
+    if (!ok) return;
+    const list = getRecords();
+    const rec = list[idx];
+    if (rec && rec.id) {
+        fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, { method:'DELETE', headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`} });
+        window._records = list.filter(r => r !== rec);
+    }
+    // 找同采购单剩余的第一条进入编辑
+    const remaining = getRecords().filter(r => r.po_id === poId && r.status === 'pending');
+    if (remaining.length > 0) {
+        const editIdx = getRecords().indexOf(remaining[0]);
+        editRecord(editIdx);
+    }
+    loadHistory();
+    showToast('已删除，请编辑剩余内容', 'green');
 }
 
 async function quickDeleteGroup(poId) {
@@ -884,6 +903,17 @@ function showToast(msg, color) {
 
 initPhotoGrid();
 fetchRecords();
+
+// 未提交内容退出提示
+window.addEventListener('beforeunload', function(e) {
+    const poId = document.getElementById('poId').value.trim();
+    const hasSkus = document.querySelectorAll('.sku-input').length > 0;
+    if (poId || photos.length > 0 || hasSkus) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+
 // 明细滚动时自动收起次品拍照
 document.getElementById('historyList').addEventListener('scroll', function() {
     if (collectOpen && this.scrollTop > 30) {
