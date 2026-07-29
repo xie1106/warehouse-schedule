@@ -917,7 +917,7 @@ window.addEventListener('beforeunload', function(e) {
 
 // 明细滚动时自动收起次品拍照
 document.getElementById('historyList').addEventListener('scroll', function() {
-    if (collectOpen && this.scrollTop > 30) {
+    if (collectOpen && this.scrollTop > 5) {
         collectOpen = false;
         document.getElementById('collectForm').style.display = 'none';
         document.getElementById('collectArrow').textContent = '展开 ▼';
