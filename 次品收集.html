@@ -24,7 +24,7 @@
         .submit-btn { width: 100%; padding: 12px; background: #4A90D9; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
         .submit-btn:disabled { background: #ccc; }
         .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; color: #fff; font-size: 14px; z-index: 9999; display: none; }
-        .record { padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; }
+        .record { padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #4A90D9; background: #fff; }
         .record-header { display: flex; justify-content: space-between; align-items: center; }
         .record-title { font-size: 14px; font-weight: 600; }
         .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
@@ -579,7 +579,7 @@ function loadHistory() {
             html += `<div id="${expandId}" style="display:none;margin-top:8px;border-top:1px solid #f0f0f0;padding-top:8px;">`;
             items.forEach(r => {
                 const noteDisplay = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
-                html += `<div style="padding:6px 8px;background:#fafafa;border-radius:6px;margin-bottom:4px;font-size:12px;">
+                html += `<div style="padding:8px 10px;background:${items.indexOf(r)%2===0?'#f8fafc':'#fff'};border-left:3px solid #4A90D9;border-radius:0 6px 6px 0;margin-bottom:6px;font-size:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
                     <span style="color:#999;">${new Date(r.created_at).toLocaleString()}</span> · ${noteDisplay}
                     <button onclick="quickDelete(${r._realIdx})" style="float:right;border:none;background:none;color:#dc2626;font-size:11px;cursor:pointer;">✕</button>
                 </div>`;
