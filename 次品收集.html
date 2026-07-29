@@ -579,7 +579,7 @@ function loadHistory() {
             html += `<div id="${expandId}" style="display:none;margin-top:8px;border-top:1px solid #f0f0f0;padding-top:8px;">`;
             items.forEach(r => {
                 const noteDisplay = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
-                html += `<div style="padding:8px 10px;background:${items.indexOf(r)%2===0?'#f8fafc':'#fff'};border-left:3px solid #4A90D9;border-radius:0 6px 6px 0;margin-bottom:6px;font-size:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+                html += `<div style="padding:8px 10px;background:${items.indexOf(r)%2===0?'#eef4fb':'#f8fafc'};border-left:4px solid #2b7de9;border-radius:0 6px 6px 0;margin-bottom:6px;font-size:12px;">
                     <span style="color:#999;">${new Date(r.created_at).toLocaleString()}</span> · ${noteDisplay}
                     <button onclick="quickDelete(${r._realIdx})" style="float:right;border:none;background:none;color:#dc2626;font-size:11px;cursor:pointer;">✕</button>
                 </div>`;
