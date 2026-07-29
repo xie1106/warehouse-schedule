@@ -585,7 +585,10 @@ function loadHistory() {
                 const noteDisplay = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
                 html += `<div style="padding:8px 10px;background:${items.indexOf(r)%2===0?'#eef4fb':'#f8fafc'};border-left:4px solid #2b7de9;border-radius:0 6px 6px 0;margin-bottom:6px;font-size:12px;">
                     <span style="color:#999;">${new Date(r.created_at).toLocaleString()}</span> · ${noteDisplay}
-                    <button onclick="deleteAndEdit(${r._realIdx},'${g.po_id}')" style="float:right;border:none;background:none;color:#dc2626;font-size:11px;cursor:pointer;">✕</button>
+                    <span style="float:right;">
+                        <button onclick="editRecord(${r._realIdx})" style="border:none;background:none;color:#4A90D9;font-size:11px;cursor:pointer;margin-right:8px;">✏️</button>
+                        <button onclick="quickDelete(${r._realIdx})" style="border:none;background:none;color:#dc2626;font-size:11px;cursor:pointer;">✕</button>
+                    </span>
                 </div>`;
             });
             html += `</div>`;
