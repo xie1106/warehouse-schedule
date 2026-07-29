@@ -57,6 +57,8 @@
 </head>
 <body>
 <div class="container">
+    <!-- 固定顶部区域 -->
+    <div id="stickyTop" style="position:sticky;top:0;z-index:100;background:#f5f5f5;padding-bottom:8px;">
     <h1>📷 次品照片收集系统</h1>
 
     <!-- 收集模块 -->
@@ -124,7 +126,15 @@
             <button class="tab-btn" onclick="switchTab('1688',this)" style="color:#1d4ed8;">1688</button>
             <button class="tab-btn" onclick="switchTab('non1688',this)" style="color:#d97706;">非1688</button>
         </div>
+    </div><!-- end stickyTop -->
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px;gap:4px;font-size:12px;">
+            <span style="color:#888;line-height:24px;">每页:</span>
+            <button class="tab-btn active" onclick="setPageSize(50,this)" style="padding:2px 8px;font-size:11px;" id="ps50">50</button>
+            <button class="tab-btn" onclick="setPageSize(100,this)" style="padding:2px 8px;font-size:11px;" id="ps100">100</button>
+            <button class="tab-btn" onclick="setPageSize(500,this)" style="padding:2px 8px;font-size:11px;" id="ps500">500</button>
+        </div>
         <div id="historyList"></div>
+        <div id="pagination" style="display:flex;justify-content:center;gap:8px;margin-top:12px;"></div>
     </div>
 </div>
 
@@ -159,6 +169,8 @@ let photos = [];
 let collectOpen = false;
 let currentTab = 'all';
 let editingIdx = -1;
+let pageSize = 50;
+let currentPage = 1;
 
 // Audio context for beep
 function playBeep(type) {
@@ -479,6 +491,7 @@ async function fetchRecords() {
 // History & Search
 function switchTab(tab, btn) {
     currentTab = tab;
+    currentPage = 1;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     loadHistory();
@@ -504,8 +517,12 @@ function loadHistory() {
     document.getElementById('errorCount').textContent = `异常:${allError}`;
 
     const el = document.getElementById('historyList');
-    if (filtered.length === 0) { el.innerHTML = '<div style="color:#999;font-size:13px;text-align:center;padding:20px;">暂无记录</div>'; return; }
-    el.innerHTML = filtered.slice(0, 30).map((r, i) => {
+    if (filtered.length === 0) { el.innerHTML = '<div style="color:#999;font-size:13px;text-align:center;padding:20px;">暂无记录</div>'; document.getElementById('pagination').innerHTML=''; return; }
+    const totalPages = Math.ceil(filtered.length / pageSize);
+    if (currentPage > totalPages) currentPage = totalPages;
+    const start = (currentPage - 1) * pageSize;
+    const paged = filtered.slice(start, start + pageSize);
+    el.innerHTML = paged.map((r, i) => {
         const realIdx = list.indexOf(r);
         const statusClass = r.status==='done'?'badge-done':r.status==='error'?'badge-error':'badge-pending';
         const statusText = r.status==='done'?'已处理':r.status==='error'?'异常':'待处理';
@@ -529,6 +546,15 @@ function loadHistory() {
             </div>
         </div>`;
     }).join('');
+    // Pagination
+    const pagEl = document.getElementById('pagination');
+    if (totalPages <= 1) { pagEl.innerHTML = ''; } else {
+        let html = '';
+        if (currentPage > 1) html += `<button onclick="goPage(${currentPage-1})" style="padding:4px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;">上一页</button>`;
+        html += `<span style="font-size:12px;color:#888;line-height:28px;">${currentPage}/${totalPages} (共${filtered.length}条)</span>`;
+        if (currentPage < totalPages) html += `<button onclick="goPage(${currentPage+1})" style="padding:4px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;">下一页</button>`;
+        pagEl.innerHTML = html;
+    }
 }
 
 // Edit & Delete
@@ -561,6 +587,15 @@ function cancelEdit() {
     document.getElementById('cancelBtn').style.display = 'none';
     updateBtn();
 }
+
+function setPageSize(size, btn) {
+    pageSize = size;
+    currentPage = 1;
+    document.querySelectorAll('#ps50,#ps100,#ps500').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    loadHistory();
+}
+function goPage(p) { currentPage = p; loadHistory(); window.scrollTo(0, document.getElementById('historyList').offsetTop - 200); }
 
 let _confirmCb = null;
 function showConfirm(msg) {
