@@ -32,7 +32,7 @@
 
     <!-- 808381 - 4条 -->
     <div class="group">
-        <div class="group-header" onclick="this.nextElementSibling.nextElementSibling.classList.toggle('open');this.querySelector('.expand-btn').textContent=this.nextElementSibling.nextElementSibling.classList.contains('open')?'收起 ▲':'展开 4条 ▼'">
+        <div class="group-header" onclick="this.parentElement.querySelector('.group-detail').classList.toggle('open');this.querySelector('.expand-btn').textContent=this.parentElement.querySelector('.group-detail').classList.contains('open')?'收起 ▲':'展开 4条 ▼'">
             <div>
                 <span class="group-title">采购单 808381</span>
                 <span class="tag-non1688">非1688</span>
@@ -40,7 +40,16 @@
             </div>
             <button class="expand-btn">展开 4条 ▼</button>
         </div>
-        <div class="group-summary">F733119M × 4件 | 最近: 今天 15:49</div>
+        <div class="group-summary">
+            F733119M × 4件 | 最近: 今天 15:49
+            <button onclick="event.stopPropagation();this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'grid':'none'" style="padding:3px 10px;background:#fff;border:1.5px solid #4A90D9;border-radius:12px;color:#4A90D9;font-size:11px;cursor:pointer;margin-left:8px;">📷 查看图片</button>
+            <div style="display:none;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;">
+                <img src="https://elyfxyrdbuykyklfjfdr.supabase.co/storage/v1/object/public/defect-photos/808381/1785295473056_0.jpg" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;">
+                <img src="https://elyfxyrdbuykyklfjfdr.supabase.co/storage/v1/object/public/defect-photos/808381/1785294583118_0.jpg" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;">
+                <img src="https://elyfxyrdbuykyklfjfdr.supabase.co/storage/v1/object/public/defect-photos/808381/1785294369686_0.jpg" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;">
+                <img src="https://elyfxyrdbuykyklfjfdr.supabase.co/storage/v1/object/public/defect-photos/808381/1785293182694_0.jpg" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;">
+            </div>
+        </div>
         <div class="group-detail">
             <div class="sub-record">
                 <div class="sub-time">7/29 15:49</div>
@@ -63,7 +72,7 @@
 
     <!-- 808080 - 3条 -->
     <div class="group">
-        <div class="group-header" onclick="this.nextElementSibling.nextElementSibling.classList.toggle('open');this.querySelector('.expand-btn').textContent=this.nextElementSibling.nextElementSibling.classList.contains('open')?'收起 ▲':'展开 3条 ▼'">
+        <div class="group-header" onclick="this.parentElement.querySelector('.group-detail').classList.toggle('open');this.querySelector('.expand-btn').textContent=this.parentElement.querySelector('.group-detail').classList.contains('open')?'收起 ▲':'展开 3条 ▼'">
             <div>
                 <span class="group-title">采购单 808080</span>
                 <span class="tag-non1688">非1688</span>
@@ -71,7 +80,16 @@
             </div>
             <button class="expand-btn">展开 3条 ▼</button>
         </div>
-        <div class="group-summary">Y666134S×2, Y6661-黄色-L×1 | 最近: 今天 14:35</div>
+        <div class="group-summary">
+            Y666134S×2, Y6661-黄色-L×1 | 最近: 今天 14:35
+            <button onclick="event.stopPropagation();this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'grid':'none'" style="padding:3px 10px;background:#fff;border:1.5px solid #4A90D9;border-radius:12px;color:#4A90D9;font-size:11px;cursor:pointer;margin-left:8px;">📷 查看图片</button>
+            <div style="display:none;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;">
+                <img src="https://elyfxyrdbuykyklfjfdr.supabase.co/storage/v1/object/public/defect-photos/808080/1785306906868_0.jpg" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;">
+                <img src="https://elyfxyrdbuykyklfjfdr.supabase.co/storage/v1/object/public/defect-photos/808080/1785306745100_0.jpg" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;">
+                <img src="https://elyfxyrdbuykyklfjfdr.supabase.co/storage/v1/object/public/defect-photos/808080/1785305888700_0.jpg" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;">
+                <img src="https://elyfxyrdbuykyklfjfdr.supabase.co/storage/v1/object/public/defect-photos/808080/1785305889672_1.jpg" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;">
+            </div>
+        </div>
         <div class="group-detail">
             <div class="sub-record">
                 <div class="sub-time">7/29 14:35</div>
