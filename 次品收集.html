@@ -916,6 +916,17 @@ window.addEventListener('beforeunload', function(e) {
     }
 });
 
+// 触摸列表区域时自动收起次品拍照
+document.getElementById('historyList').addEventListener('touchstart', function() {
+    if (collectOpen) {
+        collectOpen = false;
+        document.getElementById('collectForm').style.maxHeight = '0';
+        document.getElementById('collectArrow').textContent = '展开 ▼';
+        const card = document.getElementById('collectCard');
+        card.style.background = '#f0f7ff'; card.style.border = '1px solid #d0e3f7';
+    }
+}, {passive: true});
+
 // 明细滚动时自动收起次品拍照
 document.getElementById('historyList').addEventListener('scroll', function() {
     if (collectOpen && this.scrollTop > 5) {
@@ -925,7 +936,7 @@ document.getElementById('historyList').addEventListener('scroll', function() {
         const card = document.getElementById('collectCard');
         card.style.background = '#f0f7ff'; card.style.border = '1px solid #d0e3f7';
     }
-});
+}, {passive: true});
 </script>
 </body>
 </html>
