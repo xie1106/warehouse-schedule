@@ -806,6 +806,16 @@ function showToast(msg, color) {
 
 initPhotoGrid();
 fetchRecords();
+// 明细滚动时自动收起次品拍照
+document.getElementById('historyList').addEventListener('scroll', function() {
+    if (collectOpen && this.scrollTop > 30) {
+        collectOpen = false;
+        document.getElementById('collectForm').style.display = 'none';
+        document.getElementById('collectArrow').textContent = '展开 ▼';
+        const card = document.getElementById('collectCard');
+        card.style.background = '#f0f7ff'; card.style.border = '1px solid #d0e3f7';
+    }
+});
 </script>
 </body>
 </html>
