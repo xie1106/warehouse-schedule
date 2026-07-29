@@ -916,6 +916,20 @@ window.addEventListener('beforeunload', function(e) {
     }
 });
 
+// 页面向下滑动时自动收起次品拍照
+let _touchStartY = 0;
+document.addEventListener('touchstart', function(e) { _touchStartY = e.touches[0].clientY; }, {passive: true});
+document.addEventListener('touchmove', function(e) {
+    const dy = _touchStartY - e.touches[0].clientY;
+    if (collectOpen && dy > 20) {
+        collectOpen = false;
+        document.getElementById('collectForm').style.maxHeight = '0';
+        document.getElementById('collectArrow').textContent = '展开 ▼';
+        const card = document.getElementById('collectCard');
+        card.style.background = '#f0f7ff'; card.style.border = '1px solid #d0e3f7';
+    }
+}, {passive: true});
+
 // 触摸列表区域时自动收起次品拍照
 document.getElementById('historyList').addEventListener('touchstart', function() {
     if (collectOpen) {
