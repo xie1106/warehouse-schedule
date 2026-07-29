@@ -7,9 +7,9 @@
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; min-height: 100vh; padding: 12px; }
-        .container { max-width: 500px; margin: 0 auto; }
-        h1 { font-size: 18px; text-align: center; padding: 12px 0; color: #333; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; height: 100vh; padding: 0; margin: 0; display: flex; flex-direction: column; overflow: hidden; }
+        .container { max-width: 500px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; height: 100%; overflow: hidden; padding: 0 12px; }
+        h1 { font-size: 18px; text-align: center; padding: 12px 0 8px; color: #333; flex-shrink: 0; }
         .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         label { display: block; font-size: 14px; color: #333; margin-bottom: 6px; font-weight: 500; }
         input[type=text] { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; outline: none; }
@@ -100,8 +100,8 @@
     </div>
 
     <!-- 提交记录 -->
-    <div class="card" style="min-height:50vh;padding-top:0;">
-        <div style="background:#fff;padding-top:12px;padding-bottom:4px;">
+    <div class="card" style="flex:1;padding-top:0;display:flex;flex-direction:column;overflow:hidden;margin-bottom:0;min-height:0;">
+        <div style="background:#fff;padding-top:12px;padding-bottom:4px;flex-shrink:0;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
             <span style="font-size:16px;font-weight:600;">提交记录</span>
             <div style="font-size:11px;">
@@ -126,7 +126,7 @@
             <button class="tab-btn" onclick="switchTab('non1688',this)" style="color:#d97706;">非1688</button>
         </div>
         </div><!-- end inner sticky -->
-        <div id="historyList"></div>
+        <div id="historyList" style="flex:1;overflow-y:auto;min-height:0;-webkit-overflow-scrolling:touch;"></div>
         <div id="pagination" style="display:flex;justify-content:center;gap:8px;margin-top:12px;"></div>
     </div>
 </div>
