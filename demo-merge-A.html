@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>方案A - 显示合并（折叠）</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; padding: 12px; }
+        .container { max-width: 500px; margin: 0 auto; }
+        h2 { font-size: 16px; text-align: center; padding: 12px 0; color: #333; }
+        .desc { font-size: 12px; color: #888; text-align: center; margin-bottom: 12px; line-height: 1.6; }
+        .group { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .group-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .group-title { font-size: 15px; font-weight: 600; color: #333; }
+        .group-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #fef3c7; color: #d97706; }
+        .group-summary { font-size: 12px; color: #888; margin-top: 4px; }
+        .group-detail { display: none; margin-top: 10px; border-top: 1px solid #f0f0f0; padding-top: 10px; }
+        .group-detail.open { display: block; }
+        .sub-record { padding: 8px; background: #fafafa; border-radius: 8px; margin-bottom: 6px; }
+        .sub-time { font-size: 11px; color: #999; }
+        .sub-note { font-size: 13px; color: #333; margin-top: 2px; }
+        .expand-btn { font-size: 12px; color: #4A90D9; border: none; background: none; cursor: pointer; }
+        .tag-1688 { background: #1677ff; color: #fff; padding: 2px 6px; border-radius: 8px; font-size: 10px; margin-left: 6px; }
+        .tag-non1688 { background: #faad14; color: #fff; padding: 2px 6px; border-radius: 8px; font-size: 10px; margin-left: 6px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>方案A — 显示合并（折叠）</h2>
+    <p class="desc">同采购单号的记录折叠成一条<br>点击展开看所有提交详情<br>数据不变，只是视觉上合并</p>
+
+    <!-- 808381 - 4条 -->
+    <div class="group">
+        <div class="group-header" onclick="this.nextElementSibling.nextElementSibling.classList.toggle('open');this.querySelector('.expand-btn').textContent=this.nextElementSibling.nextElementSibling.classList.contains('open')?'收起 ▲':'展开 4条 ▼'">
+            <div>
+                <span class="group-title">采购单 808381</span>
+                <span class="tag-non1688">非1688</span>
+                <span class="group-badge">待处理</span>
+            </div>
+            <button class="expand-btn">展开 4条 ▼</button>
+        </div>
+        <div class="group-summary">F733119M × 4件 | 最近: 今天 15:49</div>
+        <div class="group-detail">
+            <div class="sub-record">
+                <div class="sub-time">7/29 15:49</div>
+                <div class="sub-note">F733119M×1 | 脱线</div>
+            </div>
+            <div class="sub-record">
+                <div class="sub-time">7/29 11:09</div>
+                <div class="sub-note">F733119M×1</div>
+            </div>
+            <div class="sub-record">
+                <div class="sub-time">7/29 11:06</div>
+                <div class="sub-note">F733119M×1 | 脱线</div>
+            </div>
+            <div class="sub-record">
+                <div class="sub-time">7/29 10:46</div>
+                <div class="sub-note">F733119M×1 | 脱线</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 808080 - 3条 -->
+    <div class="group">
+        <div class="group-header" onclick="this.nextElementSibling.nextElementSibling.classList.toggle('open');this.querySelector('.expand-btn').textContent=this.nextElementSibling.nextElementSibling.classList.contains('open')?'收起 ▲':'展开 3条 ▼'">
+            <div>
+                <span class="group-title">采购单 808080</span>
+                <span class="tag-non1688">非1688</span>
+                <span class="group-badge">待处理</span>
+            </div>
+            <button class="expand-btn">展开 3条 ▼</button>
+        </div>
+        <div class="group-summary">Y666134S×2, Y6661-黄色-L×1 | 最近: 今天 14:35</div>
+        <div class="group-detail">
+            <div class="sub-record">
+                <div class="sub-time">7/29 14:35</div>
+                <div class="sub-note">Y666134S×1 | 裤脚破洞</div>
+            </div>
+            <div class="sub-record">
+                <div class="sub-time">7/29 14:32</div>
+                <div class="sub-note">Y666134S×1 | 瑕疵</div>
+            </div>
+            <div class="sub-record">
+                <div class="sub-time">7/29 14:18</div>
+                <div class="sub-note">Y6661-黄色-L×1 | 破洞</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 806583 - 1条 -->
+    <div class="group">
+        <div class="group-header">
+            <div>
+                <span class="group-title">采购单 806583</span>
+                <span class="group-badge">待处理</span>
+            </div>
+        </div>
+        <div class="group-summary">602501L×1 | 今天 15:49</div>
+    </div>
+</div>
+</body>
+</html>

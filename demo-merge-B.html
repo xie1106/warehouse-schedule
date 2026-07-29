@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>方案B - 数据库合并</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; padding: 12px; }
+        .container { max-width: 500px; margin: 0 auto; }
+        h2 { font-size: 16px; text-align: center; padding: 12px 0; color: #333; }
+        .desc { font-size: 12px; color: #888; text-align: center; margin-bottom: 12px; line-height: 1.6; }
+        .record { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .record-header { display: flex; justify-content: space-between; align-items: center; }
+        .record-title { font-size: 15px; font-weight: 600; color: #333; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #fef3c7; color: #d97706; }
+        .record-time { font-size: 11px; color: #999; margin-top: 4px; }
+        .sku-list { margin-top: 8px; }
+        .sku-item { display: flex; justify-content: space-between; padding: 6px 10px; background: #f8f9fa; border-radius: 6px; margin-bottom: 4px; font-size: 13px; }
+        .sku-code { font-weight: 500; color: #333; }
+        .sku-qty { color: #4A90D9; font-weight: 600; }
+        .sku-note { font-size: 11px; color: #888; }
+        .photo-count { font-size: 12px; color: #4A90D9; margin-top: 6px; }
+        .tag-1688 { background: #1677ff; color: #fff; padding: 2px 6px; border-radius: 8px; font-size: 10px; margin-left: 6px; }
+        .tag-non1688 { background: #faad14; color: #fff; padding: 2px 6px; border-radius: 8px; font-size: 10px; margin-left: 6px; }
+        .merge-info { font-size: 11px; color: #10b981; margin-top: 4px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>方案B — 数据库合并</h2>
+    <p class="desc">同采购单号的待处理记录合并成一条<br>SKU数量累加、图片合并、备注整合<br>原多条记录删除，只保留合并后的一条</p>
+
+    <!-- 808381 合并后 -->
+    <div class="record">
+        <div class="record-header">
+            <div>
+                <span class="record-title">采购单 808381</span>
+                <span class="tag-non1688">非1688</span>
+            </div>
+            <span class="badge">待处理</span>
+        </div>
+        <div class="record-time">最后更新: 7/29 15:49</div>
+        <div class="merge-info">📎 合并自4次提交</div>
+        <div class="sku-list">
+            <div class="sku-item">
+                <div>
+                    <div class="sku-code">F733119M</div>
+                    <div class="sku-note">脱线</div>
+                </div>
+                <div class="sku-qty">× 4件</div>
+            </div>
+        </div>
+        <div class="photo-count">📷 8张图片</div>
+    </div>
+
+    <!-- 808080 合并后 -->
+    <div class="record">
+        <div class="record-header">
+            <div>
+                <span class="record-title">采购单 808080</span>
+                <span class="tag-non1688">非1688</span>
+            </div>
+            <span class="badge">待处理</span>
+        </div>
+        <div class="record-time">最后更新: 7/29 14:35</div>
+        <div class="merge-info">📎 合并自3次提交</div>
+        <div class="sku-list">
+            <div class="sku-item">
+                <div>
+                    <div class="sku-code">Y666134S</div>
+                    <div class="sku-note">裤脚破洞、瑕疵</div>
+                </div>
+                <div class="sku-qty">× 2件</div>
+            </div>
+            <div class="sku-item">
+                <div>
+                    <div class="sku-code">Y6661-黄色-L</div>
+                    <div class="sku-note">破洞</div>
+                </div>
+                <div class="sku-qty">× 1件</div>
+            </div>
+        </div>
+        <div class="photo-count">📷 6张图片</div>
+    </div>
+
+    <!-- 806583 单条不变 -->
+    <div class="record">
+        <div class="record-header">
+            <div>
+                <span class="record-title">采购单 806583</span>
+            </div>
+            <span class="badge">待处理</span>
+        </div>
+        <div class="record-time">7/29 15:49</div>
+        <div class="sku-list">
+            <div class="sku-item">
+                <div><div class="sku-code">602501L</div></div>
+                <div class="sku-qty">× 1件</div>
+            </div>
+        </div>
+        <div class="photo-count">📷 2张图片</div>
+    </div>
+</div>
+</body>
+</html>
