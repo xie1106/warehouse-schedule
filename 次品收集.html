@@ -66,7 +66,7 @@
             <span style="font-size:18px;font-weight:600;color:#4A90D9;">📷 次品拍照</span>
             <span id="collectArrow" style="font-size:15px;color:#4A90D9;font-weight:600;">展开 ▼</span>
         </div>
-        <div id="collectForm" style="display:none;margin-top:12px;" onclick="event.stopPropagation();">
+        <div id="collectForm" style="max-height:0;overflow:hidden;transition:max-height 0.25s ease;margin-top:12px;" onclick="event.stopPropagation();">
             <div style="margin-bottom:10px;">
                 <label>采购单号 <span style="color:#e53e3e;">*</span></label>
                 <div style="display:flex;gap:8px;">
@@ -197,7 +197,8 @@ function playBeep(type) {
 
 function toggleCollect(e) {
     collectOpen = !collectOpen;
-    document.getElementById('collectForm').style.display = collectOpen ? 'block' : 'none';
+    const form = document.getElementById('collectForm');
+    form.style.maxHeight = collectOpen ? form.scrollHeight + 'px' : '0';
     document.getElementById('collectArrow').textContent = collectOpen ? '收起 ▲' : '展开 ▼';
     const card = document.getElementById('collectCard');
     if(collectOpen) { card.style.background = '#fff'; card.style.border = ''; }
@@ -615,7 +616,7 @@ function editRecord(idx) {
     photos = [...(r.photos || [])];
     initPhotoGrid();
     collectOpen = true;
-    document.getElementById('collectForm').style.display = 'block';
+    const _f = document.getElementById('collectForm'); _f.style.maxHeight = _f.scrollHeight + 2000 + 'px';
     document.getElementById('collectArrow').textContent = '收起 ▲';
     document.getElementById('submitBtn').textContent = '保存修改';
     document.getElementById('cancelBtn').style.display = 'block';
@@ -919,7 +920,7 @@ window.addEventListener('beforeunload', function(e) {
 document.getElementById('historyList').addEventListener('scroll', function() {
     if (collectOpen && this.scrollTop > 5) {
         collectOpen = false;
-        document.getElementById('collectForm').style.display = 'none';
+        document.getElementById('collectForm').style.maxHeight = '0';
         document.getElementById('collectArrow').textContent = '展开 ▼';
         const card = document.getElementById('collectCard');
         card.style.background = '#f0f7ff'; card.style.border = '1px solid #d0e3f7';
