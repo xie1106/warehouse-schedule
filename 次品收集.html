@@ -101,7 +101,7 @@
 
     <!-- 提交记录 -->
     <div class="card" style="min-height:50vh;padding-top:0;">
-        <div style="position:sticky;top:0;z-index:100;background:#fff;padding-top:12px;padding-bottom:4px;margin:0 -16px;padding-left:16px;padding-right:16px;">
+        <div style="background:#fff;padding-top:12px;padding-bottom:4px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
             <span style="font-size:16px;font-weight:600;">提交记录</span>
             <div style="font-size:11px;">
@@ -126,12 +126,6 @@
             <button class="tab-btn" onclick="switchTab('non1688',this)" style="color:#d97706;">非1688</button>
         </div>
         </div><!-- end inner sticky -->
-        <div style="display:flex;justify-content:flex-end;margin-bottom:8px;gap:4px;font-size:12px;">
-            <span style="color:#888;line-height:24px;">每页:</span>
-            <button class="tab-btn active" onclick="setPageSize(50,this)" style="padding:2px 8px;font-size:11px;" id="ps50">50</button>
-            <button class="tab-btn" onclick="setPageSize(100,this)" style="padding:2px 8px;font-size:11px;" id="ps100">100</button>
-            <button class="tab-btn" onclick="setPageSize(500,this)" style="padding:2px 8px;font-size:11px;" id="ps500">500</button>
-        </div>
         <div id="historyList"></div>
         <div id="pagination" style="display:flex;justify-content:center;gap:8px;margin-top:12px;"></div>
     </div>
@@ -168,7 +162,7 @@ let photos = [];
 let collectOpen = false;
 let currentTab = 'all';
 let editingIdx = -1;
-let pageSize = 50;
+let pageSize = 9999;
 let currentPage = 1;
 
 // Audio context for beep
