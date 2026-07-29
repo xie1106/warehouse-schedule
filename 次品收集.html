@@ -782,6 +782,12 @@ function closeModal() { document.getElementById('imgModal').style.display = 'non
 
 function downloadImg() {
     const src = document.getElementById('modalImg').src;
+    // 微信浏览器不支持a.download，改为提示长按保存
+    const isWechat = /MicroMessenger/i.test(navigator.userAgent);
+    if (isWechat) {
+        showToast('请长按图片 → 保存到手机', 'orange');
+        return;
+    }
     const filename = `${modalPoId}_${modalIndex+1}.jpg`;
     fetch(src).then(r => r.blob()).then(blob => {
         const url = URL.createObjectURL(blob);
@@ -793,7 +799,8 @@ function downloadImg() {
         document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         showToast('已保存 ✓', 'green');
-    }).catch(() => showToast('保存失败，请长按图片保存', 'orange'));
+    }).catch(() => showToast('请长按图片保存', 'orange'));
+}
 }
 async function copyImg() {
     try {
