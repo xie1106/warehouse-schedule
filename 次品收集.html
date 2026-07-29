@@ -163,10 +163,12 @@ let photos = [];
 let collectOpen = /Mobi|Android|iPhone/i.test(navigator.userAgent);
 if (collectOpen) {
     const form = document.getElementById('collectForm');
-    form.style.maxHeight = form.scrollHeight + 2000 + 'px';
+    form.style.maxHeight = '2000px';
+    form.style.transition = 'none';
     document.getElementById('collectArrow').textContent = '收起 ▲';
     const card = document.getElementById('collectCard');
     card.style.background = '#fff'; card.style.border = '';
+    setTimeout(() => { form.style.transition = 'max-height 0.25s ease'; }, 50);
 }
 let currentTab = 'all';
 let editingIdx = -1;
