@@ -58,6 +58,7 @@
 <body>
 <div class="container">
     <h1>📷 次品照片收集系统</h1>
+    <div id="unsavedTip" style="display:none;background:#fee2e2;color:#dc2626;font-size:13px;font-weight:600;text-align:center;padding:8px;border-radius:8px;margin-bottom:8px;">⚠️ 有未提交的内容，请勿退出</div>
 
     <!-- 收集模块 -->
     <div class="card" id="collectCard" style="padding:14px 16px;cursor:pointer;background:#f0f7ff;border:1px solid #d0e3f7;" onclick="toggleCollect(event)">
@@ -375,6 +376,9 @@ function updateBtn() {
     const hasAnySku = Array.from(skuInputs).some(i => i.value.trim().length > 0);
     const isEditing = editingIdx >= 0;
     document.getElementById('submitBtn').disabled = !(/^\d{6,}$/.test(poId) && photos.length > 0 && (hasAnySku || isEditing));
+    // 未提交提示
+    const hasUnsaved = poId.length > 0 || photos.length > 0 || hasAnySku;
+    document.getElementById('unsavedTip').style.display = hasUnsaved ? 'block' : 'none';
 }
 document.getElementById('poId').addEventListener('input', function() {
     updateBtn();
