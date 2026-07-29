@@ -160,7 +160,14 @@ const SUPABASE_URL = 'https://elyfxyrdbuykyklfjfdr.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg';
 
 let photos = [];
-let collectOpen = false;
+let collectOpen = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+if (collectOpen) {
+    const form = document.getElementById('collectForm');
+    form.style.maxHeight = form.scrollHeight + 2000 + 'px';
+    document.getElementById('collectArrow').textContent = '收起 ▲';
+    const card = document.getElementById('collectCard');
+    card.style.background = '#fff'; card.style.border = '';
+}
 let currentTab = 'all';
 let editingIdx = -1;
 let pageSize = 9999;
