@@ -547,6 +547,7 @@ function loadHistory() {
             const statusClass = r.status==='done'?'badge-done':'badge-error';
             const statusText = r.status==='done'?'已处理':'异常';
             const noteDisplay = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+            const is1688Single = (r.note||'').includes('[1688:');
             return `<div class="record">
                 <div class="record-header">
                     <span class="record-title">采购单 ${r.po_id}</span>
@@ -554,6 +555,7 @@ function loadHistory() {
                 </div>
                 <div class="record-time">${new Date(r.created_at).toLocaleString()}${noteDisplay?' · '+noteDisplay:''}</div>
                 <div class="record-actions">
+                    ${is1688Single?`<button onclick="open1688Return('${r.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;">📦 退货</button>`:''}
                     ${r.status==='done'?`<button onclick="markUndone(${r._realIdx})" style="color:#d97706;border-color:#d97706;">↩ 反完成</button>`:`<button onclick="markDone(${r._realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`}
                     <button onclick="quickDelete(${r._realIdx})" style="color:#dc2626;border-color:#dc2626;">✕ 删除</button>
                 </div>
