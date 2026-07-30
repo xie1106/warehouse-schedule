@@ -603,7 +603,9 @@ function loadHistory() {
             });
             html += `</div>`;
         }
+        const returnBtn = is1688 ? `<button onclick="open1688Return('${g.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;">📦 退货</button>` : '';
         html += `<div class="record-actions">
+                ${returnBtn}
                 <button onclick="markDoneGroup('${g.po_id}')" style="color:#059669;border-color:#059669;">✅ 全部完成</button>
                 ${count===1?`<button onclick="editRecord(${items[0]._realIdx})">✏️ 编辑</button>`:''}
                 <button onclick="quickDeleteGroup('${g.po_id}')" style="color:#dc2626;border-color:#dc2626;">✕ 全部删除</button>
@@ -653,6 +655,24 @@ function setPageSize(size, btn) {
     loadHistory();
 }
 function goPage(p) { currentPage = p; loadHistory(); }
+
+// 1688退货：po_id → 1688订单链接
+let _po1688Map = null;
+async function open1688Return(poId) {
+    if (!_po1688Map) {
+        showToast('加载1688映射...', '#4A90D9');
+        try {
+            const r = await fetch('po_1688_map.json?t=' + Date.now());
+            _po1688Map = await r.json();
+        } catch(e) { _po1688Map = {}; }
+    }
+    const orderId = _po1688Map[poId];
+    if (orderId) {
+        window.open('https://air.1688.com/app/ctf-page/trade-order-detail/index.html?orderId=' + orderId, '_blank');
+    } else {
+        showToast('未找到该采购单的1688订单号', '#ef4444');
+    }
+}
 
 async function markDoneGroup(poId) {
     const list = getRecords();
