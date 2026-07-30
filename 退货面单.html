@@ -66,6 +66,7 @@
                 <select id="returnSupplier" onchange="fillSupplierAddr()">
                     <option value="">选择供应商</option>
                 </select>
+                <div id="returnRemark" style="margin-top:4px;"></div>
             </div>
             <div class="form-group">
                 <label>收件人</label>
@@ -100,8 +101,10 @@
 
     <!-- 供应商管理 -->
     <div class="panel" id="panel-suppliers">
-        <div style="margin-bottom:10px;">
-            <button class="btn btn-outline" onclick="showAddSupplier()">+ 添加供应商</button>
+        <div style="margin-bottom:10px;display:flex;gap:8px;">
+            <button class="btn btn-outline" onclick="showAddSupplier()" style="flex:1;">+ 添加供应商</button>
+            <button class="btn btn-outline" onclick="document.getElementById('importFile').click()" style="flex:1;border-color:#10b981;color:#10b981;">📥 导入Excel</button>
+            <input type="file" id="importFile" accept=".xlsx,.xls" style="display:none;" onchange="importExcel(event)">
         </div>
         <div id="supplierList"></div>
         <!-- 添加供应商表单 -->
@@ -111,10 +114,8 @@
                 <div class="form-group"><label>供应商名称</label><input type="text" id="sName"></div>
                 <div class="form-group"><label>收件人</label><input type="text" id="sContact"></div>
                 <div class="form-group"><label>电话</label><input type="tel" id="sPhone"></div>
-                <div class="form-group"><label>省</label><input type="text" id="sProvince" placeholder="广东省"></div>
-                <div class="form-group"><label>市</label><input type="text" id="sCity" placeholder="广州市"></div>
-                <div class="form-group"><label>区</label><input type="text" id="sDistrict" placeholder="海珠区"></div>
-                <div class="form-group"><label>详细地址</label><input type="text" id="sAddress"></div>
+                <div class="form-group"><label>退货地址</label><input type="text" id="sAddress"></div>
+                <div class="form-group"><label>备注/须知</label><input type="text" id="sRemark" placeholder="如：到付拒收"></div>
                 <div style="display:flex;gap:8px;margin-top:10px;">
                     <button class="btn btn-success" onclick="saveSupplier()" style="flex:1;">保存</button>
                     <button class="btn btn-outline" onclick="hideAddSupplier()" style="flex:1;">取消</button>
@@ -141,7 +142,19 @@ const SUPABASE_URL = 'https://elyfxyrdbuykyklfjfdr.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg';
 
 // 供应商数据（localStorage存储）
-let suppliers = JSON.parse(localStorage.getItem('suppliers') || '[]');
+const DEFAULT_SUPPLIERS = [
+  {"name":"UNF","contact":"刘生","phone":"13822254885","address":"广东省广州市荔湾区光复南路48号B01","remark":"包写开单名"},
+  {"name":"MEIM","contact":"安迪","phone":"13570419585","address":"广东广州市荔湾区岭南街道光复南路93号C1-C2","remark":"退货退版记得备注下名字，发单号给我"},
+  {"name":"RHSHANNA","contact":"陈生","phone":"13428815740","address":"广东省广州市荔湾区杨巷1号115档","remark":"退回麻烦里面塞个纸条备注一下自己的开单名字、数量。到付拒收！"},
+  {"name":"byd","contact":"阿峰","phone":"18898403035","address":"广州市荔湾区光复南路102号K+R","remark":"不要到付，到付仓库拒收"},
+  {"name":"唐森","contact":"戴晓晓","phone":"13318428058","address":"广东省广州市荔湾区光复南路85号B1B2档","remark":""},
+  {"name":"bfborfend","contact":"仓库阿鸿主管","phone":"13416229955","address":"广东省佛山市南海区大沥镇泌冲社区华南藤编产业园一期2号楼二层","remark":"1号客梯、货梯上来二楼"},
+  {"name":"EXTREME CAUSE","contact":"吴小姐","phone":"15920168449","address":"广州市荔湾区光复南路121档","remark":"到付拒收"},
+  {"name":"poppjayezy","contact":"邓小姐","phone":"13533021390","address":"广东省佛山市南海区大沥镇黄岐泌冲二村泌二大街20号10楼","remark":"到付件一律拒收"},
+  {"name":"GEESAS","contact":"居瑟斯","phone":"13798107393","address":"广东省广州市荔湾区光复南134号","remark":""}
+];
+let suppliers = JSON.parse(localStorage.getItem('suppliers') || 'null') || DEFAULT_SUPPLIERS;
+localStorage.setItem('suppliers', JSON.stringify(suppliers));
 // 退货订单（localStorage暂存，后续可用Supabase）
 let returnOrders = JSON.parse(localStorage.getItem('returnOrders') || '[]');
 
@@ -169,7 +182,8 @@ function renderSuppliers() {
             <div>
                 <div class="name">${s.name}</div>
                 <div class="addr">${s.contact} ${s.phone}</div>
-                <div class="addr">${s.province}${s.city}${s.district}${s.address}</div>
+                <div class="addr">${s.address}</div>
+                ${s.remark ? '<div style="color:#dc2626;font-size:11px;margin-top:2px;">⚠️ '+s.remark+'</div>' : ''}
             </div>
             <div class="actions">
                 <button onclick="editSupplier(${i})">✏️</button>
@@ -191,22 +205,23 @@ function fillSupplierAddr() {
     const s = suppliers[idx];
     document.getElementById('returnContact').value = s.contact;
     document.getElementById('returnPhone').value = s.phone;
-    document.getElementById('returnAddr').value = s.province + s.city + s.district + s.address;
+    document.getElementById('returnAddr').value = s.address;
+    // Show remark
+    const remarkEl = document.getElementById('returnRemark');
+    if (remarkEl) remarkEl.innerHTML = s.remark ? '<span style="color:#dc2626;font-size:12px;">⚠️ ' + s.remark + '</span>' : '';
 }
 
 function showAddSupplier() { document.getElementById('addSupplierForm').style.display = 'block'; }
 function hideAddSupplier() { document.getElementById('addSupplierForm').style.display = 'none'; clearSupplierForm(); }
-function clearSupplierForm() { ['sName','sContact','sPhone','sProvince','sCity','sDistrict','sAddress'].forEach(id => document.getElementById(id).value = ''); }
+function clearSupplierForm() { ['sName','sContact','sPhone','sAddress','sRemark'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; }); }
 
 function saveSupplier() {
     const s = {
         name: document.getElementById('sName').value.trim(),
         contact: document.getElementById('sContact').value.trim(),
         phone: document.getElementById('sPhone').value.trim(),
-        province: document.getElementById('sProvince').value.trim(),
-        city: document.getElementById('sCity').value.trim(),
-        district: document.getElementById('sDistrict').value.trim(),
-        address: document.getElementById('sAddress').value.trim()
+        address: document.getElementById('sAddress').value.trim(),
+        remark: document.getElementById('sRemark') ? document.getElementById('sRemark').value.trim() : ''
     };
     if (!s.name) { showToast('请填写供应商名称', '#ef4444'); return; }
     suppliers.push(s);
@@ -228,13 +243,60 @@ function editSupplier(i) {
     document.getElementById('sName').value = s.name;
     document.getElementById('sContact').value = s.contact;
     document.getElementById('sPhone').value = s.phone;
-    document.getElementById('sProvince').value = s.province;
-    document.getElementById('sCity').value = s.city;
-    document.getElementById('sDistrict').value = s.district;
     document.getElementById('sAddress').value = s.address;
+    document.getElementById('sRemark').value = s.remark || '';
     suppliers.splice(i, 1);
     localStorage.setItem('suppliers', JSON.stringify(suppliers));
     showAddSupplier();
+}
+
+// Excel导入
+function importExcel(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            // Simple CSV/TSV parse for exported xlsx (use SheetJS if available)
+            // For now, parse as text - user should export as CSV
+            // Actually let's use a lightweight xlsx parser
+            showToast('正在解析...', '#4A90D9');
+            // Use fetch to load SheetJS CDN
+            const script = document.createElement('script');
+            script.src = 'https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js';
+            script.onload = function() {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type:'array'});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
+                const newSuppliers = [];
+                for (let i = 1; i < rows.length; i++) {
+                    const name = (rows[i][0]||'').toString().trim();
+                    const raw = (rows[i][1]||'').toString().trim();
+                    if (!name || !raw) continue;
+                    const parts = raw.replace(/\n/g,'').split(/[，,]/);
+                    const contact = (parts[0]||'').trim();
+                    const phone = (parts[1]||'').trim();
+                    const address = (parts.slice(2).join(',')).trim();
+                    let remark = '';
+                    const m = address.match(/[（(](.+?)[）)]/);
+                    if (m) remark = m[1];
+                    newSuppliers.push({name, contact, phone, address: address.replace(/[（(].+?[）)]/g,'').trim(), remark});
+                }
+                if (newSuppliers.length > 0) {
+                    suppliers = newSuppliers;
+                    localStorage.setItem('suppliers', JSON.stringify(suppliers));
+                    renderSuppliers();
+                    showToast('导入成功: ' + newSuppliers.length + '个供应商', '#10b981');
+                } else {
+                    showToast('未找到有效数据', '#ef4444');
+                }
+            };
+            document.head.appendChild(script);
+        } catch(err) { showToast('解析失败', '#ef4444'); }
+    };
+    reader.readAsArrayBuffer(file);
+    event.target.value = '';
 }
 </script>
 <script>
