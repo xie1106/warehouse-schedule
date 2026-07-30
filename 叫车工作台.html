@@ -204,18 +204,7 @@ function switchTab(tab, btn) {
 }
 
 async function fetchRecords() {
-    try {
-        const ctrl = new AbortController();
-        setTimeout(() => ctrl.abort(), 15000);
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/delivery_tasks?select=*&order=created_at.desc&limit=200`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
-            signal: ctrl.signal
-        });
-        if (r.ok) records = await r.json();
-    } catch(e) {
-        // Use localStorage fallback
-        records = JSON.parse(localStorage.getItem('jtRecords') || '[]');
-    }
+    records = JSON.parse(localStorage.getItem('jtRecords') || '[]');
     renderRecords();
     updateStats();
 }
@@ -257,6 +246,7 @@ function renderRecords() {
                 ${typeTag}${projectTag}${r.source === 'order' ? '<span class="tag" style="background:#e6fffb;color:#13c2c2;">订单</span>' : '<span class="tag" style="background:#fff0f6;color:#eb2f96;">内部</span>'}
                 <br>${r.receiver_phone || ''} · ${(r.address || '').substring(0, 40)}
                 ${r.order_id ? '<br>订单号: ' + r.order_id : ''}
+                ${r.items ? '<br>商品: ' + r.items : ''}
                 ${r.note ? '<br>备注: ' + r.note : ''}
                 <br><span style="color:#bbb;">${new Date(r.created_at).toLocaleString()}</span>
             </div>
@@ -285,19 +275,8 @@ async function submitTask() {
     };
     if (!task.receiver_name && !task.address) { showToast('请至少填写收件人或地址', '#ff4d4f'); return; }
     
-    // Try Supabase first
-    try {
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/delivery_tasks`, {
-            method: 'POST',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-            body: JSON.stringify(task)
-        });
-        if (!r.ok) throw new Error('supabase error');
-    } catch(e) {
-        // Fallback to localStorage
-        records.unshift(task);
-        localStorage.setItem('jtRecords', JSON.stringify(records));
-    }
+    records.unshift(task);
+    localStorage.setItem('jtRecords', JSON.stringify(records));
     
     // Clear form
     ['fOrderId','fName','fPhone','fAddress','fNote'].forEach(id => document.getElementById(id).value = '');
@@ -403,7 +382,29 @@ function exportExcel() {
 // Init
 renderProjects();
 renderProjectSelect();
-fetchRecords();
+
+// Auto-sync: load synced orders from JSON
+async function syncOrders() {
+    try {
+        const r = await fetch('delivery_orders.json?t=' + Date.now());
+        const synced = await r.json();
+        const existing = JSON.parse(localStorage.getItem('jtRecords') || '[]');
+        const existingIds = new Set(existing.map(r => r.order_id).filter(Boolean));
+        let added = 0;
+        synced.forEach(o => {
+            if (o.order_id && !existingIds.has(o.order_id)) {
+                existing.unshift(o);
+                added++;
+            }
+        });
+        if (added > 0) {
+            localStorage.setItem('jtRecords', JSON.stringify(existing));
+            showToast(`同步了${added}条聚水潭订单`, '#1677ff');
+        }
+    } catch(e) {}
+    fetchRecords();
+}
+syncOrders();
 </script>
 </body>
 </html>
