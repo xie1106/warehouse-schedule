@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>叫车工作台</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; min-height: 100vh; }
+        .container { max-width: 600px; margin: 0 auto; padding: 12px; }
+        h1 { font-size: 18px; text-align: center; padding: 12px 0; color: #333; }
+        .tabs { display: flex; gap: 4px; margin-bottom: 12px; overflow-x: auto; }
+        .tab-btn { padding: 8px 14px; border: 1px solid #ddd; border-radius: 8px; background: #fff; font-size: 13px; cursor: pointer; white-space: nowrap; }
+        .tab-btn.active { background: #1677ff; color: #fff; border-color: #1677ff; }
+        .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .card-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #333; }
+        .form-row { margin-bottom: 12px; }
+        .form-row label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; }
+        .form-row input, .form-row select, .form-row textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
+        .form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-color: #1677ff; }
+        .form-row textarea { resize: vertical; min-height: 60px; }
+        .btn-row { display: flex; gap: 8px; }
+        .btn { padding: 10px 16px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 500; }
+        .btn-primary { background: #1677ff; color: #fff; flex: 1; }
+        .btn-success { background: #52c41a; color: #fff; }
+        .btn-warning { background: #faad14; color: #fff; }
+        .btn-danger { background: #ff4d4f; color: #fff; }
+        .btn-outline { background: #fff; border: 1px solid #ddd; color: #666; }
+        .btn:disabled { opacity: 0.5; }
+        .record { padding: 14px; border: 1px solid #eee; border-radius: 10px; margin-bottom: 10px; background: #fff; border-left: 4px solid #1677ff; }
+        .record.done { border-left-color: #52c41a; opacity: 0.7; }
+        .record.daof { border-left-color: #faad14; }
+        .record-header { display: flex; justify-content: space-between; align-items: center; }
+        .record-title { font-size: 14px; font-weight: 600; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .badge-pending { background: #e6f4ff; color: #1677ff; }
+        .badge-done { background: #f6ffed; color: #52c41a; }
+        .badge-daof { background: #fffbe6; color: #faad14; }
+        .record-info { font-size: 12px; color: #666; margin-top: 6px; line-height: 1.6; }
+        .record-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+        .record-actions button { padding: 4px 10px; border: 1px solid #ddd; border-radius: 6px; background: #fff; font-size: 11px; cursor: pointer; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+        .tag-project { background: #f0f5ff; color: #2f54eb; }
+        .tag-type { background: #fff7e6; color: #d46b08; }
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; color: #fff; font-size: 14px; z-index: 9999; display: none; }
+        .empty { text-align: center; padding: 40px; color: #999; font-size: 13px; }
+        .project-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .project-tag { padding: 4px 12px; border-radius: 16px; font-size: 12px; background: #f0f5ff; color: #2f54eb; border: 1px solid #d6e4ff; cursor: pointer; }
+        .project-tag .del { margin-left: 4px; color: #ff4d4f; cursor: pointer; }
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+        .stat-card { background: #fff; border-radius: 8px; padding: 12px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+        .stat-num { font-size: 20px; font-weight: 700; color: #1677ff; }
+        .stat-label { font-size: 11px; color: #999; margin-top: 2px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🚛 叫车工作台</h1>
+    
+    <div class="stats">
+        <div class="stat-card"><div class="stat-num" id="statPending">0</div><div class="stat-label">待处理</div></div>
+        <div class="stat-card"><div class="stat-num" id="statDone">0</div><div class="stat-label">已完成</div></div>
+        <div class="stat-card"><div class="stat-num" id="statCost">¥0</div><div class="stat-label">本月运费</div></div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('pending',this)">待处理</button>
+        <button class="tab-btn" onclick="switchTab('done',this)">已完成</button>
+        <button class="tab-btn" onclick="switchTab('all',this)">全部</button>
+        <button class="tab-btn" onclick="switchTab('add',this)" style="background:#52c41a;color:#fff;border-color:#52c41a;">+ 新增</button>
+        <button class="tab-btn" onclick="switchTab('projects',this)">项目管理</button>
+        <button class="tab-btn" onclick="exportExcel()">📊 导出</button>
+    </div>
+
+    <!-- 新增表单 -->
+    <div id="addForm" style="display:none;">
+        <div class="card">
+            <div class="card-title">新增叫车任务</div>
+            <div class="form-row">
+                <label>来源</label>
+                <select id="fSource">
+                    <option value="order">聚水潭订单</option>
+                    <option value="internal">内部用车</option>
+                </select>
+            </div>
+            <div class="form-row" id="fOrderRow">
+                <label>订单号（选填）</label>
+                <input type="text" id="fOrderId" placeholder="聚水潭订单号">
+            </div>
+            <div class="form-row">
+                <label>类型</label>
+                <select id="fType">
+                    <option value="叫车">叫车（货拉拉）</option>
+                    <option value="跑腿">跑腿</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label>收件人</label>
+                <input type="text" id="fName" placeholder="姓名">
+            </div>
+            <div class="form-row">
+                <label>电话</label>
+                <input type="text" id="fPhone" placeholder="手机号">
+            </div>
+            <div class="form-row">
+                <label>地址</label>
+                <textarea id="fAddress" placeholder="详细地址"></textarea>
+            </div>
+            <div class="form-row">
+                <label>项目</label>
+                <select id="fProject"><option value="">请选择项目</option></select>
+            </div>
+            <div class="form-row">
+                <label>付款方式</label>
+                <select id="fPayment">
+                    <option value="我方付">我方付</option>
+                    <option value="到付">到付</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label>备注</label>
+                <input type="text" id="fNote" placeholder="备注信息">
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="submitTask()">提交</button>
+                <button class="btn btn-outline" onclick="switchTab('pending',document.querySelector('.tab-btn'))">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 项目管理 -->
+    <div id="projectPanel" style="display:none;">
+        <div class="card">
+            <div class="card-title">项目管理</div>
+            <div class="form-row">
+                <div style="display:flex;gap:8px;">
+                    <input type="text" id="newProject" placeholder="新项目名称" style="flex:1;">
+                    <button class="btn btn-primary" onclick="addProject()" style="flex:none;padding:10px 16px;">添加</button>
+                </div>
+            </div>
+            <div class="project-list" id="projectList"></div>
+        </div>
+    </div>
+
+    <!-- 记录列表 -->
+    <div id="recordList"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+const SUPABASE_URL = 'https://elyfxyrdbuykyklfjfdr.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg';
+
+let currentTab = 'pending';
+let records = [];
+let projects = JSON.parse(localStorage.getItem('jtProjects') || '["独立站发货","TK发货","内部调拨","采购退货","样品寄送","其他"]');
+
+function showToast(msg, color) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.style.background = color || '#333'; t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 2500);
+}
+
+function saveProjects() {
+    localStorage.setItem('jtProjects', JSON.stringify(projects));
+    renderProjects();
+    renderProjectSelect();
+}
+
+function renderProjects() {
+    document.getElementById('projectList').innerHTML = projects.map((p,i) => 
+        `<span class="project-tag">${p}<span class="del" onclick="delProject(${i})">×</span></span>`
+    ).join('');
+}
+
+function renderProjectSelect() {
+    const sel = document.getElementById('fProject');
+    sel.innerHTML = '<option value="">请选择项目</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
+}
+
+function addProject() {
+    const name = document.getElementById('newProject').value.trim();
+    if (!name) return;
+    if (projects.includes(name)) { showToast('项目已存在', '#ff4d4f'); return; }
+    projects.push(name);
+    saveProjects();
+    document.getElementById('newProject').value = '';
+    showToast('已添加', '#52c41a');
+}
+
+function delProject(i) {
+    projects.splice(i, 1);
+    saveProjects();
+}
+
+function switchTab(tab, btn) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    if(btn) btn.classList.add('active');
+    document.getElementById('addForm').style.display = tab === 'add' ? 'block' : 'none';
+    document.getElementById('projectPanel').style.display = tab === 'projects' ? 'block' : 'none';
+    document.getElementById('recordList').style.display = (tab === 'add' || tab === 'projects') ? 'none' : 'block';
+    if (tab !== 'add' && tab !== 'projects') renderRecords();
+}
+
+async function fetchRecords() {
+    try {
+        const ctrl = new AbortController();
+        setTimeout(() => ctrl.abort(), 15000);
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/delivery_tasks?select=*&order=created_at.desc&limit=200`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
+            signal: ctrl.signal
+        });
+        if (r.ok) records = await r.json();
+    } catch(e) {
+        // Use localStorage fallback
+        records = JSON.parse(localStorage.getItem('jtRecords') || '[]');
+    }
+    renderRecords();
+    updateStats();
+}
+
+function updateStats() {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const pending = records.filter(r => r.status === 'pending').length;
+    const done = records.filter(r => r.status === 'done').length;
+    const monthCost = records.filter(r => r.status === 'done' && r.payment !== '到付' && new Date(r.created_at) >= monthStart)
+        .reduce((sum, r) => sum + (parseFloat(r.cost) || 0), 0);
+    document.getElementById('statPending').textContent = pending;
+    document.getElementById('statDone').textContent = done;
+    document.getElementById('statCost').textContent = '¥' + monthCost.toFixed(0);
+}
+
+function renderRecords() {
+    let filtered = records;
+    if (currentTab === 'pending') filtered = records.filter(r => r.status === 'pending');
+    else if (currentTab === 'done') filtered = records.filter(r => r.status === 'done');
+    
+    if (filtered.length === 0) {
+        document.getElementById('recordList').innerHTML = '<div class="empty">暂无记录</div>';
+        return;
+    }
+    document.getElementById('recordList').innerHTML = filtered.map((r, i) => {
+        const statusClass = r.status === 'done' ? 'done' : (r.payment === '到付' ? 'daof' : '');
+        const badgeClass = r.status === 'done' ? 'badge-done' : (r.payment === '到付' ? 'badge-daof' : 'badge-pending');
+        const badgeText = r.status === 'done' ? '已完成' : (r.payment === '到付' ? '到付' : '待处理');
+        const projectTag = r.project ? `<span class="tag tag-project">${r.project}</span>` : '';
+        const typeTag = `<span class="tag tag-type">${r.type || '叫车'}</span>`;
+        const costText = r.cost ? ` · ¥${r.cost}` : '';
+        return `<div class="record ${statusClass}">
+            <div class="record-header">
+                <span class="record-title">${r.receiver_name || '未填收件人'}${costText}</span>
+                <span class="badge ${badgeClass}">${badgeText}</span>
+            </div>
+            <div class="record-info">
+                ${typeTag}${projectTag}${r.source === 'order' ? '<span class="tag" style="background:#e6fffb;color:#13c2c2;">订单</span>' : '<span class="tag" style="background:#fff0f6;color:#eb2f96;">内部</span>'}
+                <br>${r.receiver_phone || ''} · ${(r.address || '').substring(0, 40)}
+                ${r.order_id ? '<br>订单号: ' + r.order_id : ''}
+                ${r.note ? '<br>备注: ' + r.note : ''}
+                <br><span style="color:#bbb;">${new Date(r.created_at).toLocaleString()}</span>
+            </div>
+            <div class="record-actions">
+                ${r.status === 'pending' ? `<button onclick="completeTask(${i})" style="color:#52c41a;border-color:#52c41a;">✅ 完成</button>` : ''}
+                ${r.status === 'pending' ? `<button onclick="editTask(${i})">✏️ 编辑</button>` : ''}
+                <button onclick="deleteTask(${i})" style="color:#ff4d4f;border-color:#ff4d4f;">✕ 删除</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+async function submitTask() {
+    const task = {
+        source: document.getElementById('fSource').value,
+        order_id: document.getElementById('fOrderId').value.trim(),
+        type: document.getElementById('fType').value,
+        receiver_name: document.getElementById('fName').value.trim(),
+        receiver_phone: document.getElementById('fPhone').value.trim(),
+        address: document.getElementById('fAddress').value.trim(),
+        project: document.getElementById('fProject').value,
+        payment: document.getElementById('fPayment').value,
+        note: document.getElementById('fNote').value.trim(),
+        status: 'pending',
+        cost: 0,
+        created_at: new Date().toISOString()
+    };
+    if (!task.receiver_name && !task.address) { showToast('请至少填写收件人或地址', '#ff4d4f'); return; }
+    
+    // Try Supabase first
+    try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/delivery_tasks`, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify(task)
+        });
+        if (!r.ok) throw new Error('supabase error');
+    } catch(e) {
+        // Fallback to localStorage
+        records.unshift(task);
+        localStorage.setItem('jtRecords', JSON.stringify(records));
+    }
+    
+    // Clear form
+    ['fOrderId','fName','fPhone','fAddress','fNote'].forEach(id => document.getElementById(id).value = '');
+    showToast('已提交', '#52c41a');
+    await fetchRecords();
+    switchTab('pending', document.querySelector('.tab-btn'));
+}
+
+async function completeTask(idx) {
+    const r = records[idx];
+    const cost = prompt('输入运费金额（到付填0）:', r.payment === '到付' ? '0' : '');
+    if (cost === null) return;
+    r.status = 'done';
+    r.cost = parseFloat(cost) || 0;
+    r.completed_at = new Date().toISOString();
+    
+    if (r.id) {
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/delivery_tasks?id=eq.${r.id}`, {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ status: 'done', cost: r.cost, completed_at: r.completed_at })
+            });
+        } catch(e) {}
+    } else {
+        localStorage.setItem('jtRecords', JSON.stringify(records));
+    }
+    showToast('已完成 ¥' + r.cost, '#52c41a');
+    renderRecords();
+    updateStats();
+}
+
+function editTask(idx) {
+    const r = records[idx];
+    document.getElementById('fSource').value = r.source || 'internal';
+    document.getElementById('fOrderId').value = r.order_id || '';
+    document.getElementById('fType').value = r.type || '叫车';
+    document.getElementById('fName').value = r.receiver_name || '';
+    document.getElementById('fPhone').value = r.receiver_phone || '';
+    document.getElementById('fAddress').value = r.address || '';
+    document.getElementById('fProject').value = r.project || '';
+    document.getElementById('fPayment').value = r.payment || '我方付';
+    document.getElementById('fNote').value = r.note || '';
+    // Delete old record
+    deleteTask(idx, true);
+    switchTab('add', document.querySelectorAll('.tab-btn')[3]);
+}
+
+async function deleteTask(idx, silent) {
+    if (!silent && !confirm('确认删除？')) return;
+    const r = records[idx];
+    if (r.id) {
+        try {
+            await fetch(`${SUPABASE_URL}/rest/v1/delivery_tasks?id=eq.${r.id}`, {
+                method: 'DELETE',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+            });
+        } catch(e) {}
+    }
+    records.splice(idx, 1);
+    localStorage.setItem('jtRecords', JSON.stringify(records));
+    if (!silent) { showToast('已删除', '#ff4d4f'); renderRecords(); updateStats(); }
+}
+
+function exportExcel() {
+    const doneRecords = records.filter(r => r.status === 'done');
+    if (doneRecords.length === 0) { showToast('没有已完成的记录', '#faad14'); return; }
+    
+    // Group by project
+    const groups = {};
+    doneRecords.forEach(r => {
+        const proj = r.project || '未分类';
+        if (!groups[proj]) groups[proj] = [];
+        groups[proj].push(r);
+    });
+    
+    // Generate CSV (Excel compatible)
+    let csv = '\uFEFF日期,订单号,类型,收件人,电话,地址,项目,付款方式,运费,备注\n';
+    Object.entries(groups).sort().forEach(([proj, items]) => {
+        csv += `\n--- ${proj} ---\n`;
+        let subtotal = 0;
+        items.forEach(r => {
+            const date = new Date(r.created_at).toLocaleDateString();
+            const cost = r.payment === '到付' ? 0 : (parseFloat(r.cost) || 0);
+            subtotal += cost;
+            csv += `${date},${r.order_id||''},${r.type||'叫车'},${r.receiver_name||''},${r.receiver_phone||''},"${r.address||''}",${proj},${r.payment||'我方付'},${cost},${r.note||''}\n`;
+        });
+        csv += `,,,,,,${proj}小计,,${subtotal},\n`;
+    });
+    
+    const total = doneRecords.filter(r=>r.payment!=='到付').reduce((s,r)=>s+(parseFloat(r.cost)||0),0);
+    csv += `\n,,,,,,合计（不含到付）,,${total},\n`;
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `叫车对账_${new Date().toISOString().slice(0,7)}.csv`;
+    a.click();
+    showToast('已导出', '#52c41a');
+}
+
+// Init
+renderProjects();
+renderProjectSelect();
+fetchRecords();
+</script>
+</body>
+</html>
