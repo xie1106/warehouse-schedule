@@ -637,7 +637,8 @@ function loadHistory() {
         const skuSummary = Object.entries(skuMap).map(([k,v])=>`${k}×${v}`).join(', ') || '';
         const latestTime = new Date(items[0].created_at).toLocaleString();
         const groupRefund = items.map(r=>parseRefundTag(r.note)).find(r=>r);
-        const groupBadgeHtml = groupRefund ? getRefundBadge(groupRefund) : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f59e0b18;color:#d97706;border:1px solid #f59e0b40;">未申请</span>`;
+        const groupIs1688 = items.some(r=>(r.note||'').includes('[1688:'));
+        const groupBadgeHtml = groupRefund ? getRefundBadge(groupRefund) : (groupIs1688 ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f59e0b18;color:#d97706;border:1px solid #f59e0b40;">未申请</span>` : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#6b728018;color:#6b7280;border:1px solid #6b728040;">待处理</span>`);
 
         let html = `<div class="record">
             <div class="record-header">
