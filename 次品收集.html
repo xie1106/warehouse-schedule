@@ -106,10 +106,9 @@
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
             <span style="font-size:16px;font-weight:600;">提交记录</span>
             <div style="font-size:11px;">
-                <span style="color:#f59e0b;font-weight:600;" id="pendingCount">待处理:0</span>
-                <span style="margin-left:6px;color:#1d4ed8;font-weight:600;" id="refundingCount">退款中:0</span>
-                <span style="margin-left:6px;color:#10b981;font-weight:600;" id="doneCount">已处理:0</span>
-                <span style="margin-left:6px;color:#ef4444;font-weight:600;" id="errorCount">异常:0</span>
+                <span style="color:#f59e0b;font-weight:600;" id="pendingCount">未申请:0</span>
+                <span style="margin-left:6px;color:#2563eb;font-weight:600;" id="refundingCount">退款中:0</span>
+                <span style="margin-left:6px;color:#10b981;font-weight:600;" id="doneCount">已完成:0</span>
             </div>
         </div>
         <div class="search-box">
@@ -119,13 +118,12 @@
             </div>
             <button onclick="searchScan()" style="padding:8px 14px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:13px;">扫码</button>
         </div>
-        <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;">
             <button class="tab-btn active" onclick="switchTab('all',this)">全部</button>
-            <button class="tab-btn" onclick="switchTab('pending',this)">待处理</button>
-            <button class="tab-btn" onclick="switchTab('refunding',this)" style="color:#1d4ed8;">退款中</button>
+            <button class="tab-btn" onclick="switchTab('pending',this)">未申请</button>
+            <button class="tab-btn" onclick="switchTab('refunding',this)" style="color:#2563eb;">退款中</button>
             <button class="tab-btn" onclick="switchTab('refunded',this)" style="color:#059669;">已退款</button>
-            <button class="tab-btn" onclick="switchTab('done',this)">已处理</button>
-            <button class="tab-btn" onclick="switchTab('error',this)">异常</button>
+            <button class="tab-btn" onclick="switchTab('done',this)" style="color:#6b7280;">已处理</button>
         </div>
         </div><!-- end inner sticky -->
         <div id="historyList" style="flex:1;overflow-y:auto;min-height:0;-webkit-overflow-scrolling:touch;"></div>
@@ -525,21 +523,23 @@ function parseRefundTag(note) {
 function getRefundBadge(refundInfo) {
     if (!refundInfo) return '';
     const statusMap = {
-        '等待卖家同意': { class: 'badge-refund-wait', text: '等待卖家同意', color: '#e67e22' },
-        '卖家已同意': { class: 'badge-refund-agreed', text: '卖家已同意', color: '#3498db' },
-        '等待买家退货': { class: 'badge-refund-ship', text: '等待退货', color: '#3498db' },
-        '已退货': { class: 'badge-refund-shipped', text: '已退货', color: '#8e44ad' },
-        '退款成功': { class: 'badge-refund-done', text: '退款成功', color: '#27ae60' },
-        '卖家拒绝': { class: 'badge-refund-reject', text: '卖家拒绝', color: '#e74c3c' },
-        '已撤销': { class: 'badge-refund-cancel', text: '已撤销', color: '#95a5a6' },
+        '等待卖家同意': { text: '等待卖家同意', color: '#e67e22' },
+        '卖家已同意': { text: '卖家已同意', color: '#3498db' },
+        '等待买家退货': { text: '等待退货', color: '#3498db' },
+        '等待卖家收货': { text: '等待卖家收货', color: '#8e44ad' },
+        '已退货': { text: '已退货', color: '#8e44ad' },
+        '退款成功': { text: '退款成功', color: '#27ae60' },
+        '退款关闭': { text: '退款关闭', color: '#95a5a6' },
+        '卖家拒绝': { text: '卖家拒绝', color: '#e74c3c' },
+        '已撤销': { text: '已撤销', color: '#95a5a6' },
     };
     const s = statusMap[refundInfo.status] || { text: refundInfo.status, color: '#666' };
-    return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${s.color}20;color:${s.color};">${s.text}</span>`;
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${s.color}18;color:${s.color};border:1px solid ${s.color}40;">${s.text}</span>`;
 }
 
 function isRefunding(note) {
     const r = parseRefundTag(note);
-    return r && !['退款成功','已撤销','卖家拒绝'].includes(r.status);
+    return r && !['退款成功','已撤销','卖家拒绝','退款关闭'].includes(r.status);
 }
 function isRefunded(note) {
     const r = parseRefundTag(note);
@@ -554,19 +554,15 @@ function loadHistory() {
     if (currentTab === 'all') {} // 显示全部
     else if (currentTab === 'pending') filtered = filtered.filter(r => r.status === 'pending' && !parseRefundTag(r.note));
     else if (currentTab === 'refunding') filtered = filtered.filter(r => isRefunding(r.note));
-    else if (currentTab === 'refunded') filtered = filtered.filter(r => isRefunded(r.note));
-    else if (currentTab === 'done') filtered = filtered.filter(r => r.status === 'done');
-    else if (currentTab === 'error') filtered = filtered.filter(r => r.status === 'error');
+    else if (currentTab === 'refunded') filtered = filtered.filter(r => isRefunded(r.note) || r.status === 'done');
+    else if (currentTab === 'done') filtered = filtered.filter(r => isRefunded(r.note) || r.status === 'done');
 
     const allPending = list.filter(r => r.status === 'pending' && !parseRefundTag(r.note)).length;
     const allRefunding = list.filter(r => isRefunding(r.note)).length;
-    const allRefunded = list.filter(r => isRefunded(r.note)).length;
-    const allDone = list.filter(r => r.status === 'done').length;
-    const allError = list.filter(r => r.status === 'error').length;
-    document.getElementById('pendingCount').textContent = `待处理:${allPending}`;
+    const allDone = list.filter(r => isRefunded(r.note) || r.status === 'done').length;
+    document.getElementById('pendingCount').textContent = `未申请:${allPending}`;
     document.getElementById('refundingCount').textContent = `退款中:${allRefunding}`;
-    document.getElementById('doneCount').textContent = `已处理:${allDone + allRefunded}`;
-    document.getElementById('errorCount').textContent = `异常:${allError}`;
+    document.getElementById('doneCount').textContent = `已完成:${allDone}`;
 
     const el = document.getElementById('historyList');
     if (filtered.length === 0) { el.innerHTML = '<div style="color:#999;font-size:13px;text-align:center;padding:20px;">暂无记录</div>'; document.getElementById('pagination').innerHTML=''; return; }
@@ -630,7 +626,7 @@ function loadHistory() {
         const skuSummary = Object.entries(skuMap).map(([k,v])=>`${k}×${v}`).join(', ') || '';
         const latestTime = new Date(items[0].created_at).toLocaleString();
         const groupRefund = items.map(r=>parseRefundTag(r.note)).find(r=>r);
-        const groupBadgeHtml = groupRefund ? getRefundBadge(groupRefund) : '<span class="badge badge-pending">待处理</span>';
+        const groupBadgeHtml = groupRefund ? getRefundBadge(groupRefund) : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f59e0b18;color:#d97706;border:1px solid #f59e0b40;">未申请</span>`;
 
         let html = `<div class="record">
             <div class="record-header">
