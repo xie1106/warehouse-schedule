@@ -118,15 +118,18 @@
             </div>
             <button onclick="searchScan()" style="padding:8px 14px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:13px;">扫码</button>
         </div>
-        <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="display:flex;gap:5px;margin-bottom:6px;flex-wrap:wrap;">
             <button class="tab-btn active" onclick="switchTab('all',this)">全部</button>
             <button class="tab-btn" onclick="switchTab('1688',this)" style="color:#1d4ed8;">1688</button>
-            <button class="tab-btn" onclick="switchTab('non1688',this)" style="color:#d97706;">非1688</button>
             <button class="tab-btn" onclick="switchTab('pending',this)">未申请</button>
             <button class="tab-btn" onclick="switchTab('refunding',this)" style="color:#2563eb;">退款中</button>
             <button class="tab-btn" onclick="switchTab('refunded',this)" style="color:#059669;">已退款</button>
-            <button class="tab-btn" onclick="switchTab('done',this)" style="color:#6b7280;">已处理</button>
             <button class="tab-btn" onclick="switchTab('error',this)" style="color:#ef4444;">异常</button>
+        </div>
+        <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;">
+            <button class="tab-btn" onclick="switchTab('non1688',this)" style="color:#d97706;">非1688</button>
+            <button class="tab-btn" onclick="switchTab('non1688_pending',this)">待处理</button>
+            <button class="tab-btn" onclick="switchTab('done',this)" style="color:#6b7280;">已处理</button>
         </div>
         </div><!-- end inner sticky -->
         <div id="historyList" style="flex:1;overflow-y:auto;min-height:0;-webkit-overflow-scrolling:touch;"></div>
@@ -562,9 +565,10 @@ function loadHistory() {
     if (currentTab === 'all') {} // 显示全部
     else if (currentTab === '1688') filtered = filtered.filter(r => (r.note||'').includes('[1688:'));
     else if (currentTab === 'non1688') filtered = filtered.filter(r => !(r.note||'').includes('[1688:'));
-    else if (currentTab === 'pending') filtered = filtered.filter(r => r.status === 'pending' && !parseRefundTag(r.note));
+    else if (currentTab === 'pending') filtered = filtered.filter(r => r.status === 'pending' && (r.note||'').includes('[1688:') && !parseRefundTag(r.note));
     else if (currentTab === 'refunding') filtered = filtered.filter(r => isRefunding(r.note));
     else if (currentTab === 'refunded') filtered = filtered.filter(r => isRefunded(r.note));
+    else if (currentTab === 'non1688_pending') filtered = filtered.filter(r => r.status === 'pending' && !(r.note||'').includes('[1688:'));
     else if (currentTab === 'done') filtered = filtered.filter(r => r.status === 'done' && !(r.note||'').includes('[1688:'));
     else if (currentTab === 'error') filtered = filtered.filter(r => isRefundError(r.note) || r.status === 'error');
 
