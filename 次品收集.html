@@ -558,15 +558,15 @@ function loadHistory() {
     else if (currentTab === 'non1688') filtered = filtered.filter(r => !(r.note||'').includes('[1688:'));
     else if (currentTab === 'pending') filtered = filtered.filter(r => r.status === 'pending' && !parseRefundTag(r.note));
     else if (currentTab === 'refunding') filtered = filtered.filter(r => isRefunding(r.note));
-    else if (currentTab === 'refunded') filtered = filtered.filter(r => isRefunded(r.note) || r.status === 'done');
-    else if (currentTab === 'done') filtered = filtered.filter(r => isRefunded(r.note) || r.status === 'done');
+    else if (currentTab === 'refunded') filtered = filtered.filter(r => isRefunded(r.note));
+    else if (currentTab === 'done') filtered = filtered.filter(r => r.status === 'done' && !(r.note||'').includes('[1688:'));
 
     const allPending = list.filter(r => r.status === 'pending' && !parseRefundTag(r.note)).length;
     const allRefunding = list.filter(r => isRefunding(r.note)).length;
-    const allDone = list.filter(r => isRefunded(r.note) || r.status === 'done').length;
+    const allDone = list.filter(r => r.status === 'done' && !(r.note||'').includes('[1688:')).length;
     document.getElementById('pendingCount').textContent = `未申请:${allPending}`;
     document.getElementById('refundingCount').textContent = `退款中:${allRefunding}`;
-    document.getElementById('doneCount').textContent = `已完成:${allDone}`;
+    document.getElementById('doneCount').textContent = `已完成:${allDone + list.filter(r=>isRefunded(r.note)).length}`;
 
     const el = document.getElementById('historyList');
     if (filtered.length === 0) { el.innerHTML = '<div style="color:#999;font-size:13px;text-align:center;padding:20px;">暂无记录</div>'; document.getElementById('pagination').innerHTML=''; return; }
