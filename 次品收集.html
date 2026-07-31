@@ -653,9 +653,10 @@ function loadHistory() {
             html += `</div>`;
         }
         const returnBtn = is1688 ? `<button onclick="open1688Return('${g.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;">📦 退货</button>` : '';
+        const doneBtn = is1688 ? '' : `<button onclick="markDoneGroup('${g.po_id}')" style="color:#059669;border-color:#059669;">✅ 全部完成</button>`;
         html += `<div class="record-actions">
                 ${returnBtn}
-                <button onclick="markDoneGroup('${g.po_id}')" style="color:#059669;border-color:#059669;">✅ 全部完成</button>
+                ${doneBtn}
                 ${count===1?`<button onclick="editRecord(${items[0]._realIdx})">✏️ 编辑</button>`:''}
                 <button onclick="quickDeleteGroup('${g.po_id}')" style="color:#dc2626;border-color:#dc2626;">✕ 全部删除</button>
             </div>
