@@ -120,6 +120,8 @@
         </div>
         <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;">
             <button class="tab-btn active" onclick="switchTab('all',this)">全部</button>
+            <button class="tab-btn" onclick="switchTab('1688',this)" style="color:#1d4ed8;">1688</button>
+            <button class="tab-btn" onclick="switchTab('non1688',this)" style="color:#d97706;">非1688</button>
             <button class="tab-btn" onclick="switchTab('pending',this)">未申请</button>
             <button class="tab-btn" onclick="switchTab('refunding',this)" style="color:#2563eb;">退款中</button>
             <button class="tab-btn" onclick="switchTab('refunded',this)" style="color:#059669;">已退款</button>
@@ -552,6 +554,8 @@ function loadHistory() {
     let filtered = list;
     if (search) filtered = filtered.filter(r => String(r.po_id).includes(search));
     if (currentTab === 'all') {} // 显示全部
+    else if (currentTab === '1688') filtered = filtered.filter(r => (r.note||'').includes('[1688:'));
+    else if (currentTab === 'non1688') filtered = filtered.filter(r => !(r.note||'').includes('[1688:'));
     else if (currentTab === 'pending') filtered = filtered.filter(r => r.status === 'pending' && !parseRefundTag(r.note));
     else if (currentTab === 'refunding') filtered = filtered.filter(r => isRefunding(r.note));
     else if (currentTab === 'refunded') filtered = filtered.filter(r => isRefunded(r.note) || r.status === 'done');
@@ -600,8 +604,8 @@ function loadHistory() {
                 </div>
                 <div class="record-time">${new Date(r.created_at).toLocaleString()}${noteDisplay?' · '+noteDisplay:''}</div>
                 <div class="record-actions">
-                    ${is1688Single&&!refundInfo?`<button onclick="open1688Return('${r.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;">📦 退货</button>`:''}
-                    ${refundInfo?'':(r.status==='done'?`<button onclick="markUndone(${r._realIdx})" style="color:#d97706;border-color:#d97706;">↩ 反完成</button>`:`<button onclick="markDone(${r._realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`)}
+                    ${is1688Single?`<button onclick="open1688Return('${r.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;">📦 退货</button>`:''}
+                    ${refundInfo||is1688Single?'':(r.status==='done'?`<button onclick="markUndone(${r._realIdx})" style="color:#d97706;border-color:#d97706;">↩ 反完成</button>`:`<button onclick="markDone(${r._realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`)}
                     <button onclick="quickDelete(${r._realIdx})" style="color:#dc2626;border-color:#dc2626;">✕ 删除</button>
                 </div>
             </div>`;
