@@ -126,6 +126,7 @@
             <button class="tab-btn" onclick="switchTab('refunding',this)" style="color:#2563eb;">退款中</button>
             <button class="tab-btn" onclick="switchTab('refunded',this)" style="color:#059669;">已退款</button>
             <button class="tab-btn" onclick="switchTab('done',this)" style="color:#6b7280;">已处理</button>
+            <button class="tab-btn" onclick="switchTab('error',this)" style="color:#ef4444;">异常</button>
         </div>
         </div><!-- end inner sticky -->
         <div id="historyList" style="flex:1;overflow-y:auto;min-height:0;-webkit-overflow-scrolling:touch;"></div>
@@ -533,6 +534,7 @@ function getRefundBadge(refundInfo) {
         '退款成功': { text: '退款成功', color: '#27ae60' },
         '退款关闭': { text: '退款关闭', color: '#95a5a6' },
         '卖家拒绝': { text: '卖家拒绝', color: '#e74c3c' },
+        '申请失败': { text: '申请失败', color: '#e74c3c' },
         '已撤销': { text: '已撤销', color: '#95a5a6' },
     };
     const s = statusMap[refundInfo.status] || { text: refundInfo.status, color: '#666' };
@@ -541,11 +543,15 @@ function getRefundBadge(refundInfo) {
 
 function isRefunding(note) {
     const r = parseRefundTag(note);
-    return r && !['退款成功','已撤销','卖家拒绝','退款关闭'].includes(r.status);
+    return r && !['退款成功','已撤销','退款关闭','卖家拒绝','申请失败'].includes(r.status);
 }
 function isRefunded(note) {
     const r = parseRefundTag(note);
     return r && r.status === '退款成功';
+}
+function isRefundError(note) {
+    const r = parseRefundTag(note);
+    return r && ['卖家拒绝','申请失败'].includes(r.status);
 }
 
 function loadHistory() {
@@ -560,6 +566,7 @@ function loadHistory() {
     else if (currentTab === 'refunding') filtered = filtered.filter(r => isRefunding(r.note));
     else if (currentTab === 'refunded') filtered = filtered.filter(r => isRefunded(r.note));
     else if (currentTab === 'done') filtered = filtered.filter(r => r.status === 'done' && !(r.note||'').includes('[1688:'));
+    else if (currentTab === 'error') filtered = filtered.filter(r => isRefundError(r.note) || r.status === 'error');
 
     const allPending = list.filter(r => r.status === 'pending' && !parseRefundTag(r.note)).length;
     const allRefunding = list.filter(r => isRefunding(r.note)).length;
