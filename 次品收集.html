@@ -107,6 +107,7 @@
             <span style="font-size:16px;font-weight:600;">提交记录</span>
             <div style="font-size:11px;">
                 <span style="color:#f59e0b;font-weight:600;" id="pendingCount">待处理:0</span>
+                <span style="margin-left:6px;color:#1d4ed8;font-weight:600;" id="refundingCount">退款中:0</span>
                 <span style="margin-left:6px;color:#10b981;font-weight:600;" id="doneCount">已处理:0</span>
                 <span style="margin-left:6px;color:#ef4444;font-weight:600;" id="errorCount">异常:0</span>
             </div>
@@ -121,10 +122,10 @@
         <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
             <button class="tab-btn active" onclick="switchTab('all',this)">全部</button>
             <button class="tab-btn" onclick="switchTab('pending',this)">待处理</button>
+            <button class="tab-btn" onclick="switchTab('refunding',this)" style="color:#1d4ed8;">退款中</button>
+            <button class="tab-btn" onclick="switchTab('refunded',this)" style="color:#059669;">已退款</button>
             <button class="tab-btn" onclick="switchTab('done',this)">已处理</button>
             <button class="tab-btn" onclick="switchTab('error',this)">异常</button>
-            <button class="tab-btn" onclick="switchTab('1688',this)" style="color:#1d4ed8;">1688</button>
-            <button class="tab-btn" onclick="switchTab('non1688',this)" style="color:#d97706;">非1688</button>
         </div>
         </div><!-- end inner sticky -->
         <div id="historyList" style="flex:1;overflow-y:auto;min-height:0;-webkit-overflow-scrolling:touch;"></div>
@@ -512,39 +513,77 @@ function switchTab(tab, btn) {
     loadHistory();
 }
 
+// 解析退款标签: [退款:状态:ID] or [退款:状态]
+function parseRefundTag(note) {
+    if (!note) return null;
+    const m = note.match(/\[退款:([^:\]]+)(?::([^\]]+))?\]/);
+    if (!m) return null;
+    return { status: m[1], refundId: m[2] || '' };
+}
+
+// 退款状态配色
+function getRefundBadge(refundInfo) {
+    if (!refundInfo) return '';
+    const statusMap = {
+        '等待卖家同意': { class: 'badge-refund-wait', text: '等待卖家同意', color: '#e67e22' },
+        '卖家已同意': { class: 'badge-refund-agreed', text: '卖家已同意', color: '#3498db' },
+        '等待买家退货': { class: 'badge-refund-ship', text: '等待退货', color: '#3498db' },
+        '已退货': { class: 'badge-refund-shipped', text: '已退货', color: '#8e44ad' },
+        '退款成功': { class: 'badge-refund-done', text: '退款成功', color: '#27ae60' },
+        '卖家拒绝': { class: 'badge-refund-reject', text: '卖家拒绝', color: '#e74c3c' },
+        '已撤销': { class: 'badge-refund-cancel', text: '已撤销', color: '#95a5a6' },
+    };
+    const s = statusMap[refundInfo.status] || { text: refundInfo.status, color: '#666' };
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${s.color}20;color:${s.color};">${s.text}</span>`;
+}
+
+function isRefunding(note) {
+    const r = parseRefundTag(note);
+    return r && !['退款成功','已撤销','卖家拒绝'].includes(r.status);
+}
+function isRefunded(note) {
+    const r = parseRefundTag(note);
+    return r && r.status === '退款成功';
+}
+
 function loadHistory() {
     const list = getRecords();
     const search = document.getElementById('searchInput').value.trim();
     let filtered = list;
     if (search) filtered = filtered.filter(r => String(r.po_id).includes(search));
     if (currentTab === 'all') {} // 显示全部
-    else if (currentTab === 'pending') filtered = filtered.filter(r => r.status === 'pending');
+    else if (currentTab === 'pending') filtered = filtered.filter(r => r.status === 'pending' && !parseRefundTag(r.note));
+    else if (currentTab === 'refunding') filtered = filtered.filter(r => isRefunding(r.note));
+    else if (currentTab === 'refunded') filtered = filtered.filter(r => isRefunded(r.note));
     else if (currentTab === 'done') filtered = filtered.filter(r => r.status === 'done');
     else if (currentTab === 'error') filtered = filtered.filter(r => r.status === 'error');
-    else if (currentTab === '1688') filtered = filtered.filter(r => (r.note||'').includes('[1688:'));
-    else if (currentTab === 'non1688') filtered = filtered.filter(r => (r.note||'').includes('[系统:非1688'));
 
-    const allPending = list.filter(r => r.status === 'pending').length;
+    const allPending = list.filter(r => r.status === 'pending' && !parseRefundTag(r.note)).length;
+    const allRefunding = list.filter(r => isRefunding(r.note)).length;
+    const allRefunded = list.filter(r => isRefunded(r.note)).length;
     const allDone = list.filter(r => r.status === 'done').length;
     const allError = list.filter(r => r.status === 'error').length;
     document.getElementById('pendingCount').textContent = `待处理:${allPending}`;
-    document.getElementById('doneCount').textContent = `已处理:${allDone}`;
+    document.getElementById('refundingCount').textContent = `退款中:${allRefunding}`;
+    document.getElementById('doneCount').textContent = `已处理:${allDone + allRefunded}`;
     document.getElementById('errorCount').textContent = `异常:${allError}`;
 
     const el = document.getElementById('historyList');
     if (filtered.length === 0) { el.innerHTML = '<div style="color:#999;font-size:13px;text-align:center;padding:20px;">暂无记录</div>'; document.getElementById('pagination').innerHTML=''; return; }
 
-    // 按采购单号分组（仅pending合并，done/error独立显示）
+    // 按采购单号分组（仅未申请退款的pending合并，有退款标签的独立显示，done/error独立显示）
     const groups = [];
     const pendingMap = {};
     filtered.forEach((r, i) => {
         const realIdx = list.indexOf(r);
         r._realIdx = realIdx;
-        if (r.status === 'pending') {
+        if (r.status === 'pending' && !parseRefundTag(r.note)) {
+            // 未申请退款的pending记录：按采购单号合并
             if (!pendingMap[r.po_id]) { pendingMap[r.po_id] = []; groups.push({type:'group', po_id:r.po_id, items:[]}); }
             pendingMap[r.po_id].push(r);
             groups.find(g=>g.type==='group'&&g.po_id===r.po_id).items.push(r);
         } else {
+            // 有退款标签的pending、done、error：独立显示
             groups.push({type:'single', record:r});
         }
     });
@@ -552,19 +591,21 @@ function loadHistory() {
     el.innerHTML = groups.map((g, gi) => {
         if (g.type === 'single') {
             const r = g.record;
+            const refundInfo = parseRefundTag(r.note);
             const statusClass = r.status==='done'?'badge-done':'badge-error';
             const statusText = r.status==='done'?'已处理':'异常';
+            const badgeHtml = refundInfo ? getRefundBadge(refundInfo) : `<span class="badge ${statusClass}">${statusText}</span>`;
             const noteDisplay = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
             const is1688Single = (r.note||'').includes('[1688:');
             return `<div class="record">
                 <div class="record-header">
                     <span class="record-title">采购单 ${r.po_id}</span>
-                    <span class="badge ${statusClass}">${statusText}</span>
+                    ${badgeHtml}
                 </div>
                 <div class="record-time">${new Date(r.created_at).toLocaleString()}${noteDisplay?' · '+noteDisplay:''}</div>
                 <div class="record-actions">
-                    ${is1688Single?`<button onclick="open1688Return('${r.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;">📦 退货</button>`:''}
-                    ${r.status==='done'?`<button onclick="markUndone(${r._realIdx})" style="color:#d97706;border-color:#d97706;">↩ 反完成</button>`:`<button onclick="markDone(${r._realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`}
+                    ${is1688Single&&!refundInfo?`<button onclick="open1688Return('${r.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;">📦 退货</button>`:''}
+                    ${refundInfo?'':(r.status==='done'?`<button onclick="markUndone(${r._realIdx})" style="color:#d97706;border-color:#d97706;">↩ 反完成</button>`:`<button onclick="markDone(${r._realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`)}
                     <button onclick="quickDelete(${r._realIdx})" style="color:#dc2626;border-color:#dc2626;">✕ 删除</button>
                 </div>
             </div>`;
@@ -588,11 +629,13 @@ function loadHistory() {
         });
         const skuSummary = Object.entries(skuMap).map(([k,v])=>`${k}×${v}`).join(', ') || '';
         const latestTime = new Date(items[0].created_at).toLocaleString();
+        const groupRefund = items.map(r=>parseRefundTag(r.note)).find(r=>r);
+        const groupBadgeHtml = groupRefund ? getRefundBadge(groupRefund) : '<span class="badge badge-pending">待处理</span>';
 
         let html = `<div class="record">
             <div class="record-header">
                 <span class="record-title">采购单 ${g.po_id}${tagHtml}${btnPhotos}${btnDetail}</span>
-                <span class="badge badge-pending">待处理</span>
+                ${groupBadgeHtml}
             </div>
             <div style="font-size:12px;color:#555;margin-top:4px;">${skuSummary}</div>
             <div class="record-time">${latestTime}${count>1?' · 合并'+count+'次提交':''}</div>
