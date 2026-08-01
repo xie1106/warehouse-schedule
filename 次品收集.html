@@ -652,7 +652,8 @@ function loadHistory() {
         const groupRefund = items.map(r=>parseRefundTag(r.note)).find(r=>r);
         const groupReturn = items.map(r=>parseReturnTag(r.note)).find(r=>r);
         const groupIs1688 = items.some(r=>(r.note||'').includes('[1688:'));
-        const groupBadgeHtml = groupRefund ? getRefundBadge(groupRefund) : (groupReturn ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#05966918;color:#059669;border:1px solid #05966940;">✅ 已下单</span>` : (groupIs1688 ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f59e0b18;color:#d97706;border:1px solid #f59e0b40;">未申请</span>` : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#6b728018;color:#6b7280;border:1px solid #6b728040;">待处理</span>`));
+        const returnBadge = groupReturn ? (groupReturn.status === '已下单' ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#05966918;color:#059669;border:1px solid #05966940;">✅ 已下单</span>` : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#6b728018;color:#6b7280;border:1px solid #6b728040;">⏳ 处理中</span>`) : '';
+        const groupBadgeHtml = groupRefund ? getRefundBadge(groupRefund) : (returnBadge || (groupIs1688 ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f59e0b18;color:#d97706;border:1px solid #f59e0b40;">未申请</span>` : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#6b728018;color:#6b7280;border:1px solid #6b728040;">待处理</span>`));
 
         let html = `<div class="record">
             <div class="record-header">
@@ -739,28 +740,29 @@ let _po1688Map = null;
 async function createReturnOrder(poId, btn) {
     if (!confirm(`确定为采购单 ${poId} 创建退货订单？`)) return;
     const origText = btn.textContent;
-    btn.textContent = '⏳ 处理中...';
+    btn.textContent = '⏳ 提交中...';
     btn.disabled = true;
     try {
-        const r = await fetch('https://defect-return-worker.458914253.workers.dev/', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({po_id: poId})
+        // 写一条退货请求到Supabase，后台cron自动处理
+        const r = await fetch(SUPABASE_URL + '/rest/v1/defect_reports?po_id=eq.' + poId + '&status=eq.pending&note=not.like.*%5B退货:*', {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
         });
-        const d = await r.json();
-        if (d.success) {
-            showToast(`✅ 退货订单已创建\n${d.supplier}\n${d.detail}`, '#059669');
-            btn.textContent = '✅ 已下单';
-            btn.style.background = '#059669';
-            btn.style.borderColor = '#059669';
-            btn.onclick = null;
-            // Reload to refresh tags
-            setTimeout(() => loadHistory(), 1500);
-        } else {
-            showToast(`❌ ${d.msg || d.error}`, '#dc2626');
-            btn.textContent = origText;
-            btn.disabled = false;
+        const records = await r.json();
+        if (!records.length) { showToast('❌ 无待处理记录', '#dc2626'); btn.textContent = origText; btn.disabled = false; return; }
+        // Tag all records with [退货:待处理]
+        for (const rec of records) {
+            const note = (rec.note || '') + ' [退货:待处理]';
+            await fetch(SUPABASE_URL + '/rest/v1/defect_reports?id=eq.' + rec.id, {
+                method: 'PATCH',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ note })
+            });
         }
+        showToast(`✅ 退货请求已提交(${records.length}条)\n约1分钟内自动创建订单`, '#059669');
+        btn.textContent = '⏳ 处理中';
+        btn.style.background = '#6b7280';
+        btn.style.borderColor = '#6b7280';
+        btn.onclick = null;
     } catch(e) {
         showToast('❌ 网络错误: ' + e.message, '#dc2626');
         btn.textContent = origText;
