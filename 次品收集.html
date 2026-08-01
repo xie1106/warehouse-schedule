@@ -119,21 +119,21 @@
             </div>
             <button onclick="searchScan()" style="padding:8px 14px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:13px;">扫码</button>
         </div>
-        <div style="display:flex;gap:6px;margin-bottom:10px;">
-            <button class="tab-btn active" onclick="switchTab('all',this)" style="padding:8px 14px;font-size:14px;font-weight:700;align-self:stretch;">全部</button>
-            <div style="flex:1;display:flex;flex-direction:column;gap:4px;">
-                <div style="display:flex;gap:5px;flex-wrap:wrap;padding:5px 8px;background:#eef2ff;border-radius:6px;">
-                    <button class="tab-btn" onclick="switchTab('1688',this)" style="color:#1d4ed8;">1688</button>
-                    <button class="tab-btn" onclick="switchTab('pending',this)">未申请</button>
-                    <button class="tab-btn" onclick="switchTab('refunding',this)" style="color:#2563eb;">退款中</button>
-                    <button class="tab-btn" onclick="switchTab('refunded',this)" style="color:#059669;">已退款</button>
-                    <button class="tab-btn" onclick="switchTab('error',this)" style="color:#ef4444;">异常</button>
+        <div style="display:flex;gap:4px;margin-bottom:10px;">
+            <button class="tab-btn active" onclick="switchTab('all',this)" style="padding:6px 10px;font-size:12px;font-weight:700;align-self:stretch;">全部</button>
+            <div style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0;">
+                <div style="display:flex;gap:4px;flex-wrap:nowrap;padding:4px 6px;background:#eef2ff;border-radius:6px;overflow-x:auto;">
+                    <button class="tab-btn" onclick="switchTab('1688',this)" style="color:#1d4ed8;white-space:nowrap;">1688</button>
+                    <button class="tab-btn" onclick="switchTab('pending',this)" style="white-space:nowrap;">未申请</button>
+                    <button class="tab-btn" onclick="switchTab('refunding',this)" style="color:#2563eb;white-space:nowrap;">退款中</button>
+                    <button class="tab-btn" onclick="switchTab('refunded',this)" style="color:#059669;white-space:nowrap;">已退款</button>
+                    <button class="tab-btn" onclick="switchTab('error',this)" style="color:#ef4444;white-space:nowrap;">异常</button>
                 </div>
-                <div style="display:flex;gap:5px;flex-wrap:wrap;padding:5px 8px;background:#fef9ee;border-radius:6px;">
-                    <button class="tab-btn" onclick="switchTab('non1688',this)" style="color:#d97706;">非1688</button>
-                    <button class="tab-btn" onclick="switchTab('non1688_pending',this)">待处理</button>
-                    <button class="tab-btn" onclick="switchTab('done',this)" style="color:#6b7280;">已处理</button>
-                    <button class="tab-btn" onclick="switchTab('non1688_error',this)" style="color:#ef4444;">异常</button>
+                <div style="display:flex;gap:4px;flex-wrap:nowrap;padding:4px 6px;background:#fef9ee;border-radius:6px;overflow-x:auto;">
+                    <button class="tab-btn" onclick="switchTab('non1688',this)" style="color:#d97706;white-space:nowrap;">非1688</button>
+                    <button class="tab-btn" onclick="switchTab('non1688_pending',this)" style="white-space:nowrap;">待处理</button>
+                    <button class="tab-btn" onclick="switchTab('done',this)" style="color:#6b7280;white-space:nowrap;">已处理</button>
+                    <button class="tab-btn" onclick="switchTab('non1688_error',this)" style="color:#ef4444;white-space:nowrap;">异常</button>
                 </div>
             </div>
         </div>
