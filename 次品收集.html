@@ -681,13 +681,10 @@ function loadHistory() {
         }
         const returnBtn = is1688 ? `<button onclick="open1688Return('${g.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;">📦 退货</button>` : '';
         const non1688ReturnBtn = (!is1688 && !groupReturn) ? `<button onclick="createReturnOrder('${g.po_id}',this)" style="color:#fff;background:#f59e0b;border:1px solid #f59e0b;border-radius:4px;">📦 退货</button>` : '';
-        const doneBtn = (is1688 || groupReturn) ? '' : `<button onclick="markDoneGroup('${g.po_id}')" style="color:#059669;border-color:#059669;">✅ 全部完成</button>`;
         html += `<div class="record-actions">
                 ${returnBtn}
                 ${non1688ReturnBtn}
-                ${doneBtn}
-                ${count===1?`<button onclick="editRecord(${items[0]._realIdx})">✏️ 编辑</button>`:''}
-                <button onclick="quickDeleteGroup('${g.po_id}')" style="color:#dc2626;border-color:#dc2626;">✕ 全部删除</button>
+                ${!groupReturn ? `<button onclick="editGroup('${g.po_id}')" style="color:#1677ff;border-color:#1677ff;">✏️ 编辑</button>` : ''}
             </div>
         </div>`;
         return html;
@@ -820,6 +817,71 @@ async function quickDeleteGroup(poId) {
     }
     await fetchRecords();
     showToast('已全部删除 ✓', 'green');
+}
+
+function editGroup(poId) {
+    const list = getRecords();
+    const items = list.filter(r => r.po_id === poId && r.status === 'pending' && !(r.note||'').includes('[退货:已下单'));
+    if (!items.length) { showToast('无可编辑记录', '#6b7280'); return; }
+    // Parse each record's SKU and qty
+    const rows = items.map(r => {
+        const note = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+        const m = note.match(/^([A-Za-z0-9\-]+)[×x](\d+)/);
+        return { id: r.id, sku: m ? m[1] : note, qty: m ? parseInt(m[2]) : 1, tags: ((r.note||'').match(/\[[^\]]*\]/g)||[]).join(' ') };
+    });
+    let html = `<div style="padding:16px;"><h3 style="margin:0 0 12px;">编辑 采购单${poId}</h3>`;
+    html += `<div style="display:flex;flex-direction:column;gap:8px;">`;
+    rows.forEach((r, i) => {
+        html += `<div style="display:flex;align-items:center;gap:8px;" id="edit-row-${i}">
+            <span style="flex:1;font-size:13px;font-weight:500;">${r.sku}</span>
+            <input type="number" min="0" value="${r.qty}" style="width:50px;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;text-align:center;" data-id="${r.id}" data-sku="${r.sku}" data-tags="${r.tags}">
+            <button onclick="this.parentElement.remove()" style="color:#dc2626;border:1px solid #dc2626;border-radius:4px;padding:2px 8px;background:white;cursor:pointer;">🗑️</button>
+        </div>`;
+    });
+    html += `</div><div style="margin-top:16px;display:flex;gap:8px;">
+        <button onclick="saveGroupEdit('${poId}')" style="color:#fff;background:#1677ff;border:none;border-radius:4px;padding:6px 16px;cursor:pointer;">保存</button>
+        <button onclick="document.getElementById('editGroupOverlay').style.display='none'" style="border:1px solid #d1d5db;border-radius:4px;padding:6px 16px;background:white;cursor:pointer;">取消</button>
+    </div></div>`;
+    let overlay = document.getElementById('editGroupOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'editGroupOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `<div style="background:white;border-radius:12px;max-width:400px;width:90%;max-height:80vh;overflow-y:auto;">${html}</div>`;
+    overlay.style.display = 'flex';
+}
+
+async function saveGroupEdit(poId) {
+    const overlay = document.getElementById('editGroupOverlay');
+    const rows = overlay.querySelectorAll('[data-id]');
+    const h = {'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'};
+    for (const input of rows) {
+        const id = input.dataset.id;
+        const sku = input.dataset.sku;
+        const tags = input.dataset.tags;
+        const qty = parseInt(input.value);
+        if (qty <= 0) {
+            // Delete this record
+            await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${id}`, { method:'DELETE', headers:h });
+        } else {
+            const note = `${sku}×${qty}${tags ? ' '+tags : ''}`;
+            await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${id}`, { method:'PATCH', headers:h, body:JSON.stringify({note}) });
+        }
+    }
+    // Delete removed rows (rows that were removed from DOM)
+    const list = getRecords();
+    const existingIds = new Set([...rows].map(r => r.dataset.id));
+    const allItems = list.filter(r => r.po_id === poId && r.status === 'pending' && !(r.note||'').includes('[退货:已下单'));
+    for (const r of allItems) {
+        if (r.id && !existingIds.has(String(r.id))) {
+            await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${r.id}`, { method:'DELETE', headers:h });
+        }
+    }
+    overlay.style.display = 'none';
+    await fetchRecords();
+    showToast('已保存 ✓', 'green');
 }
 
 let _confirmCb = null;
