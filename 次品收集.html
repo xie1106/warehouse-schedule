@@ -847,7 +847,7 @@ function editGroup(poId) {
         html += `<div style="display:flex;align-items:center;gap:8px;" id="edit-row-${i}">
             <span style="flex:1;font-size:13px;font-weight:500;">${skuDisplay}</span>
             <input type="number" min="0" value="${r.qty}" style="width:50px;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;text-align:center;" data-ids='${JSON.stringify(r.ids)}' data-sku="${r.sku}" data-tags="${r.tags}" data-orig-qty="${r.qty}">
-            <button onclick="this.parentElement.querySelector('input').value='0';this.parentElement.style.opacity='0.4'" style="color:#dc2626;border:1px solid #dc2626;border-radius:4px;padding:2px 8px;background:white;cursor:pointer;">🗑️</button>
+            <button onclick="if(confirm('确定删除 '+this.parentElement.querySelector('span').textContent+' ?')){this.parentElement.querySelector('input').value='0';this.parentElement.style.opacity='0.4';this.parentElement.style.textDecoration='line-through'}" style="color:#dc2626;border:1px solid #dc2626;border-radius:4px;padding:2px 8px;background:white;cursor:pointer;">🗑️</button>
         </div>`;
     });
     html += `</div><div style="margin-top:16px;display:flex;gap:8px;">
