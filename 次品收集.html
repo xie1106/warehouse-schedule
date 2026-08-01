@@ -525,6 +525,12 @@ function parseRefundTag(note) {
     if (!m) return null;
     return { status: m[1], refundId: m[2] || '' };
 }
+function parseReturnTag(note) {
+    if (!note) return null;
+    const m = note.match(/\[退货:([^:\]]+)(?::([^\]]+))?\]/);
+    if (!m) return null;
+    return { status: m[1], orderId: m[2] || '' };
+}
 
 // 退款状态配色
 function getRefundBadge(refundInfo) {
@@ -644,8 +650,9 @@ function loadHistory() {
         const skuSummary = Object.entries(skuMap).map(([k,v])=>`${k}×${v}`).join(', ') || '';
         const latestTime = new Date(items[0].created_at).toLocaleString();
         const groupRefund = items.map(r=>parseRefundTag(r.note)).find(r=>r);
+        const groupReturn = items.map(r=>parseReturnTag(r.note)).find(r=>r);
         const groupIs1688 = items.some(r=>(r.note||'').includes('[1688:'));
-        const groupBadgeHtml = groupRefund ? getRefundBadge(groupRefund) : (groupIs1688 ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f59e0b18;color:#d97706;border:1px solid #f59e0b40;">未申请</span>` : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#6b728018;color:#6b7280;border:1px solid #6b728040;">待处理</span>`);
+        const groupBadgeHtml = groupRefund ? getRefundBadge(groupRefund) : (groupReturn ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#05966918;color:#059669;border:1px solid #05966940;">✅ 已下单</span>` : (groupIs1688 ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f59e0b18;color:#d97706;border:1px solid #f59e0b40;">未申请</span>` : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#6b728018;color:#6b7280;border:1px solid #6b728040;">待处理</span>`));
 
         let html = `<div class="record">
             <div class="record-header">
@@ -672,8 +679,8 @@ function loadHistory() {
             html += `</div>`;
         }
         const returnBtn = is1688 ? `<button onclick="open1688Return('${g.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;">📦 退货</button>` : '';
-        const non1688ReturnBtn = !is1688 ? `<button onclick="navigator.clipboard.writeText('${g.po_id}');this.textContent='✓ 已复制';setTimeout(()=>this.textContent='📦 退货',1500)" style="color:#fff;background:#f59e0b;border:1px solid #f59e0b;border-radius:4px;">📦 退货</button>` : '';
-        const doneBtn = is1688 ? '' : `<button onclick="markDoneGroup('${g.po_id}')" style="color:#059669;border-color:#059669;">✅ 全部完成</button>`;
+        const non1688ReturnBtn = (!is1688 && !groupReturn) ? `<button onclick="createReturnOrder('${g.po_id}',this)" style="color:#fff;background:#f59e0b;border:1px solid #f59e0b;border-radius:4px;">📦 退货</button>` : '';
+        const doneBtn = (is1688 || groupReturn) ? '' : `<button onclick="markDoneGroup('${g.po_id}')" style="color:#059669;border-color:#059669;">✅ 全部完成</button>`;
         html += `<div class="record-actions">
                 ${returnBtn}
                 ${non1688ReturnBtn}
@@ -729,6 +736,38 @@ function goPage(p) { currentPage = p; loadHistory(); }
 
 // 1688退货：po_id → 1688订单链接
 let _po1688Map = null;
+async function createReturnOrder(poId, btn) {
+    if (!confirm(`确定为采购单 ${poId} 创建退货订单？`)) return;
+    const origText = btn.textContent;
+    btn.textContent = '⏳ 处理中...';
+    btn.disabled = true;
+    try {
+        const r = await fetch('https://defect-return-worker.458914253.workers.dev/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({po_id: poId})
+        });
+        const d = await r.json();
+        if (d.success) {
+            showToast(`✅ 退货订单已创建\n${d.supplier}\n${d.detail}`, '#059669');
+            btn.textContent = '✅ 已下单';
+            btn.style.background = '#059669';
+            btn.style.borderColor = '#059669';
+            btn.onclick = null;
+            // Reload to refresh tags
+            setTimeout(() => loadHistory(), 1500);
+        } else {
+            showToast(`❌ ${d.msg || d.error}`, '#dc2626');
+            btn.textContent = origText;
+            btn.disabled = false;
+        }
+    } catch(e) {
+        showToast('❌ 网络错误: ' + e.message, '#dc2626');
+        btn.textContent = origText;
+        btn.disabled = false;
+    }
+}
+
 async function open1688Return(poId) {
     if (!_po1688Map) {
         showToast('加载1688映射...', '#4A90D9');
