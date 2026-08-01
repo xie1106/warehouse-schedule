@@ -108,7 +108,8 @@
             <div style="font-size:11px;">
                 <span style="color:#f59e0b;font-weight:600;" id="pendingCount">未申请:0</span>
                 <span style="margin-left:6px;color:#2563eb;font-weight:600;" id="refundingCount">退款中:0</span>
-                <span style="margin-left:6px;color:#10b981;font-weight:600;" id="doneCount">已完成:0</span>
+                <span style="margin-left:6px;color:#ef4444;font-weight:600;" id="errorCount">异常:0</span>
+                <span style="margin-left:6px;color:#6b7280;font-weight:600;" id="todoCount">待处理:0</span>
             </div>
         </div>
         <div class="search-box">
@@ -572,12 +573,14 @@ function loadHistory() {
     else if (currentTab === 'done') filtered = filtered.filter(r => r.status === 'done' && !(r.note||'').includes('[1688:'));
     else if (currentTab === 'error') filtered = filtered.filter(r => isRefundError(r.note) || r.status === 'error');
 
-    const allPending = list.filter(r => r.status === 'pending' && !parseRefundTag(r.note)).length;
+    const allPending = list.filter(r => r.status === 'pending' && (r.note||'').includes('[1688:') && !parseRefundTag(r.note)).length;
     const allRefunding = list.filter(r => isRefunding(r.note)).length;
-    const allDone = list.filter(r => r.status === 'done' && !(r.note||'').includes('[1688:')).length;
+    const allError = list.filter(r => isRefundError(r.note) || r.status === 'error').length;
+    const allTodo = list.filter(r => r.status === 'pending' && !(r.note||'').includes('[1688:')).length;
     document.getElementById('pendingCount').textContent = `未申请:${allPending}`;
     document.getElementById('refundingCount').textContent = `退款中:${allRefunding}`;
-    document.getElementById('doneCount').textContent = `已完成:${allDone + list.filter(r=>isRefunded(r.note)).length}`;
+    document.getElementById('errorCount').textContent = `异常:${allError}`;
+    document.getElementById('todoCount').textContent = `待处理:${allTodo}`;
 
     const el = document.getElementById('historyList');
     if (filtered.length === 0) { el.innerHTML = '<div style="color:#999;font-size:13px;text-align:center;padding:20px;">暂无记录</div>'; document.getElementById('pagination').innerHTML=''; return; }
