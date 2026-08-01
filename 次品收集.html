@@ -649,7 +649,7 @@ function loadHistory() {
 
         let html = `<div class="record">
             <div class="record-header">
-                <span class="record-title">${groupIs1688 ? `采购单 ${g.po_id}` : `<a href="https://src.erp321.com/app/main#/purchaseMgt/purchaseReturn?returnBillNo=${g.po_id}" target="_blank" style="color:#4A90D9;text-decoration:underline;">采购单 ${g.po_id}</a>`}${tagHtml}${btnPhotos}${btnDetail}</span>
+                <span class="record-title">采购单 ${g.po_id}${tagHtml}${btnPhotos}${btnDetail}</span>
                 ${groupBadgeHtml}
             </div>
             <div style="font-size:12px;color:#555;margin-top:4px;">${skuSummary}</div>
@@ -672,9 +672,11 @@ function loadHistory() {
             html += `</div>`;
         }
         const returnBtn = is1688 ? `<button onclick="open1688Return('${g.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;">📦 退货</button>` : '';
+        const non1688ReturnBtn = !is1688 ? `<button onclick="window.open('https://src.erp321.com/app/main#/purchaseMgt/purchaseReturn?poId=${g.po_id}','_blank')" style="color:#fff;background:#f59e0b;border:1px solid #f59e0b;border-radius:4px;">📦 退货</button>` : '';
         const doneBtn = is1688 ? '' : `<button onclick="markDoneGroup('${g.po_id}')" style="color:#059669;border-color:#059669;">✅ 全部完成</button>`;
         html += `<div class="record-actions">
                 ${returnBtn}
+                ${non1688ReturnBtn}
                 ${doneBtn}
                 ${count===1?`<button onclick="editRecord(${items[0]._realIdx})">✏️ 编辑</button>`:''}
                 <button onclick="quickDeleteGroup('${g.po_id}')" style="color:#dc2626;border-color:#dc2626;">✕ 全部删除</button>
