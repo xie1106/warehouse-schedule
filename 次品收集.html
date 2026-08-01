@@ -573,10 +573,10 @@ function loadHistory() {
     else if (currentTab === 'done') filtered = filtered.filter(r => r.status === 'done' && !(r.note||'').includes('[1688:'));
     else if (currentTab === 'error') filtered = filtered.filter(r => isRefundError(r.note) || r.status === 'error');
 
-    const allPending = list.filter(r => r.status === 'pending' && (r.note||'').includes('[1688:') && !parseRefundTag(r.note)).length;
-    const allRefunding = list.filter(r => isRefunding(r.note)).length;
-    const allError = list.filter(r => isRefundError(r.note) || r.status === 'error').length;
-    const allTodo = list.filter(r => r.status === 'pending' && !(r.note||'').includes('[1688:')).length;
+    const allPending = new Set(list.filter(r => r.status === 'pending' && (r.note||'').includes('[1688:') && !parseRefundTag(r.note)).map(r=>r.po_id)).size;
+    const allRefunding = new Set(list.filter(r => isRefunding(r.note)).map(r=>r.po_id)).size;
+    const allError = new Set(list.filter(r => isRefundError(r.note) || r.status === 'error').map(r=>r.po_id)).size;
+    const allTodo = new Set(list.filter(r => r.status === 'pending' && !(r.note||'').includes('[1688:')).map(r=>r.po_id)).size;
     document.getElementById('pendingCount').textContent = `未申请:${allPending}`;
     document.getElementById('refundingCount').textContent = `退款中:${allRefunding}`;
     document.getElementById('errorCount').textContent = `异常:${allError}`;
