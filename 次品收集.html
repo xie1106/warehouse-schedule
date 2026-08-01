@@ -672,7 +672,7 @@ function loadHistory() {
             html += `</div>`;
         }
         const returnBtn = is1688 ? `<button onclick="open1688Return('${g.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;">📦 退货</button>` : '';
-        const non1688ReturnBtn = !is1688 ? `<button onclick="window.open('https://src.erp321.com/app/main#/purchaseMgt/purchase?poId=${g.po_id}','_blank')" style="color:#fff;background:#f59e0b;border:1px solid #f59e0b;border-radius:4px;">📦 退货</button>` : '';
+        const non1688ReturnBtn = !is1688 ? `<button onclick="navigator.clipboard.writeText('${g.po_id}');window.open('https://src.erp321.com/app/main#/purchaseMgt/purchase','_blank');alert('采购单号 ${g.po_id} 已复制，请在搜索框粘贴')" style="color:#fff;background:#f59e0b;border:1px solid #f59e0b;border-radius:4px;">📦 退货</button>` : '';
         const doneBtn = is1688 ? '' : `<button onclick="markDoneGroup('${g.po_id}')" style="color:#059669;border-color:#059669;">✅ 全部完成</button>`;
         html += `<div class="record-actions">
                 ${returnBtn}
