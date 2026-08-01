@@ -823,19 +823,31 @@ function editGroup(poId) {
     const list = getRecords();
     const items = list.filter(r => r.po_id === poId && r.status === 'pending' && !(r.note||'').includes('[退货:已下单'));
     if (!items.length) { showToast('无可编辑记录', '#6b7280'); return; }
-    // Parse each record's SKU and qty
-    const rows = items.map(r => {
+    // Parse and merge same SKU
+    const merged = {};
+    for (const r of items) {
         const note = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
         const m = note.match(/^([A-Za-z0-9\-]+)[×x](\d+)/);
-        return { id: r.id, sku: m ? m[1] : note, qty: m ? parseInt(m[2]) : 1, tags: ((r.note||'').match(/\[[^\]]*\]/g)||[]).join(' ') };
-    });
+        const sku = m ? m[1] : note;
+        const qty = m ? parseInt(m[2]) : 1;
+        const tags = ((r.note||'').match(/\[[^\]]*\]/g)||[]).join(' ');
+        if (merged[sku]) {
+            merged[sku].qty += qty;
+            merged[sku].ids.push(r.id);
+        } else {
+            merged[sku] = { sku, qty, ids: [r.id], tags };
+        }
+    }
+    const rows = Object.values(merged);
     let html = `<div style="padding:16px;"><h3 style="margin:0 0 12px;">编辑 采购单${poId}</h3>`;
     html += `<div style="display:flex;flex-direction:column;gap:8px;">`;
     rows.forEach((r, i) => {
+        // Try to extract color+size from SKU pattern (e.g. E669602S → 02=color code, S=size)
+        const skuDisplay = r.sku;
         html += `<div style="display:flex;align-items:center;gap:8px;" id="edit-row-${i}">
-            <span style="flex:1;font-size:13px;font-weight:500;">${r.sku}</span>
-            <input type="number" min="0" value="${r.qty}" style="width:50px;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;text-align:center;" data-id="${r.id}" data-sku="${r.sku}" data-tags="${r.tags}">
-            <button onclick="this.parentElement.remove()" style="color:#dc2626;border:1px solid #dc2626;border-radius:4px;padding:2px 8px;background:white;cursor:pointer;">🗑️</button>
+            <span style="flex:1;font-size:13px;font-weight:500;">${skuDisplay}</span>
+            <input type="number" min="0" value="${r.qty}" style="width:50px;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;text-align:center;" data-ids='${JSON.stringify(r.ids)}' data-sku="${r.sku}" data-tags="${r.tags}" data-orig-qty="${r.qty}">
+            <button onclick="this.parentElement.querySelector('input').value='0';this.parentElement.style.opacity='0.4'" style="color:#dc2626;border:1px solid #dc2626;border-radius:4px;padding:2px 8px;background:white;cursor:pointer;">🗑️</button>
         </div>`;
     });
     html += `</div><div style="margin-top:16px;display:flex;gap:8px;">
@@ -855,28 +867,25 @@ function editGroup(poId) {
 
 async function saveGroupEdit(poId) {
     const overlay = document.getElementById('editGroupOverlay');
-    const rows = overlay.querySelectorAll('[data-id]');
+    const inputs = overlay.querySelectorAll('[data-ids]');
     const h = {'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'};
-    for (const input of rows) {
-        const id = input.dataset.id;
+    for (const input of inputs) {
+        const ids = JSON.parse(input.dataset.ids);
         const sku = input.dataset.sku;
         const tags = input.dataset.tags;
-        const qty = parseInt(input.value);
-        if (qty <= 0) {
-            // Delete this record
-            await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${id}`, { method:'DELETE', headers:h });
+        const newQty = parseInt(input.value);
+        if (newQty <= 0) {
+            // Delete all records for this SKU
+            for (const id of ids) {
+                await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${id}`, { method:'DELETE', headers:h });
+            }
         } else {
-            const note = `${sku}×${qty}${tags ? ' '+tags : ''}`;
-            await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${id}`, { method:'PATCH', headers:h, body:JSON.stringify({note}) });
-        }
-    }
-    // Delete removed rows (rows that were removed from DOM)
-    const list = getRecords();
-    const existingIds = new Set([...rows].map(r => r.dataset.id));
-    const allItems = list.filter(r => r.po_id === poId && r.status === 'pending' && !(r.note||'').includes('[退货:已下单'));
-    for (const r of allItems) {
-        if (r.id && !existingIds.has(String(r.id))) {
-            await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${r.id}`, { method:'DELETE', headers:h });
+            // Keep first record with updated qty, delete rest
+            const note = `${sku}×${newQty}${tags ? ' '+tags : ''}`;
+            await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${ids[0]}`, { method:'PATCH', headers:h, body:JSON.stringify({note}) });
+            for (let i = 1; i < ids.length; i++) {
+                await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${ids[i]}`, { method:'DELETE', headers:h });
+            }
         }
     }
     overlay.style.display = 'none';
