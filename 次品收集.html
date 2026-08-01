@@ -877,7 +877,7 @@ function editGroup(poId) {
         </div>`;
     });
     html += `</div><div style="margin-top:16px;display:flex;gap:8px;">
-        <button onclick="saveGroupEdit('${poId}')" style="color:#fff;background:#1677ff;border:none;border-radius:4px;padding:6px 16px;cursor:pointer;">保存</button>
+        <button onclick="if(confirm('确定保存修改？'))saveGroupEdit('${poId}')" style="color:#fff;background:#1677ff;border:none;border-radius:4px;padding:6px 16px;cursor:pointer;">保存</button>
         <button onclick="document.getElementById('editGroupOverlay').style.display='none'" style="border:1px solid #d1d5db;border-radius:4px;padding:6px 16px;background:white;cursor:pointer;">取消</button>
     </div></div>`;
     let overlay = document.getElementById('editGroupOverlay');
