@@ -652,7 +652,7 @@ function loadHistory() {
         const groupRefund = items.map(r=>parseRefundTag(r.note)).find(r=>r);
         const groupReturn = items.map(r=>parseReturnTag(r.note)).find(r=>r);
         const groupIs1688 = items.some(r=>(r.note||'').includes('[1688:'));
-        const returnBadge = groupReturn ? (groupReturn.status === '已下单' ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#05966918;color:#059669;border:1px solid #05966940;">✅ ${groupReturn.orderId || '已下单'}</span>` : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#6b728018;color:#6b7280;border:1px solid #6b728040;">⏳ 处理中</span>`) : '';
+        const returnBadge = groupReturn ? (groupReturn.status === '已下单' ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#05966918;color:#059669;border:1px solid #05966940;">✅ ${groupReturn.orderId || '已下单'}</span>` : groupReturn.status.startsWith('失败') ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dc262618;color:#dc2626;border:1px solid #dc262640;">❌ ${groupReturn.orderId || '失败'}</span>` : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#6b728018;color:#6b7280;border:1px solid #6b728040;">⏳ 处理中</span>`) : '';
         const groupBadgeHtml = groupRefund ? getRefundBadge(groupRefund) : (returnBadge || (groupIs1688 ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f59e0b18;color:#d97706;border:1px solid #f59e0b40;">未申请</span>` : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#6b728018;color:#6b7280;border:1px solid #6b728040;">待处理</span>`));
 
         let html = `<div class="record">
@@ -680,7 +680,7 @@ function loadHistory() {
             html += `</div>`;
         }
         const returnBtn = is1688 ? `<button onclick="open1688Return('${g.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;">📦 退货</button>` : '';
-        const non1688ReturnBtn = (!is1688 && !groupReturn) ? `<button onclick="createReturnOrder('${g.po_id}',this)" style="color:#fff;background:#f59e0b;border:1px solid #f59e0b;border-radius:4px;">📦 退货</button>` : '';
+        const non1688ReturnBtn = (!is1688 && !groupReturn) ? `<button onclick="createReturnOrder('${g.po_id}',this)" style="color:#fff;background:#f59e0b;border:1px solid #f59e0b;border-radius:4px;">📦 退货</button>` : (groupReturn && groupReturn.status.startsWith('失败') ? `<button onclick="retryReturn('${g.po_id}',this)" style="color:#fff;background:#ef4444;border:1px solid #ef4444;border-radius:4px;">🔄 重试</button>` : '');
         html += `<div class="record-actions">
                 ${returnBtn}
                 ${non1688ReturnBtn}
@@ -734,6 +734,22 @@ function goPage(p) { currentPage = p; loadHistory(); }
 
 // 1688退货：po_id → 1688订单链接
 let _po1688Map = null;
+async function retryReturn(poId, btn) {
+    if (!confirm(`重试采购单 ${poId} 退货？`)) return;
+    btn.textContent = '⏳ 处理中...';
+    btn.disabled = true;
+    const h = {'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'};
+    // Clear failure tags and set to 待处理
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?po_id=eq.${poId}&note=like.*退货:失败*`, { headers: h });
+    const recs = await r.json();
+    for (const rec of recs) {
+        const note = (rec.note||'').replace(/\s*\[退货:失败[^\]]*\]/g, '') + ' [退货:待处理]';
+        await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, { method:'PATCH', headers:h, body:JSON.stringify({note}) });
+    }
+    showToast(`✅ 已重新提交(${recs.length}条)\n约5分钟内自动处理`, '#059669');
+    setTimeout(() => loadHistory(), 1500);
+}
+
 async function createReturnOrder(poId, btn) {
     if (!confirm(`确定为采购单 ${poId} 创建退货订单？`)) return;
     const origText = btn.textContent;
