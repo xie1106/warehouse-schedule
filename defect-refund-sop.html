@@ -105,7 +105,7 @@ tr:nth-child(even) td{background:#f8fafc;}
 
 <div class="sop-step"><div class="sop-num orange">1</div><div class="sop-content">
 <strong>仓库登记次品</strong><br>
-同上，系统自动标记为"非1688"
+同上，系统自动标记为"非1688"，并实时显示匹配到的供应商名称（🏪紫色标签）
 </div></div>
 
 <div class="sop-step"><div class="sop-num orange">2</div><div class="sop-content">
@@ -115,11 +115,13 @@ tr:nth-child(even) td{background:#f8fafc;}
 
 <div class="sop-step"><div class="sop-num orange">3</div><div class="sop-content">
 <strong>一键退货</strong><br>
-点"📦退货"按钮 → 确认 → 系统自动：<br>
-① 匹配供应商（聚水潭采购单 → 款号映射 → 腾讯文档）<br>
-② 查找退货地址（供应商地址表 66个档口）<br>
-③ 创建聚水潭退货订单（推送到"外贸采购退货"店铺）<br>
-④ 回传内部单号到badge
+点"一键退货"按钮 → 弹窗按供应商分组显示 → 勾选确认 → 提交<br>
+<strong>系统自动处理：</strong><br>
+① 通过聚水潭「商品多供应商API」实时查询真实供应商（排除吕**-整烫/市场）<br>
+② 从聚水潭「供应商列表API」获取退货地址（联系人、电话、地址）<br>
+③ 同一供应商的多个采购单合并为一个退货订单<br>
+④ 备注格式：每个采购单一行（采购单xxx | SKU明细 | 合计N件）<br>
+⑤ 推送到聚水潭"外贸采购退货"店铺
 </div></div>
 
 <div class="sop-step"><div class="sop-num orange">4</div><div class="sop-content">
@@ -128,9 +130,24 @@ tr:nth-child(even) td{background:#f8fafc;}
 </div></div>
 
 <div class="sop-step"><div class="sop-num orange">5</div><div class="sop-content">
+<strong>取消退货</strong>（如需）<br>
+已处理的订单可点"取消"按钮 → 记录恢复为待处理 → 聚水潭订单备注标记"取消"
+</div></div>
+
+<div class="sop-step"><div class="sop-num orange">6</div><div class="sop-content">
 <strong>打印面单发货</strong><br>
 去聚水潭"外贸采购退货"店铺 → 找到订单 → 打面单 → 发货
 </div></div>
+
+<h3>Tab分类说明</h3>
+<table>
+<tr><th>Tab</th><th>含义</th></tr>
+<tr><td>非1688</td><td>所有非1688采购单记录</td></tr>
+<tr><td>待处理</td><td>未提交退货请求的记录</td></tr>
+<tr><td>已处理</td><td>已创建退货订单的记录（可取消）</td></tr>
+<tr><td>未匹配</td><td>无法自动匹配供应商的记录，需人工确认</td></tr>
+<tr><td>异常</td><td>退货创建失败的记录（可重试）</td></tr>
+</table>
 
 <h3>状态流转</h3>
 <div class="flow-container">
@@ -138,6 +155,11 @@ tr:nth-child(even) td{background:#f8fafc;}
 <span class="step s7">待处理</span><span class="arrow">→</span>
 <span class="step s2">⏳ 处理中</span><span class="arrow">→</span>
 <span class="step s5">✅ 已下单(单号)</span>
+</div>
+<p style="font-size:12px;color:#64748b;margin:12px 0 8px;">取消：</p>
+<div class="flow-row">
+<span class="step s5">✅ 已下单</span><span class="arrow">→</span>
+<span class="step s7">取消 → 待处理</span>
 </div>
 <p style="font-size:12px;color:#64748b;margin:12px 0 8px;">异常：</p>
 <div class="flow-row">
@@ -147,14 +169,16 @@ tr:nth-child(even) td{background:#f8fafc;}
 </div>
 </div>
 
-<div class="warn-box">⚠️ <strong>匹配失败处理：</strong>异常tab显示红色badge，需人工确认供应商信息后补充映射表，再点"🔄重试"</div>
+<div class="warn-box">⚠️ <strong>"未匹配"处理：</strong>如果商品在聚水潭未填写供应商（或只有吕**-整烫），需要在聚水潭普通商品资料中补充真实供应商，系统下次会自动识别</div>
 
 <h2>四、自动化机制</h2>
 <table>
 <tr><th>机制</th><th>频率</th><th>说明</th></tr>
-<tr><td>非1688退货订单创建</td><td>每2分钟</td><td>检查待处理请求，自动创建聚水潭订单</td></tr>
+<tr><td>非1688退货订单创建</td><td>每2分钟</td><td>检查待处理请求，按供应商合并创建聚水潭订单</td></tr>
+<tr><td>供应商自动识别</td><td>实时</td><td>聚水潭商品多供应商API实时查询，自动缓存</td></tr>
+<tr><td>退货地址获取</td><td>实时</td><td>聚水潭供应商列表API（67个有地址），本地备用</td></tr>
 <tr><td>1688退款状态同步</td><td>按需/手动触发</td><td>从1688后台拉取退款进度更新badge</td></tr>
-<tr><td>历史数据清理</td><td>每2分钟</td><td>退款成功/已下单超过30天自动删除</td></tr>
+<tr><td>取消退货处理</td><td>每2分钟</td><td>处理取消请求，更新聚水潭订单备注为"取消"</td></tr>
 </table>
 
 <h2>五、关键规则</h2>
@@ -162,14 +186,18 @@ tr:nth-child(even) td{background:#f8fafc;}
 <tr><th>规则</th><th>说明</th></tr>
 <tr><td>退款数量来源</td><td>聚水潭 qc_defective_qty，不以收集系统登记数为准</td></tr>
 <tr><td>同SKU多批次</td><td>不同批次独立追踪，不自动合并</td></tr>
-<tr><td>非1688退货地址</td><td>优先聚水潭供应商API → 款号→供应商映射 → 腾讯文档地址表</td></tr>
-<tr><td>通用供应商</td><td>supplier_id 1026703(整烫)/1401348(市场) 视为无效，走款号映射</td></tr>
+<tr><td>供应商匹配优先级</td><td>① 本地缓存映射 → ② 聚水潭商品多供应商API → ③ 采购单supplier_id</td></tr>
+<tr><td>退货地址优先级</td><td>① 聚水潭供应商列表(实时) → ② 本地地址缓存(在线表格)</td></tr>
+<tr><td>无效供应商</td><td>"吕**-整烫"、"市场"视为无效，自动跳过</td></tr>
+<tr><td>同供应商合并</td><td>同一供应商的多个采购单合并为一个退货订单</td></tr>
 <tr><td>退货订单店铺</td><td>推送到 shopId=21571486（外贸采购退货）</td></tr>
-<tr><td>订单格式</td><td>不插入商品明细，备注写"采购单xxx | SKU明细 | 合计N件"</td></tr>
+<tr><td>备注格式</td><td>每个采购单一行：采购单xxx | SKU明细 | 合计N件</td></tr>
+<tr><td>历史数据</td><td>不自动删除，永久保留</td></tr>
 </table>
 
 <div class="success-box">✅ <strong>总结：</strong><br>
 • 1688采购单：登记 → 确认质检数 → 1688提交退款 → 系统追踪状态<br>
-• 非1688采购单：登记 → 编辑确认 → 一键退货 → 自动创建订单 → 打面单发货
+• 非1688采购单：登记 → 一键退货（按供应商合并）→ 自动创建订单 → 打面单发货<br>
+• 供应商和地址全部从聚水潭API自动获取，无需手动维护
 </div>
 </div></body></html>
