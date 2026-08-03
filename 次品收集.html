@@ -134,7 +134,7 @@
                     <button class="tab-btn" onclick="switchTab('non1688_pending',this)" style="white-space:nowrap;">待处理</button>
                     <button class="tab-btn" onclick="switchTab('done',this)" style="color:#6b7280;white-space:nowrap;">已处理</button>
                     <button class="tab-btn" onclick="switchTab('non1688_error',this)" style="color:#ef4444;white-space:nowrap;">异常</button>
-                    <button class="tab-btn" onclick="batchReturnBySupplier()" style="color:#fff;background:#8b5cf6;border-color:#8b5cf6;white-space:nowrap;">🚀 按供应商批量退货</button>
+                    <button class="tab-btn" onclick="batchReturnBySupplier()" style="color:#fff;background:#8b5cf6;border-color:#8b5cf6;white-space:nowrap;">📦 一键退货</button>
                 </div>
             </div>
         </div>
@@ -852,7 +852,7 @@ async function batchReturnBySupplier() {
     if (!suppliers.length) { showToast('所有待处理记录都无法匹配供应商', '#dc2626'); return; }
 
     let html = `<div style="padding:16px;max-height:70vh;overflow-y:auto;">
-        <h3 style="margin:0 0 12px;font-size:16px;">按供应商批量退货</h3>
+        <h3 style="margin:0 0 12px;font-size:16px;">一键退货</h3>
         <p style="font-size:12px;color:#666;margin-bottom:12px;">勾选要退货的供应商，同一供应商的所有待处理记录将合并为一个退货订单</p>`;
     
     suppliers.forEach((sup, i) => {
