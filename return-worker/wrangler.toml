@@ -9,4 +9,6 @@ RETURN_SHOP_ID = "21571486"
 SUPABASE_URL = "https://elyfxyrdbuykyklfjfdr.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg"
 
+STYLE_MAP = '{"6025":"广州青木服饰有限公司","Q6055":"广州青木服饰有限公司","WM5578":"陈秀娟"}'
+
 # JST_APP_SECRET and JST_ACCESS_TOKEN should be set via wrangler secret

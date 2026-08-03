@@ -26,6 +26,9 @@ export default {
       if (!supplier || INVALID.some(inv => (supplier||'').includes(inv))) {
         // Get i_id and try doc fallback
         const poData = await jstPost(env, '/open/purchase/query', { page_index:1, page_size:5, po_ids:[parseInt(po_id)] });
+        if (poData?.code !== 0) {
+          return json({ error: 'jst_error', msg: `JST API错误: ${poData?.msg || JSON.stringify(poData).slice(0,100)}`, code: poData?.code });
+        }
         const items = poData?.data?.datas?.[0]?.items || [];
         if (items.length) i_id = items[0].i_id || '';
         
@@ -118,7 +121,8 @@ async function getDefectRecords(env, po_id) {
 
 async function getSupplierFromPO(env, po_id) {
   const d = await jstPost(env, '/open/purchase/query', { page_index:1, page_size:5, po_ids:[parseInt(po_id)] });
-  return d?.data?.datas?.[0]?.supplier_name || null;
+  const po = d?.data?.datas?.[0];
+  return po?.supplier_name || po?.seller || null;
 }
 
 function findSupplierFromStyle(env, i_id) {
