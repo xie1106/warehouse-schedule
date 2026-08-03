@@ -134,6 +134,7 @@
                     <button class="tab-btn" onclick="switchTab('non1688_pending',this)" style="white-space:nowrap;">待处理</button>
                     <button class="tab-btn" onclick="switchTab('done',this)" style="color:#6b7280;white-space:nowrap;">已处理</button>
                     <button class="tab-btn" onclick="switchTab('non1688_error',this)" style="color:#ef4444;white-space:nowrap;">异常</button>
+                    <button class="tab-btn" onclick="batchReturnBySupplier()" style="color:#fff;background:#8b5cf6;border-color:#8b5cf6;white-space:nowrap;">🚀 按供应商批量退货</button>
                 </div>
             </div>
         </div>
@@ -645,6 +646,8 @@ function loadHistory() {
         const is1688 = items.some(r=>(r.note||'').includes('[1688:'));
         const isNon1688 = items.some(r=>(r.note||'').includes('[非1688]')||(r.note||'').includes('[系统:非1688'));
         const tagHtml = is1688 ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:#1677ff;color:#fff;margin-left:6px;">1688</span>' : isNon1688 ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:#faad14;color:#fff;margin-left:6px;">非1688</span>' : '';
+        const supplierName = isNon1688 ? getSupplierForGroup(items) : null;
+        const supplierHtml = supplierName ? `<div style="font-size:11px;color:#8b5cf6;margin-top:2px;font-weight:500;">🏪 ${supplierName}</div>` : (isNon1688 ? `<div style="font-size:11px;color:#dc2626;margin-top:2px;">⚠️ 未匹配供应商</div>` : '');
         const btnPhotos = `<button onclick="document.getElementById('${photosId}').style.display=document.getElementById('${photosId}').style.display==='none'?'grid':'none'" style="padding:2px 8px;background:#fff;border:1.5px solid #4A90D9;border-radius:10px;color:#4A90D9;font-size:11px;cursor:pointer;margin-left:6px;">图片(${allPhotos.length})</button>`;
         const btnDetail = count>1?`<button onclick="document.getElementById('${expandId}').style.display=document.getElementById('${expandId}').style.display==='none'?'block':'none'" style="padding:2px 8px;background:#fff;border:1.5px solid #999;border-radius:10px;color:#666;font-size:11px;cursor:pointer;margin-left:4px;">明细(${count})</button>`:'';
         const skuMap = {};
@@ -666,6 +669,7 @@ function loadHistory() {
                 <span class="record-title">采购单 ${g.po_id}${tagHtml}${btnPhotos}${btnDetail}</span>
                 ${groupBadgeHtml}
             </div>
+            ${supplierHtml}
             <div style="font-size:12px;color:#555;margin-top:4px;">${skuSummary}</div>
             <div class="record-time">${latestTime}${count>1?' · 合并'+count+'次提交':''}</div>
             <div id="${photosId}" style="display:none;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;" data-photos='${JSON.stringify(allPhotos)}' data-poid="${g.po_id}">
@@ -738,6 +742,41 @@ function setPageSize(size, btn) {
 }
 function goPage(p) { currentPage = p; loadHistory(); }
 
+// 供应商映射：i_id → supplier_name
+let _styleSupplierMap = null;
+async function loadStyleMap() {
+    try {
+        const r = await fetch('return_style_map.json?t=' + Date.now());
+        _styleSupplierMap = await r.json();
+    } catch(e) { _styleSupplierMap = {}; }
+}
+function getSupplierForGroup(items) {
+    if (!_styleSupplierMap) return null;
+    for (const r of items) {
+        const note = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+        // Extract i_id: first part before size/qty, e.g. "Y666134M×1" → try Y6661, then full
+        const m = note.match(/^([A-Za-z0-9\-]+)/);
+        if (!m) continue;
+        const raw = m[1];
+        // Try exact match first
+        if (_styleSupplierMap[raw]) return _styleSupplierMap[raw];
+        // Try without trailing size code (last 1-3 chars that are size indicators)
+        const prefixes = [raw];
+        // Progressive trim: remove last char if it's a size letter
+        for (let len = raw.length - 1; len >= 3; len--) {
+            prefixes.push(raw.substring(0, len));
+        }
+        for (const p of prefixes) {
+            if (_styleSupplierMap[p]) return _styleSupplierMap[p];
+        }
+        // Try includes match
+        for (const [k, v] of Object.entries(_styleSupplierMap)) {
+            if (raw.toUpperCase().startsWith(k.toUpperCase()) || k.toUpperCase().startsWith(raw.toUpperCase())) return v;
+        }
+    }
+    return null;
+}
+
 // 1688退货：po_id → 1688订单链接
 let _po1688Map = null;
 async function retryReturn(poId, btn) {
@@ -787,6 +826,104 @@ async function createReturnOrder(poId, btn) {
         btn.textContent = origText;
         btn.disabled = false;
     }
+}
+
+async function batchReturnBySupplier() {
+    const list = getRecords();
+    // Filter non-1688 pending records without return tag
+    const pending = list.filter(r => r.status === 'pending' && !(r.note||'').includes('[1688:') && !(r.note||'').includes('[退货:已下单') && !(r.note||'').includes('[退货:待处理') && !(r.note||'').includes('[退货:失败'));
+    if (!pending.length) { showToast('无待处理的非1688记录', '#6b7280'); return; }
+
+    // Group by supplier
+    const supplierGroups = {};
+    const unmatched = [];
+    for (const r of pending) {
+        const supplier = getSupplierForGroup([r]);
+        if (supplier) {
+            if (!supplierGroups[supplier]) supplierGroups[supplier] = [];
+            supplierGroups[supplier].push(r);
+        } else {
+            unmatched.push(r);
+        }
+    }
+
+    // Build confirmation UI
+    const suppliers = Object.keys(supplierGroups).sort();
+    if (!suppliers.length) { showToast('所有待处理记录都无法匹配供应商', '#dc2626'); return; }
+
+    let html = `<div style="padding:16px;max-height:70vh;overflow-y:auto;">
+        <h3 style="margin:0 0 12px;font-size:16px;">按供应商批量退货</h3>
+        <p style="font-size:12px;color:#666;margin-bottom:12px;">勾选要退货的供应商，同一供应商的所有待处理记录将合并为一个退货订单</p>`;
+    
+    suppliers.forEach((sup, i) => {
+        const items = supplierGroups[sup];
+        const poIds = [...new Set(items.map(r => r.po_id))];
+        const skuMap = {};
+        items.forEach(r => {
+            const note = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+            const m = note.match(/^([^|×x]+)[×x](\d+)/);
+            if (m) { skuMap[m[1]] = (skuMap[m[1]]||0) + parseInt(m[2]); }
+            else { const sm = note.match(/^([A-Za-z0-9\-]+)/); if(sm) skuMap[sm[1]] = (skuMap[sm[1]]||0) + 1; }
+        });
+        const skuText = Object.entries(skuMap).map(([k,v])=>`${k}×${v}`).join(', ');
+        html += `<label style="display:flex;align-items:flex-start;gap:8px;padding:10px;margin:4px 0;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;">
+            <input type="checkbox" checked data-supplier="${sup}" style="margin-top:3px;width:18px;height:18px;">
+            <div style="flex:1;">
+                <div style="font-weight:600;font-size:13px;color:#8b5cf6;">${sup}</div>
+                <div style="font-size:11px;color:#666;margin-top:2px;">采购单: ${poIds.join(', ')} (${items.length}条)</div>
+                <div style="font-size:11px;color:#999;margin-top:1px;">${skuText}</div>
+            </div>
+        </label>`;
+    });
+
+    if (unmatched.length) {
+        const unmatchedPos = [...new Set(unmatched.map(r=>r.po_id))];
+        html += `<div style="padding:8px;margin-top:8px;background:#fef2f2;border-radius:6px;font-size:11px;color:#dc2626;">
+            ⚠️ ${unmatched.length}条记录无法匹配供应商(采购单: ${unmatchedPos.slice(0,5).join(', ')}${unmatchedPos.length>5?'...':''})
+        </div>`;
+    }
+
+    html += `<div style="display:flex;gap:8px;margin-top:16px;">
+        <button onclick="confirmBatchReturn()" style="flex:1;padding:10px;background:#8b5cf6;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">确认退货</button>
+        <button onclick="document.getElementById('batchReturnOverlay').style.display='none'" style="padding:10px 20px;background:#fff;border:1px solid #d1d5db;border-radius:8px;font-size:14px;cursor:pointer;">取消</button>
+    </div></div>`;
+
+    let overlay = document.getElementById('batchReturnOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'batchReturnOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;';
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `<div style="background:white;border-radius:14px;max-width:400px;width:100%;">${html}</div>`;
+    overlay.style.display = 'flex';
+    overlay._supplierGroups = supplierGroups;
+}
+
+async function confirmBatchReturn() {
+    const overlay = document.getElementById('batchReturnOverlay');
+    const checkboxes = overlay.querySelectorAll('input[type=checkbox]:checked');
+    const selectedSuppliers = [...checkboxes].map(cb => cb.dataset.supplier);
+    if (!selectedSuppliers.length) { showToast('请至少选择一个供应商', '#d97706'); return; }
+
+    const supplierGroups = overlay._supplierGroups;
+    const h = {'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'};
+    let totalTagged = 0;
+
+    for (const supplier of selectedSuppliers) {
+        const items = supplierGroups[supplier];
+        for (const rec of items) {
+            const note = (rec.note || '') + ' [退货:待处理]';
+            await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, {
+                method: 'PATCH', headers: h, body: JSON.stringify({note})
+            });
+            totalTagged++;
+        }
+    }
+
+    overlay.style.display = 'none';
+    showToast(`✅ 已提交${selectedSuppliers.length}个供应商共${totalTagged}条退货请求\n约2分钟内自动创建订单`, '#059669');
+    setTimeout(() => fetchRecords(), 2000);
 }
 
 async function open1688Return(poId) {
@@ -1142,7 +1279,7 @@ function showToast(msg, color) {
 }
 
 initPhotoGrid();
-fetchRecords();
+loadStyleMap().then(() => fetchRecords());
 
 // 未提交内容退出提示
 window.addEventListener('beforeunload', function(e) {
