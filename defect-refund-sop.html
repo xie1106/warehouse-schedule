@@ -171,6 +171,39 @@ tr:nth-child(even) td{background:#f8fafc;}
 
 <div class="warn-box">⚠️ <strong>"未匹配"处理：</strong>如果商品在聚水潭未填写供应商（或只有吕**-整烫），需要在聚水潭普通商品资料中补充真实供应商，系统下次会自动识别</div>
 
+<h3>供应商匹配逻辑详解</h3>
+<div class="info-box">
+<strong>🔍 商品编码 → 供应商名称 → 退货地址</strong>，全流程自动完成
+</div>
+
+<p><strong>第一步：从次品记录提取商品编码（i_id）</strong></p>
+<p>例如：次品记录 "Y666134M×1" → 提取商品编码 "Y6661"</p>
+
+<p><strong>第二步：商品编码 → 供应商名称</strong></p>
+<table>
+<tr><th>优先级</th><th>方式</th><th>说明</th></tr>
+<tr><td>1</td><td>本地缓存映射</td><td>已查过的商品编码自动缓存（131条），下次直接命中</td></tr>
+<tr><td>2</td><td>聚水潭「商品多供应商」API</td><td>实时调用 /open/webapi/itemapi/suppliersku/getsupplierskulist，按i_id查询所有供应商，排除"吕**-整烫"和"市场"，取第一个有效供应商</td></tr>
+<tr><td>3</td><td>聚水潭采购单的supplier_id</td><td>从采购单关联的供应商ID反查供应商列表</td></tr>
+</table>
+
+<p><strong>第三步：供应商名称 → 退货地址</strong></p>
+<table>
+<tr><th>优先级</th><th>方式</th><th>说明</th></tr>
+<tr><td>1</td><td>聚水潭「供应商列表」API</td><td>实时调用 /open/supplier/query，按供应商名称模糊匹配（去掉"档口-"前缀），获取联系人、电话、地址（67个有地址）</td></tr>
+<tr><td>2</td><td>本地地址缓存</td><td>从腾讯在线表格"市场货地址"tab同步的65个档口地址</td></tr>
+</table>
+
+<div class="flow-container">
+<p style="font-size:12px;color:#64748b;margin-bottom:8px;">完整匹配流程示例：</p>
+<div class="flow-row">
+<span class="step s1">Y666134M×1</span><span class="arrow">→</span>
+<span class="step s2">i_id: Y6661</span><span class="arrow">→</span>
+<span class="step s3">广州青木服饰有限公司</span><span class="arrow">→</span>
+<span class="step s5">张生 / 138xxx / 广州市...</span>
+</div>
+</div>
+
 <h2>四、自动化机制</h2>
 <table>
 <tr><th>机制</th><th>频率</th><th>说明</th></tr>
