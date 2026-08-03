@@ -133,6 +133,7 @@
                     <button class="tab-btn" onclick="switchTab('non1688',this)" style="color:#d97706;white-space:nowrap;">非1688</button>
                     <button class="tab-btn" onclick="switchTab('non1688_pending',this)" style="white-space:nowrap;">待处理</button>
                     <button class="tab-btn" onclick="switchTab('done',this)" style="color:#6b7280;white-space:nowrap;">已处理</button>
+                    <button class="tab-btn" onclick="switchTab('non1688_unmatched',this)" style="color:#d97706;white-space:nowrap;">未匹配</button>
                     <button class="tab-btn" onclick="switchTab('non1688_error',this)" style="color:#ef4444;white-space:nowrap;">异常</button>
                     <button class="tab-btn" onclick="batchReturnBySupplier()" style="color:#fff;background:#8b5cf6;border-color:#8b5cf6;white-space:nowrap;">一键退货</button>
                 </div>
@@ -582,6 +583,7 @@ function loadHistory() {
     else if (currentTab === 'refunding') filtered = filtered.filter(r => isRefunding(r.note));
     else if (currentTab === 'refunded') filtered = filtered.filter(r => isRefunded(r.note));
     else if (currentTab === 'non1688_pending') filtered = filtered.filter(r => r.status === 'pending' && !(r.note||'').includes('[1688:') && !(r.note||'').includes('[退货:已下单') && !(r.note||'').includes('[退货:失败'));
+    else if (currentTab === 'non1688_unmatched') filtered = filtered.filter(r => r.status === 'pending' && !(r.note||'').includes('[1688:') && !(r.note||'').includes('[退货:已下单') && !(r.note||'').includes('[退货:失败') && !getSupplierForGroup([r]));
     else if (currentTab === 'non1688_error') filtered = filtered.filter(r => !(r.note||'').includes('[1688:') && (r.note||'').includes('[退货:失败'));
     else if (currentTab === 'done') filtered = filtered.filter(r => (r.status === 'done' || (r.note||'').includes('[退货:已下单')) && !(r.note||'').includes('[1688:'));
     else if (currentTab === 'error') filtered = filtered.filter(r => isRefundError(r.note) || r.status === 'error');
