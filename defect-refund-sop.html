@@ -204,15 +204,36 @@ tr:nth-child(even) td{background:#f8fafc;}
 </div>
 </div>
 
-<h2>四、自动化机制</h2>
+<h2>四、系统稳定性 — 各节点处理时间</h2>
 <table>
-<tr><th>机制</th><th>频率</th><th>说明</th></tr>
-<tr><td>非1688退货订单创建</td><td>每2分钟</td><td>检查待处理请求，按供应商合并创建聚水潭订单</td></tr>
-<tr><td>供应商自动识别</td><td>实时</td><td>聚水潭商品多供应商API实时查询，自动缓存</td></tr>
-<tr><td>退货地址获取</td><td>实时</td><td>聚水潭供应商列表API（67个有地址），本地备用</td></tr>
-<tr><td>1688退款状态同步</td><td>按需/手动触发</td><td>从1688后台拉取退款进度更新badge</td></tr>
-<tr><td>取消退货处理</td><td>每2分钟</td><td>处理取消请求，更新聚水潭订单备注为"取消"</td></tr>
+<tr><th>节点</th><th>触发方式</th><th>处理时间</th><th>说明</th></tr>
+<tr><td><strong>🔵 1688/非1688标签打标</strong></td><td>提交次品时自动</td><td>即时（&lt;1秒）</td><td>前端从po_1688_map.json判断，有1688订单号→蓝标，无→黄标</td></tr>
+<tr><td><strong>🏪 供应商名称显示</strong></td><td>页面加载时</td><td>即时（&lt;1秒）</td><td>前端从return_style_map.json匹配（131条缓存），未匹配显示⚠️</td></tr>
+<tr><td><strong>📦 一键退货提交</strong></td><td>用户点击按钮</td><td>1-3秒</td><td>前端写入Supabase标记[退货:待处理]</td></tr>
+<tr><td><strong>🤖 自动创建退货单</strong></td><td>后台cron每2分钟</td><td>≤5分钟</td><td>从提交到聚水潭订单创建完成（含API查询+订单推送）</td></tr>
+<tr><td><strong>🔄 取消退货</strong></td><td>用户点击取消</td><td>即时恢复 + ≤2分钟更新备注</td><td>前端即时改状态，聚水潭备注下次cron更新</td></tr>
 </table>
+
+<h3>自动创建退货单详细耗时</h3>
+<table>
+<tr><th>步骤</th><th>耗时</th><th>内容</th></tr>
+<tr><td>等待cron触发</td><td>0-2分钟</td><td>每2分钟检查一次Supabase</td></tr>
+<tr><td>查聚水潭采购单</td><td>~1秒/单</td><td>获取商品编码i_id</td></tr>
+<tr><td>查商品多供应商API</td><td>~1秒/单</td><td>匹配真实供应商（排除吕**-整烫/市场）</td></tr>
+<tr><td>查供应商列表获取地址</td><td>~2秒</td><td>按名称匹配退货地址</td></tr>
+<tr><td>创建退货订单</td><td>~1秒/单</td><td>推送到聚水潭"外贸采购退货"店铺</td></tr>
+<tr><td><strong>合计</strong></td><td><strong>2-5分钟</strong></td><td>最快2分钟（刚好赶上cron），最慢约5分钟</td></tr>
+</table>
+
+<h3>数据更新频率</h3>
+<table>
+<tr><th>数据</th><th>更新方式</th><th>当前数量</th></tr>
+<tr><td>po_1688_map.json（1688订单映射）</td><td>手动/定期从聚水潭拉取</td><td>602条</td></tr>
+<tr><td>return_style_map.json（供应商映射）</td><td>自动学习（每次退货成功自动缓存）</td><td>131条</td></tr>
+<tr><td>聚水潭供应商地址</td><td>实时API查询</td><td>67个有地址</td></tr>
+</table>
+
+<div class="info-box">💡 <strong>稳定性保障：</strong>新品首次退货时，系统会实时调用聚水潭API查询供应商和地址，查到后自动缓存到本地映射。之后同款商品退货直接命中缓存，响应更快。</div>
 
 <h2>五、关键规则</h2>
 <table>
