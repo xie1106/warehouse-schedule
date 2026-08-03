@@ -756,22 +756,21 @@ function getSupplierForGroup(items) {
     if (!_styleSupplierMap) return null;
     for (const r of items) {
         const note = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
-        // Extract i_id: first part before size/qty, e.g. "Y666134M×1" → try Y6661, then full
         const m = note.match(/^([A-Za-z0-9\-]+)/);
         if (!m) continue;
         const raw = m[1];
-        // Try exact match first
-        if (_styleSupplierMap[raw]) return _styleSupplierMap[raw];
-        // Try without trailing size code (last 1-3 chars that are size indicators)
-        const prefixes = [raw];
-        // Progressive trim: remove last char if it's a size letter
+        // Try exact match first (case-insensitive)
+        for (const [k, v] of Object.entries(_styleSupplierMap)) {
+            if (k.toUpperCase() === raw.toUpperCase()) return v;
+        }
+        // Progressive trim: try shorter prefixes
         for (let len = raw.length - 1; len >= 3; len--) {
-            prefixes.push(raw.substring(0, len));
+            const prefix = raw.substring(0, len);
+            for (const [k, v] of Object.entries(_styleSupplierMap)) {
+                if (k.toUpperCase() === prefix.toUpperCase()) return v;
+            }
         }
-        for (const p of prefixes) {
-            if (_styleSupplierMap[p]) return _styleSupplierMap[p];
-        }
-        // Try includes match
+        // Try startsWith match
         for (const [k, v] of Object.entries(_styleSupplierMap)) {
             if (raw.toUpperCase().startsWith(k.toUpperCase()) || k.toUpperCase().startsWith(raw.toUpperCase())) return v;
         }
