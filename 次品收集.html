@@ -130,6 +130,7 @@
                     <span style="width:1px;background:#e5e7eb;margin:0 2px;"></span>
                     <button class="tab-btn" onclick="toggleTab('pending_all',this)">待处理</button>
                     <button class="tab-btn" onclick="toggleTab('unmatched_all',this)" style="color:#d97706;">未匹配</button>
+                    <button class="tab-btn" onclick="toggleTab('return_failed',this)" style="color:#dc2626;">退货失败</button>
                     <button class="tab-btn" onclick="toggleTab('1688_error',this)" style="color:#ef4444;">异常</button>
                 </div>
                 <div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 6px;">
@@ -607,6 +608,7 @@ function loadHistory() {
     if (currentTab === 'all') {} // 显示全部
     else if (currentTab === 'pending_all') filtered = filtered.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note));
     else if (currentTab === 'unmatched_all') filtered = filtered.filter(r => { const rt = parseReturnTag(r.note); return (r.status === 'pending' && !parseRefundTag(r.note) && !rt && !getSupplierForGroup([r])) || (rt && (rt.orderId||'').includes('无法匹配')); });
+    else if (currentTab === 'return_failed') filtered = filtered.filter(r => { const rt = parseReturnTag(r.note); return rt && rt.status === '失败' && !(rt.orderId||'').includes('无法匹配'); });
     else if (currentTab === '1688_wait_agree') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待卖家同意'); });
     else if (currentTab === '1688_wait_send') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待买家退货'); });
     else if (currentTab === '1688_wait_receive') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待卖家收货'); });
