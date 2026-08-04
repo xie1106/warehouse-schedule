@@ -554,7 +554,7 @@ function getRefundBadge(refundInfo) {
     const statusMap = {
         '等待卖家同意': { text: '等待卖家同意', color: '#e67e22' },
         '卖家已同意': { text: '卖家已同意', color: '#3498db' },
-        '等待买家退货': { text: '等待退货', color: '#3498db' },
+        '等待买家退货': { text: '等待买家退货', color: '#3498db' },
         '等待卖家收货': { text: '等待卖家收货', color: '#8e44ad' },
         '已退货': { text: '已退货', color: '#8e44ad' },
         '退款成功': { text: '退款成功', color: '#27ae60' },
@@ -563,7 +563,9 @@ function getRefundBadge(refundInfo) {
         '申请失败': { text: '申请失败', color: '#e74c3c' },
         '已撤销': { text: '已撤销', color: '#95a5a6' },
     };
-    const s = statusMap[refundInfo.status] || { text: refundInfo.status, color: '#666' };
+    // Try refundId first (e.g. "等待卖家同意"), then status
+    const key = (refundInfo.refundId && statusMap[refundInfo.refundId]) ? refundInfo.refundId : refundInfo.status;
+    const s = statusMap[key] || { text: refundInfo.refundId || refundInfo.status, color: '#666' };
     return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${s.color}18;color:${s.color};border:1px solid ${s.color}40;">${s.text}</span>`;
 }
 
@@ -636,9 +638,10 @@ function loadHistory() {
             const statusText = r.status==='done'?'已处理':(is1688Single?'异常':'未映射');
             const badgeHtml = refundInfo ? getRefundBadge(refundInfo) : `<span class="badge ${statusClass}">${statusText}</span>`;
             const noteDisplay = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+            const sourceTag = is1688Single ? '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#1677ff;color:#fff;margin-left:4px;">1688</span>' : '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#faad14;color:#fff;margin-left:4px;">非1688</span>';
             return `<div class="record">
                 <div class="record-header">
-                    <span class="record-title">采购单 ${r.po_id}</span>
+                    <span class="record-title">采购单 ${r.po_id}${sourceTag}</span>
                     ${badgeHtml}
                 </div>
                 <div class="record-time">${new Date(r.created_at).toLocaleString()}${noteDisplay?' · '+noteDisplay:''}</div>
