@@ -605,7 +605,7 @@ function loadHistory() {
     // Apply tab filter
     if (currentTab === 'all') {} // 显示全部
     else if (currentTab === 'pending_all') filtered = filtered.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note));
-    else if (currentTab === 'unmatched_all') filtered = filtered.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note) && !getSupplierForGroup([r]));
+    else if (currentTab === 'unmatched_all') filtered = filtered.filter(r => { const rt = parseReturnTag(r.note); return (r.status === 'pending' && !parseRefundTag(r.note) && !rt && !getSupplierForGroup([r])) || (rt && rt.status.includes('无法匹配')); });
     else if (currentTab === '1688_wait_agree') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待卖家同意'); });
     else if (currentTab === '1688_wait_send') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待买家退货'); });
     else if (currentTab === '1688_wait_receive') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待卖家收货'); });
