@@ -780,6 +780,11 @@ async function loadStyleMap() {
     } catch(e) { _styleSupplierMap = {}; }
 }
 function getSupplierForGroup(items) {
+    // Try extracting supplier from [1688:...供应商:xxx...] tag first
+    for (const r of items) {
+        const m = (r.note||'').match(/供应商:([^\s\]]+)/);
+        if (m && m[1]) return m[1];
+    }
     if (!_styleSupplierMap) return null;
     for (const r of items) {
         const note = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
@@ -1023,8 +1028,8 @@ async function open1688ReturnAndCreateOrder(poId, btn) {
 
 async function batchReturnAll() {
     const list = getRecords();
-    // All pending records: no refund tag, no return tag
-    const pending = list.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note));
+    // All pending records that haven't created JST return order yet
+    const pending = list.filter(r => r.status === 'pending' && !parseReturnTag(r.note));
     if (!pending.length) { showToast('无待处理记录', '#6b7280'); return; }
 
     // Group by supplier
