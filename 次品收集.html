@@ -131,7 +131,6 @@
                     <button class="tab-btn" onclick="toggleTab('pending_all',this)">待处理</button>
                     <button class="tab-btn" onclick="toggleTab('unmatched_all',this)" style="color:#d97706;">未匹配</button>
                     <button class="tab-btn" onclick="toggleTab('return_failed',this)" style="color:#dc2626;">退货失败</button>
-                    <button class="tab-btn" onclick="retryAllFailed()" style="color:#fff;background:#dc2626;border-color:#dc2626;">重新匹配</button>
                     <button class="tab-btn" onclick="toggleTab('1688_error',this)" style="color:#ef4444;">异常</button>
                 </div>
                 <div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 6px;">
@@ -140,6 +139,7 @@
                     <button class="tab-btn" onclick="toggleTab('1688_wait_receive',this)" style="color:#7c3aed;">卖家收货</button>
                     <button class="tab-btn" onclick="toggleTab('done_all',this)" style="color:#059669;">完成</button>
                     <button class="tab-btn" onclick="batchReturnAll()" style="color:#fff;background:#059669;border-color:#059669;">一键退货</button>
+                    <button class="tab-btn" onclick="retryAllFailed()" style="color:#fff;background:#dc2626;border-color:#dc2626;">重新匹配</button>
                 </div>
         </div>
         </div><!-- end inner sticky -->
