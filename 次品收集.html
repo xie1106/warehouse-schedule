@@ -131,13 +131,14 @@
                     <button class="tab-btn" onclick="toggleTab('pending_all',this)">待处理</button>
                     <button class="tab-btn" onclick="toggleTab('unmatched_all',this)" style="color:#d97706;">未匹配</button>
                     <button class="tab-btn" onclick="toggleTab('return_failed',this)" style="color:#dc2626;">退货失败</button>
+                    <button class="tab-btn" onclick="retryAllFailed()" style="color:#fff;background:#dc2626;border-color:#dc2626;">重新匹配</button>
                     <button class="tab-btn" onclick="toggleTab('1688_error',this)" style="color:#ef4444;">异常</button>
                 </div>
                 <div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 6px;">
                     <button class="tab-btn" onclick="toggleTab('1688_wait_agree',this)" style="color:#e67e22;">卖家同意</button>
                     <button class="tab-btn" onclick="toggleTab('1688_wait_send',this)" style="color:#2563eb;">买家退货</button>
                     <button class="tab-btn" onclick="toggleTab('1688_wait_receive',this)" style="color:#7c3aed;">卖家收货</button>
-                    <button class="tab-btn" onclick="toggleTab('done_all',this)" style="color:#059669;">已退款/处理</button>
+                    <button class="tab-btn" onclick="toggleTab('done_all',this)" style="color:#059669;">完成</button>
                     <button class="tab-btn" onclick="batchReturnAll()" style="color:#fff;background:#059669;border-color:#059669;">一键退货</button>
                 </div>
         </div>
@@ -821,6 +822,29 @@ function getSupplierForGroup(items) {
 
 // 1688退货：po_id → 1688订单链接
 let _po1688Map = null;
+
+async function retryAllFailed() {
+    if (!confirm('重新匹配所有"未匹配"和"退货失败"的记录？\n将清除失败标签并重新提交退货。')) return;
+    const list = getRecords();
+    const failed = list.filter(r => {
+        const rt = parseReturnTag(r.note);
+        return rt && rt.status === '失败';
+    });
+    if (!failed.length) { showToast('无失败记录', '#6b7280'); return; }
+    const h = {'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'};
+    let count = 0;
+    for (const rec of failed) {
+        let note = (rec.note||'').replace(/\s*\[退货:失败[^\]]*\]/g, '').trim();
+        note += ' [退货:待处理]';
+        await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, {
+            method: 'PATCH', headers: h, body: JSON.stringify({note})
+        });
+        count++;
+    }
+    showToast(`✅ 已重置${count}条记录\n约2分钟内自动重新匹配并创建退货订单`, '#059669');
+    setTimeout(() => fetchRecords(), 3000);
+}
+
 async function retryReturn(poId, btn) {
     if (!confirm(`重试采购单 ${poId} 退货？`)) return;
     btn.textContent = '⏳ 处理中...';
