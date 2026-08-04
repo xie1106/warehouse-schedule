@@ -6,24 +6,6 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders() });
     }
-    const url = new URL(request.url);
-    
-    // GET /query-supplier?i_id=XXX — real-time supplier lookup
-    if (request.method === 'GET' && url.pathname === '/query-supplier') {
-      const i_id = url.searchParams.get('i_id');
-      if (!i_id) return json({ error: 'missing i_id' }, 400);
-      const INVALID = ['吕**-整烫', '吕老板整烫', '市场'];
-      // Try local map first
-      let supplier = findSupplierFromStyle(env, i_id);
-      let source = 'style_map';
-      // Then JST API
-      if (!supplier) {
-        supplier = await queryJstSupplierByItem(env, i_id, INVALID);
-        source = 'jst_api';
-      }
-      return json({ i_id, supplier: supplier || null, source: supplier ? source : null });
-    }
-
     if (request.method !== 'POST') {
       return json({ error: 'POST only' }, 405);
     }
@@ -42,23 +24,26 @@ export default {
       
       let i_id = '';
       if (!supplier || INVALID.some(inv => (supplier||'').includes(inv))) {
-        // Get i_id and try doc fallback
-        const poData = await jstPost(env, '/open/purchase/query', { page_index:1, page_size:5, po_ids:[parseInt(po_id)] });
-        if (poData?.code !== 0) {
-          return json({ error: 'jst_error', msg: `JST API错误: ${poData?.msg || JSON.stringify(poData).slice(0,100)}`, code: poData?.code });
+        // Try JST first, but fall back to extracting i_id from Supabase records
+        try {
+          const poData = await jstPost(env, '/open/purchase/query', { page_index:1, page_size:5, po_ids:[parseInt(po_id)] });
+          if (poData?.code === 0) {
+            const items = poData?.data?.datas?.[0]?.items || [];
+            if (items.length) i_id = items[0].i_id || '';
+          }
+        } catch(e) { /* JST unavailable, continue */ }
+        
+        // If JST failed or returned no i_id, extract from Supabase record notes
+        if (!i_id && records.length) {
+          // note format: "602501L×1" or "Q605501M×2" — i_id is the prefix before size code
+          for (const rec of records) {
+            const m = (rec.note||'').match(/^([A-Za-z]?\d{4,6})/);
+            if (m) { i_id = m[1]; break; }
+          }
         }
-        const items = poData?.data?.datas?.[0]?.items || [];
-        if (items.length) i_id = items[0].i_id || '';
         
-        // Priority 1: Try local style map cache
-        let docSupplier = findSupplierFromStyle(env, i_id);
-        
-        // Priority 2: Real-time JST multi-supplier API
-        if (!docSupplier && i_id) {
-          docSupplier = await queryJstSupplierByItem(env, i_id, INVALID);
-        }
-        
-        // Priority 3: Already tried supplier_name from PO above
+        // Try style map
+        const docSupplier = findSupplierFromStyle(env, i_id);
         if (docSupplier) {
           supplier = docSupplier;
         } else {
@@ -145,24 +130,13 @@ async function getDefectRecords(env, po_id) {
 }
 
 async function getSupplierFromPO(env, po_id) {
-  const d = await jstPost(env, '/open/purchase/query', { page_index:1, page_size:5, po_ids:[parseInt(po_id)] });
-  const po = d?.data?.datas?.[0];
-  return po?.supplier_name || po?.seller || null;
-}
-
-// Priority 2: Real-time JST multi-supplier API query
-async function queryJstSupplierByItem(env, i_id, INVALID) {
   try {
-    const d = await jstPost(env, '/open/webapi/itemapi/suppliersku/getsupplierskulist', { i_id });
-    const list = d?.data?.datas || d?.data || [];
-    if (!Array.isArray(list)) return null;
-    for (const item of list) {
-      const name = item.supplier_name || item.name || '';
-      if (name && !INVALID.some(inv => name.includes(inv))) {
-        return name;
-      }
+    const d = await jstPost(env, '/open/purchase/query', { page_index:1, page_size:5, po_ids:[parseInt(po_id)] });
+    if (d?.code === 0) {
+      const po = d?.data?.datas?.[0];
+      return po?.supplier_name || po?.seller || null;
     }
-  } catch(e) { /* fallback to null */ }
+  } catch(e) { /* JST unavailable */ }
   return null;
 }
 
