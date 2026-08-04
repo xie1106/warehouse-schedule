@@ -1050,29 +1050,19 @@ async function batchReturnAll() {
     const suppliers = Object.keys(supplierGroups).sort();
     if (!suppliers.length) { showToast('所有记录都无法匹配供应商', '#dc2626'); return; }
 
-    let html = `<div style="padding:16px;max-height:70vh;overflow-y:auto;">
-        <h3 style="margin:0 0 12px;font-size:16px;">一键退货（按供应商合并）</h3>
-        <p style="font-size:12px;color:#666;margin-bottom:12px;">同一供应商合并为一个聚水潭退货订单</p>`;
+    let html = `<div style="padding:16px;flex:1;overflow-y:auto;">
+        <h3 style="margin:0 0 8px;font-size:16px;">一键退货</h3>`;
 
     suppliers.forEach(sup => {
         const group = supplierGroups[sup];
         const items = group.items;
         const poIds = [...new Set(items.map(r => r.po_id))];
-        const skuMap = {};
-        items.forEach(r => {
-            const note = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
-            const m = note.match(/^([^|×x]+)[×x](\d+)/);
-            if (m) { skuMap[m[1]] = (skuMap[m[1]]||0) + parseInt(m[2]); }
-            else { const sm = note.match(/^([A-Za-z0-9\-]+)/); if(sm) skuMap[sm[1]] = (skuMap[sm[1]]||0) + 1; }
-        });
-        const skuText = Object.entries(skuMap).map(([k,v])=>`${k}×${v}`).join(', ');
         const typeTag = (group.has1688 && group.hasNon1688) ? '🔵🟡' : group.has1688 ? '🔵' : '🟡';
-        html += `<label style="display:flex;align-items:flex-start;gap:8px;padding:10px;margin:4px 0;background:#f0f7ff;border-radius:8px;border:1px solid #bfdbfe;cursor:pointer;">
-            <input type="checkbox" checked data-supplier="${sup}" style="margin-top:3px;width:18px;height:18px;">
+        html += `<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin:3px 0;background:#f0f7ff;border-radius:8px;border:1px solid #bfdbfe;cursor:pointer;">
+            <input type="checkbox" checked data-supplier="${sup}" style="width:18px;height:18px;">
             <div style="flex:1;">
                 <div style="font-weight:600;font-size:13px;color:#1d4ed8;">${typeTag} ${sup}</div>
-                <div style="font-size:11px;color:#666;margin-top:2px;">采购单: ${poIds.join(', ')} (${items.length}条)</div>
-                <div style="font-size:11px;color:#999;margin-top:1px;">${skuText}</div>
+                <div style="font-size:11px;color:#999;">${poIds.length}单 ${items.length}条</div>
             </div>
         </label>`;
     });
@@ -1083,10 +1073,10 @@ async function batchReturnAll() {
             ⚠️ ${unmatched.length}条(${unmatchedPos.length}个采购单)无法匹配供应商</div>`;
     }
 
-    html += `<div style="display:flex;gap:8px;margin-top:16px;">
+    html += `</div><div style="padding:12px 16px;border-top:1px solid #e5e7eb;display:flex;gap:8px;">
         <button onclick="confirmBatchReturnAll()" style="flex:1;padding:10px;background:#059669;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">确认退货</button>
         <button onclick="document.getElementById('batchReturnOverlay').style.display='none'" style="padding:10px 20px;background:#fff;border:1px solid #d1d5db;border-radius:8px;font-size:14px;cursor:pointer;">取消</button>
-    </div></div>`;
+    </div>`;
 
     let overlay = document.getElementById('batchReturnOverlay');
     if (!overlay) {
@@ -1095,7 +1085,7 @@ async function batchReturnAll() {
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;';
         document.body.appendChild(overlay);
     }
-    overlay.innerHTML = `<div style="background:white;border-radius:14px;max-width:400px;width:100%;">${html}</div>`;
+    overlay.innerHTML = `<div style="background:white;border-radius:14px;max-width:400px;width:100%;max-height:80vh;display:flex;flex-direction:column;">${html}</div>`;
     overlay.style.display = 'flex';
     overlay._supplierGroups = supplierGroups;
 }
