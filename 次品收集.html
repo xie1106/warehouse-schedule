@@ -34,9 +34,9 @@
         .record-time { color: #888; font-size: 11px; margin-top: 4px; }
         .record-photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; }
         .record-photos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; cursor: pointer; }
-        .tab-btn { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+        .tab-btn { padding: 4px 8px; border: 1px solid #ddd; border-radius: 6px; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
         .tab-btn.active { background: #4A90D9; color: #fff; border-color: #4A90D9; }
-        .filter-btn { padding: 4px 12px; border: 1px solid #e5e7eb; border-radius: 16px; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .filter-btn { padding: 4px 10px; border: 1px solid #e5e7eb; border-radius: 16px; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
         .filter-btn.active { background: #1f2937; color: #fff; border-color: #1f2937; }
         .search-box { display: flex; gap: 8px; margin-bottom: 12px; }
         .search-box input { flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
@@ -122,21 +122,22 @@
             <button onclick="searchScan()" style="padding:8px 14px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:13px;">扫码</button>
         </div>
         <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:10px;">
-                <div style="display:flex;gap:4px;flex-wrap:nowrap;padding:4px 6px;background:#f3f4f6;border-radius:6px;overflow-x:auto;">
-                    <button class="filter-btn active" onclick="switchFilter('all',this)" style="font-weight:700;white-space:nowrap;">全部</button>
-                    <button class="filter-btn" onclick="switchFilter('1688',this)" style="color:#1677ff;white-space:nowrap;">1688</button>
-                    <button class="filter-btn" onclick="switchFilter('non1688',this)" style="color:#d97706;white-space:nowrap;">非1688</button>
+                <div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 6px;">
+                    <button class="filter-btn active" onclick="switchFilter('all',this)">全部</button>
+                    <button class="filter-btn" onclick="switchFilter('1688',this)" style="color:#1677ff;">1688</button>
+                    <button class="filter-btn" onclick="switchFilter('non1688',this)" style="color:#d97706;">非1688</button>
+                    <span style="width:1px;background:#e5e7eb;margin:0 2px;"></span>
+                    <button class="tab-btn active" onclick="switchTab('all',this)">全部</button>
+                    <button class="tab-btn" onclick="switchTab('pending_all',this)">待处理</button>
+                    <button class="tab-btn" onclick="switchTab('unmatched_all',this)" style="color:#d97706;">未匹配</button>
+                    <button class="tab-btn" onclick="switchTab('1688_error',this)" style="color:#ef4444;">异常</button>
                 </div>
-                <div style="display:flex;gap:4px;flex-wrap:nowrap;padding:4px 6px;background:#eef2ff;border-radius:6px;overflow-x:auto;">
-                    <button class="tab-btn active" onclick="switchTab('all',this)" style="font-weight:700;white-space:nowrap;">全部</button>
-                    <button class="tab-btn" onclick="switchTab('pending_all',this)" style="white-space:nowrap;">待处理</button>
-                    <button class="tab-btn" onclick="switchTab('unmatched_all',this)" style="color:#d97706;white-space:nowrap;">未匹配</button>
-                    <button class="tab-btn" onclick="switchTab('1688_wait_agree',this)" style="color:#2563eb;white-space:nowrap;">等待卖家同意</button>
-                    <button class="tab-btn" onclick="switchTab('1688_wait_send',this)" style="color:#1d4ed8;white-space:nowrap;">等待买家退货</button>
-                    <button class="tab-btn" onclick="switchTab('1688_wait_receive',this)" style="color:#7c3aed;white-space:nowrap;">等待卖家收货</button>
-                    <button class="tab-btn" onclick="switchTab('done_all',this)" style="color:#059669;white-space:nowrap;">已退款/已处理</button>
-                    <button class="tab-btn" onclick="switchTab('1688_error',this)" style="color:#ef4444;white-space:nowrap;">异常</button>
-                    <button class="tab-btn" onclick="batchReturnAll()" style="color:#fff;background:#059669;border-color:#059669;white-space:nowrap;">一键退货</button>
+                <div style="display:flex;gap:4px;flex-wrap:wrap;padding:4px 6px;">
+                    <button class="tab-btn" onclick="switchTab('1688_wait_agree',this)" style="color:#e67e22;">卖家同意</button>
+                    <button class="tab-btn" onclick="switchTab('1688_wait_send',this)" style="color:#2563eb;">买家退货</button>
+                    <button class="tab-btn" onclick="switchTab('1688_wait_receive',this)" style="color:#7c3aed;">卖家收货</button>
+                    <button class="tab-btn" onclick="switchTab('done_all',this)" style="color:#059669;">已退款/处理</button>
+                    <button class="tab-btn" onclick="batchReturnAll()" style="color:#fff;background:#059669;border-color:#059669;">一键退货</button>
                 </div>
         </div>
         </div><!-- end inner sticky -->
