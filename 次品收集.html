@@ -611,13 +611,13 @@ function loadHistory() {
     else if (currentTab === '1688_wait_send') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待买家退货'); });
     else if (currentTab === '1688_wait_receive') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待卖家收货'); });
     else if (currentTab === 'done_all') filtered = filtered.filter(r => isRefunded(r.note) || r.status === 'done' || (r.note||'').includes('[退货:已下单'));
-    else if (currentTab === '1688_error') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); const rt = parseReturnTag(r.note); return (rf && ['退款关闭','卖家拒绝','申请失败'].includes(rf.status)) || (rt && rt.status.startsWith('失败')); });
+    else if (currentTab === '1688_error') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && ['退款关闭','卖家拒绝','申请失败'].includes(rf.status); });
 
     const allPending = new Set(list.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note)).map(r=>r.po_id)).size;
     const allRefunding = new Set(list.filter(r => isRefunding(r.note)).map(r=>r.po_id)).size;
     const allDone = new Set(list.filter(r => isRefunded(r.note) || r.status === 'done' || (r.note||'').includes('[退货:已下单')).map(r=>r.po_id)).size;
     const allUnmatched = new Set(list.filter(r => { const rt = parseReturnTag(r.note); return (r.status === 'pending' && !parseRefundTag(r.note) && !rt && !getSupplierForGroup([r])) || (rt && (rt.orderId||'').includes('无法匹配')); }).map(r=>r.po_id)).size;
-    const allError = new Set(list.filter(r => { const rf = parseRefundTag(r.note); const rt = parseReturnTag(r.note); return (rf && ['退款关闭','卖家拒绝','申请失败'].includes(rf.status)) || (rt && rt.status.startsWith('失败') && !(rt.orderId||'').includes('无法匹配')); }).map(r=>r.po_id)).size;
+    const allError = new Set(list.filter(r => { const rf = parseRefundTag(r.note); return rf && ['退款关闭','卖家拒绝','申请失败'].includes(rf.status); }).map(r=>r.po_id)).size;
     document.getElementById('pendingCount').textContent = `待处理:${allPending}`;
     document.getElementById('refundingCount').textContent = `退款中:${allRefunding}`;
     document.getElementById('doneCount').textContent = `已完成:${allDone}`;
