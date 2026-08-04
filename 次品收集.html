@@ -36,6 +36,8 @@
         .record-photos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; cursor: pointer; }
         .tab-btn { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
         .tab-btn.active { background: #4A90D9; color: #fff; border-color: #4A90D9; }
+        .filter-btn { padding: 4px 12px; border: 1px solid #e5e7eb; border-radius: 16px; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .filter-btn.active { background: #1f2937; color: #fff; border-color: #1f2937; }
         .search-box { display: flex; gap: 8px; margin-bottom: 12px; }
         .search-box input { flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
         .record-actions { display: flex; gap: 8px; margin-top: 8px; }
@@ -120,21 +122,21 @@
             <button onclick="searchScan()" style="padding:8px 14px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:13px;">扫码</button>
         </div>
         <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:10px;">
-                <div style="display:flex;gap:4px;flex-wrap:nowrap;padding:4px 6px;background:#f0fdf4;border-radius:6px;overflow-x:auto;">
+                <div style="display:flex;gap:4px;flex-wrap:nowrap;padding:4px 6px;background:#f3f4f6;border-radius:6px;overflow-x:auto;">
+                    <button class="filter-btn active" onclick="switchFilter('all',this)" style="font-weight:700;white-space:nowrap;">全部</button>
+                    <button class="filter-btn" onclick="switchFilter('1688',this)" style="color:#1677ff;white-space:nowrap;">1688</button>
+                    <button class="filter-btn" onclick="switchFilter('non1688',this)" style="color:#d97706;white-space:nowrap;">非1688</button>
+                </div>
+                <div style="display:flex;gap:4px;flex-wrap:nowrap;padding:4px 6px;background:#eef2ff;border-radius:6px;overflow-x:auto;">
                     <button class="tab-btn active" onclick="switchTab('all',this)" style="font-weight:700;white-space:nowrap;">全部</button>
                     <button class="tab-btn" onclick="switchTab('pending_all',this)" style="white-space:nowrap;">待处理</button>
                     <button class="tab-btn" onclick="switchTab('unmatched_all',this)" style="color:#d97706;white-space:nowrap;">未匹配</button>
-                    <button class="tab-btn" onclick="batchReturnAll()" style="color:#fff;background:#059669;border-color:#059669;white-space:nowrap;">一键退货</button>
-                </div>
-                <div style="display:flex;gap:4px;flex-wrap:nowrap;padding:4px 6px;background:#eef2ff;border-radius:6px;overflow-x:auto;">
                     <button class="tab-btn" onclick="switchTab('1688_wait_agree',this)" style="color:#2563eb;white-space:nowrap;">等待卖家同意</button>
                     <button class="tab-btn" onclick="switchTab('1688_wait_send',this)" style="color:#1d4ed8;white-space:nowrap;">等待买家退货</button>
                     <button class="tab-btn" onclick="switchTab('1688_wait_receive',this)" style="color:#7c3aed;white-space:nowrap;">等待卖家收货</button>
-                    <button class="tab-btn" onclick="switchTab('1688_refunded',this)" style="color:#059669;white-space:nowrap;">已退款</button>
+                    <button class="tab-btn" onclick="switchTab('done_all',this)" style="color:#059669;white-space:nowrap;">已退款/已处理</button>
                     <button class="tab-btn" onclick="switchTab('1688_error',this)" style="color:#ef4444;white-space:nowrap;">异常</button>
-                </div>
-                <div style="display:flex;gap:4px;flex-wrap:nowrap;padding:4px 6px;background:#fef9ee;border-radius:6px;overflow-x:auto;">
-                    <button class="tab-btn" onclick="switchTab('non1688_done',this)" style="color:#6b7280;white-space:nowrap;">非1688已处理</button>
+                    <button class="tab-btn" onclick="batchReturnAll()" style="color:#fff;background:#059669;border-color:#059669;white-space:nowrap;">一键退货</button>
                 </div>
         </div>
         </div><!-- end inner sticky -->
@@ -182,6 +184,7 @@ if (collectOpen) {
     setTimeout(() => { form.style.transition = 'max-height 0.25s ease'; }, 50);
 }
 let currentTab = 'all';
+let currentFilter = 'all'; // all | 1688 | non1688
 let editingIdx = -1;
 let pageSize = 9999;
 let currentPage = 1;
@@ -515,6 +518,13 @@ async function fetchRecords() {
 }
 
 // History & Search
+function switchFilter(filter, btn) {
+    currentFilter = filter;
+    currentPage = 1;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadHistory();
+}
 function switchTab(tab, btn) {
     currentTab = tab;
     currentPage = 1;
@@ -574,15 +584,18 @@ function loadHistory() {
     const search = document.getElementById('searchInput').value.trim();
     let filtered = list;
     if (search) filtered = filtered.filter(r => String(r.po_id).includes(search));
+    // Apply source filter
+    if (currentFilter === '1688') filtered = filtered.filter(r => (r.note||'').includes('[1688:'));
+    else if (currentFilter === 'non1688') filtered = filtered.filter(r => !(r.note||'').includes('[1688:'));
+    // Apply tab filter
     if (currentTab === 'all') {} // 显示全部
     else if (currentTab === 'pending_all') filtered = filtered.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note));
     else if (currentTab === 'unmatched_all') filtered = filtered.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note) && !getSupplierForGroup([r]));
     else if (currentTab === '1688_wait_agree') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待卖家同意'); });
     else if (currentTab === '1688_wait_send') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待买家退货'); });
     else if (currentTab === '1688_wait_receive') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待卖家收货'); });
-    else if (currentTab === '1688_refunded') filtered = filtered.filter(r => isRefunded(r.note));
+    else if (currentTab === 'done_all') filtered = filtered.filter(r => isRefunded(r.note) || r.status === 'done' || (r.note||'').includes('[退货:已下单'));
     else if (currentTab === '1688_error') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && ['退款关闭','卖家拒绝','申请失败'].includes(rf.status); });
-    else if (currentTab === 'non1688_done') filtered = filtered.filter(r => !(r.note||'').includes('[1688:') && (r.status === 'done' || (r.note||'').includes('[退货:已下单')));
 
     const allPending = new Set(list.filter(r => r.status === 'pending' && (r.note||'').includes('[1688:') && !parseRefundTag(r.note)).map(r=>r.po_id)).size;
     const allRefunding = new Set(list.filter(r => isRefunding(r.note)).map(r=>r.po_id)).size;
