@@ -736,7 +736,7 @@ function loadHistory() {
             const m = note.match(/^([^|]+)/);
             if(m) { const parts = m[1].split(','); parts.forEach(p => { const sm = p.trim().match(/(.+?)×(\d+)/); if(sm){ skuMap[sm[1]] = (skuMap[sm[1]]||0) + parseInt(sm[2]); } }); }
         });
-        const skuSummary = Object.entries(skuMap).map(([k,v])=>formatSkuDisplay(k.trim(),v)).join(', ') || '';
+        const skuSummary = Object.entries(skuMap).map(([k,v])=>formatSkuDisplay(k.trim(),v)).join(' <span style="color:#dc2626;font-weight:700;">|</span> ') || '';
         const latestTime = new Date(items[0].created_at).toLocaleString();
         const groupRefund = items.map(r=>parseRefundTag(r.note)).find(r=>r);
         const groupReturn = items.map(r=>parseReturnTag(r.note)).find(r=>r);
