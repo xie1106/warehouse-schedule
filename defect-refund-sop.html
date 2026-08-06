@@ -54,7 +54,7 @@ li{font-size:13px;color:#475569;margin:4px 0;}
 <table>
 <tr><th>Tab</th><th>说明</th><th>筛选逻辑</th></tr>
 <tr><td>待处理</td><td>未开始退货流程</td><td>无退款tag + 无退货tag</td></tr>
-<tr><td style="color:#d97706;">未匹配</td><td>无法匹配供应商或地址</td><td>无映射 或 退货失败:无法匹配</td></tr>
+<tr><td style="color:#d97706;">未匹配</td><td>无法匹配供应商/地址/款号颜色码数</td><td>供应商无映射 或 SKU无法解析款号颜色码数</td></tr>
 <tr><td style="color:#dc2626;">退货失败</td><td>创建失败（非匹配问题）</td><td>执行失败（地址缺电话等）</td></tr>
 <tr><td style="color:#ef4444;">异常</td><td>卖家拒绝申请/拒绝退款</td><td>卖家拒绝申请 或 卖家拒绝退款</td></tr>
 <tr><td style="color:#e67e22;">卖家同意</td><td>等待卖家同意退款申请</td><td>买家已申请，等卖家操作</td></tr>
@@ -65,7 +65,7 @@ li{font-size:13px;color:#475569;margin:4px 0;}
 <h3>功能按钮</h3>
 <ul>
 <li><span class="badge" style="background:#059669;color:#fff;">一键退货</span> — 按供应商合并创建聚水潭退货订单</li>
-<li><span class="badge" style="background:#dc2626;color:#fff;">重新匹配</span> — 清除失败标签，用最新地址重试</li>
+<li><span class="badge" style="background:#dc2626;color:#fff;">重新匹配</span> — 重新匹配供应商地址 + 款号颜色码数，清除失败标签重试</li>
 </ul>
 <div class="note">💡 来源筛选 × 状态Tab 组合使用。例：点"1688"+"完成" = 只看1688退款成功的</div>
 
