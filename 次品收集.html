@@ -193,17 +193,17 @@ let currentPage = 1;
 let skuInfoMap = {};
 
 // Load SKU info map for display
-fetch('sku_info_map.json').then(r=>r.ok?r.json():{}).then(d=>{skuInfoMap=d||{};}).catch(()=>{});
+const skuInfoMapPromise = fetch('sku_info_map.json').then(r=>r.ok?r.json():{}).then(d=>{skuInfoMap=d||{};}).catch(()=>{});
 
 function formatSkuDisplay(code, qty) {
     const info = skuInfoMap[code];
-    if (info && info.i_id) {
-        const parts = [info.i_id];
-        if (info.color) parts.push(info.color);
-        if (info.size) parts.push(info.size);
-        return parts.join(' · ') + (qty > 1 ? ' ×' + qty : ' ×1');
+    if (info && Array.isArray(info) && info[0]) {
+        const parts = [info[0]];
+        if (info[1]) parts.push(info[1]);
+        if (info[2]) parts.push(info[2]);
+        return parts.join(' · ') + ' ×' + qty;
     }
-    return code + (qty > 1 ? '×' + qty : '×1');
+    return code + '×' + qty;
 }
 
 function hasUnmappedSku(record) {
@@ -1659,7 +1659,7 @@ function showToast(msg, color) {
 }
 
 initPhotoGrid();
-loadStyleMap().then(() => fetchRecords());
+loadStyleMap().then(() => skuInfoMapPromise).then(() => fetchRecords());
 
 // 未提交内容退出提示
 window.addEventListener('beforeunload', function(e) {
