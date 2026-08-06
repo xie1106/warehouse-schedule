@@ -867,15 +867,22 @@ let _po1688Map = null;
 async function retryAllFailed() {
     if (!confirm('重新匹配所有"未匹配"和"退货失败"的记录？\n将清除失败标签并重新提交退货。')) return;
     const list = getRecords();
-    const failed = list.filter(r => {
+    const targets = list.filter(r => {
         const rt = parseReturnTag(r.note);
-        return rt && rt.status === '失败';
+        const rf = parseRefundTag(r.note);
+        // 退货失败的
+        if (rt && rt.status === '失败') return true;
+        // 未匹配供应商的pending（无退货标签、无退款标签）
+        if (r.status === 'pending' && !rf && !rt && !getSupplierForGroup([r])) return true;
+        // SKU未匹配的pending
+        if (r.status === 'pending' && !rf && !rt && hasUnmappedSku(r)) return true;
+        return false;
     });
-    if (!failed.length) { showToast('无失败记录', '#6b7280'); return; }
+    if (!targets.length) { showToast('无需重匹配的记录', '#6b7280'); return; }
     const h = {'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'};
     let count = 0;
-    for (const rec of failed) {
-        let note = (rec.note||'').replace(/\s*\[退货:失败[^\]]*\]/g, '').trim();
+    for (const rec of targets) {
+        let note = (rec.note||'').replace(/\s*\[退货:失败[^\]]*\]/g, '').replace(/\s*\[退货:待处理\]/g, '').trim();
         note += ' [退货:待处理]';
         await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, {
             method: 'PATCH', headers: h, body: JSON.stringify({note})
