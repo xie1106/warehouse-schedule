@@ -190,6 +190,48 @@ let currentFilter = 'all'; // all | 1688 | non1688
 let editingIdx = -1;
 let pageSize = 9999;
 let currentPage = 1;
+let skuInfoMap = {};
+
+// Load SKU info map for display
+fetch('sku_info_map.json').then(r=>r.ok?r.json():{}).then(d=>{skuInfoMap=d||{};}).catch(()=>{});
+
+function formatSkuDisplay(code, qty) {
+    const info = skuInfoMap[code];
+    if (info && info.i_id) {
+        const parts = [info.i_id];
+        if (info.color) parts.push(info.color);
+        if (info.size) parts.push(info.size);
+        return parts.join(' · ') + (qty > 1 ? ' ×' + qty : ' ×1');
+    }
+    return code + (qty > 1 ? '×' + qty : '×1');
+}
+
+function hasUnmappedSku(record) {
+    const note = (record.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+    const m = note.match(/^([^|]+)/);
+    if (!m) return false;
+    const parts = m[1].split(',');
+    for (const p of parts) {
+        const sm = p.trim().match(/(.+?)[×x](\d+)/);
+        const code = sm ? sm[1].trim() : p.trim();
+        if (code && !skuInfoMap[code]) return true;
+    }
+    return false;
+}
+
+function formatNoteDisplay(note) {
+    const clean = (note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+    if (!clean) return '';
+    const pipeIdx = clean.indexOf('|');
+    const skuPart = pipeIdx >= 0 ? clean.substring(0, pipeIdx).trim() : clean;
+    const restPart = pipeIdx >= 0 ? clean.substring(pipeIdx+1).trim() : '';
+    const formatted = skuPart.split(',').map(p => {
+        const sm = p.trim().match(/(.+?)[×x](\d+)/);
+        if (sm) return formatSkuDisplay(sm[1].trim(), parseInt(sm[2]));
+        return p.trim();
+    }).join(', ');
+    return formatted + (restPart ? ' | ' + restPart : '');
+}
 
 // Audio context for beep
 function playBeep(type) {
@@ -607,7 +649,7 @@ function loadHistory() {
     // Apply tab filter
     if (currentTab === 'all') {} // 显示全部
     else if (currentTab === 'pending_all') filtered = filtered.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note));
-    else if (currentTab === 'unmatched_all') filtered = filtered.filter(r => { const rt = parseReturnTag(r.note); return (r.status === 'pending' && !parseRefundTag(r.note) && !rt && !getSupplierForGroup([r])) || (rt && (rt.orderId||'').includes('无法匹配')); });
+    else if (currentTab === 'unmatched_all') filtered = filtered.filter(r => { const rt = parseReturnTag(r.note); return (r.status === 'pending' && !parseRefundTag(r.note) && !rt && (!getSupplierForGroup([r]) || hasUnmappedSku(r))) || (rt && (rt.orderId||'').includes('无法匹配')); });
     else if (currentTab === 'return_failed') filtered = filtered.filter(r => { const rt = parseReturnTag(r.note); return rt && rt.status === '失败' && !(rt.orderId||'').includes('无法匹配'); });
     else if (currentTab === '1688_wait_agree') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待卖家同意'); });
     else if (currentTab === '1688_wait_send') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待买家退货'); });
@@ -618,7 +660,7 @@ function loadHistory() {
     const allPending = new Set(list.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note)).map(r=>r.po_id)).size;
     const allRefunding = new Set(list.filter(r => isRefunding(r.note)).map(r=>r.po_id)).size;
     const allDone = new Set(list.filter(r => { const rf = parseRefundTag(r.note); const isRefundDone = rf && rf.status === '退款成功'; const isNon1688Done = !(r.note||'').includes('[1688:') && (r.status === 'done' || (r.note||'').includes('[退货:已下单')); return isRefundDone || isNon1688Done; }).map(r=>r.po_id)).size;
-    const allUnmatched = new Set(list.filter(r => { const rt = parseReturnTag(r.note); return (r.status === 'pending' && !parseRefundTag(r.note) && !rt && !getSupplierForGroup([r])) || (rt && (rt.orderId||'').includes('无法匹配')); }).map(r=>r.po_id)).size;
+    const allUnmatched = new Set(list.filter(r => { const rt = parseReturnTag(r.note); return (r.status === 'pending' && !parseRefundTag(r.note) && !rt && (!getSupplierForGroup([r]) || hasUnmappedSku(r))) || (rt && (rt.orderId||'').includes('无法匹配')); }).map(r=>r.po_id)).size;
     const allError = new Set(list.filter(r => { const rf = parseRefundTag(r.note); return rf && ['退款关闭','卖家拒绝','申请失败'].includes(rf.status); }).map(r=>r.po_id)).size;
     document.getElementById('pendingCount').textContent = `待处理:${allPending}`;
     document.getElementById('refundingCount').textContent = `退款中:${allRefunding}`;
@@ -655,7 +697,7 @@ function loadHistory() {
             const statusClass = r.status==='done'?'badge-done':'badge-error';
             const statusText = r.status==='done'?'已处理':(is1688Single?'异常':'未映射');
             const badgeHtml = returnInfo ? (returnInfo.status === '已下单' ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#05966918;color:#059669;border:1px solid #05966940;">✅ ${returnInfo.orderId||'已下单'}</span>` : returnInfo.status === '待处理' ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#6b728018;color:#6b7280;border:1px solid #6b728040;">⏳ 创建中</span>` : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dc262618;color:#dc2626;border:1px solid #dc262640;">❌ ${returnInfo.orderId||returnInfo.status}</span>`) : refundInfo ? getRefundBadge(refundInfo) : `<span class="badge ${statusClass}">${statusText}</span>`;
-            const noteDisplay = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+            const noteDisplay = formatNoteDisplay(r.note);
             const singleSupplier = getSupplierForGroup([r]);
             const singleSupplierHtml = singleSupplier ? `<div style="font-size:11px;color:#8b5cf6;font-weight:500;">🏪 ${singleSupplier}</div>` : '';
             const sourceTag = is1688Single ? '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#1677ff;color:#fff;margin-left:4px;">1688</span>' : '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#faad14;color:#fff;margin-left:4px;">非1688</span>';
@@ -692,7 +734,7 @@ function loadHistory() {
             const m = note.match(/^([^|]+)/);
             if(m) { const parts = m[1].split(','); parts.forEach(p => { const sm = p.trim().match(/(.+?)×(\d+)/); if(sm){ skuMap[sm[1]] = (skuMap[sm[1]]||0) + parseInt(sm[2]); } }); }
         });
-        const skuSummary = Object.entries(skuMap).map(([k,v])=>`${k}×${v}`).join(', ') || '';
+        const skuSummary = Object.entries(skuMap).map(([k,v])=>formatSkuDisplay(k.trim(),v)).join(', ') || '';
         const latestTime = new Date(items[0].created_at).toLocaleString();
         const groupRefund = items.map(r=>parseRefundTag(r.note)).find(r=>r);
         const groupReturn = items.map(r=>parseReturnTag(r.note)).find(r=>r);
@@ -714,7 +756,7 @@ function loadHistory() {
         if(count>1) {
             html += `<div id="${expandId}" style="display:none;margin-top:8px;border-top:1px solid #f0f0f0;padding-top:8px;">`;
             items.forEach(r => {
-                const noteDisplay = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+                const noteDisplay = formatNoteDisplay(r.note);
                 html += `<div style="padding:8px 10px;background:${items.indexOf(r)%2===0?'#eef4fb':'#f8fafc'};border-left:4px solid #2b7de9;border-radius:0 6px 6px 0;margin-bottom:6px;font-size:12px;">
                     <span style="color:#999;">${new Date(r.created_at).toLocaleString()}</span> · ${noteDisplay}
                     <span style="float:right;">
