@@ -1666,7 +1666,8 @@ function showToast(msg, color) {
 }
 
 initPhotoGrid();
-loadStyleMap().then(() => skuInfoMapPromise).then(() => fetchRecords());
+loadStyleMap().then(() => fetchRecords());
+skuInfoMapPromise.then(() => { if (window._records) loadHistory(); });
 
 // 未提交内容退出提示
 window.addEventListener('beforeunload', function(e) {
