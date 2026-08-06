@@ -56,11 +56,11 @@ li{font-size:13px;color:#475569;margin:4px 0;}
 <tr><td>待处理</td><td>未开始退货流程</td><td>无退款tag + 无退货tag</td></tr>
 <tr><td style="color:#d97706;">未匹配</td><td>无法匹配供应商或地址</td><td>无映射 或 退货失败:无法匹配</td></tr>
 <tr><td style="color:#dc2626;">退货失败</td><td>创建失败（非匹配问题）</td><td>执行失败（地址缺电话等）</td></tr>
-<tr><td style="color:#ef4444;">异常</td><td>1688卖家拒绝</td><td>卖家拒绝/退款关闭</td></tr>
-<tr><td style="color:#e67e22;">卖家同意</td><td>等待卖家同意退款</td><td>1688退款阶段</td></tr>
-<tr><td style="color:#2563eb;">买家退货</td><td>卖家已同意，需寄回</td><td>1688退款阶段</td></tr>
-<tr><td style="color:#7c3aed;">卖家收货</td><td>已寄回，等确认</td><td>1688退款阶段</td></tr>
-<tr><td style="color:#059669;">完成</td><td>退货/退款已完成</td><td>退款成功 或 非1688已下单</td></tr>
+<tr><td style="color:#ef4444;">异常</td><td>卖家拒绝申请/拒绝退款</td><td>卖家拒绝申请 或 卖家拒绝退款</td></tr>
+<tr><td style="color:#e67e22;">卖家同意</td><td>等待卖家同意退款申请</td><td>买家已申请，等卖家操作</td></tr>
+<tr><td style="color:#2563eb;">买家退货</td><td>买家填写快递单号</td><td>卖家已同意，需填写物流信息</td></tr>
+<tr><td style="color:#7c3aed;">卖家收货</td><td>退款中（对应1688"退款中"）</td><td>货已寄出，等卖家收货退款</td></tr>
+<tr><td style="color:#059669;">完成</td><td>退货/退款已完成</td><td>退款完成 或 非1688已下单</td></tr>
 </table>
 <h3>功能按钮</h3>
 <ul>
@@ -81,23 +81,24 @@ li{font-size:13px;color:#475569;margin:4px 0;}
   </ul>
 </li>
 <li>在1688后台提交退款申请（带图片凭证）</li>
-<li>等卖家同意 → 在聚水潭退货订单<strong>打面单发货</strong>寄回</li>
-<li>卖家确认收货 → 退款成功</li>
+<li>等卖家同意 → 填写快递单号（买家退货）</li>
+<li>在聚水潭退货订单<strong>打面单发货</strong>寄回</li>
+<li>1688状态变为"退款中"（系统显示"卖家收货"）→ 卖家确认收货 → 退款完成</li>
 </ol>
 <div class="note">⚠️ 两条线并行：聚水潭退货单（打面单发货）+ 1688退款（拿回货款），缺一不可。</div>
 
 <h3>状态流转</h3>
-<div class="flow">待处理 → 等待卖家同意 → 等待买家退货 → 等待卖家收货 → 退款成功(完成)
+<div class="flow">待处理 → 等待卖家同意 → 等待买家退货(填快递单号) → 等待卖家收货(1688"退款中") → 退款完成
                 ↓
-           卖家拒绝(异常)</div>
+           卖家拒绝申请/卖家拒绝退款(异常)</div>
 
 <h3>各节点时间</h3>
 <table>
 <tr><th>节点</th><th>时间</th></tr>
 <tr><td>一键退货 → 聚水潭订单创建</td><td>~2分钟</td></tr>
 <tr><td>等待卖家同意</td><td>1-3天</td></tr>
-<tr><td>买家退货（寄回）</td><td>打面单后1-3天</td></tr>
-<tr><td>卖家收货 → 退款成功</td><td>确认后即时</td></tr>
+<tr><td>买家退货（填快递单号+寄回）</td><td>打面单后1-3天</td></tr>
+<tr><td>卖家收货(1688退款中) → 退款完成</td><td>卖家确认后即时</td></tr>
 </table>
 
 <h2 class="orange">四、非1688采购单 — 退货流程</h2>

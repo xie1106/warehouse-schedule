@@ -609,6 +609,8 @@ function getRefundBadge(refundInfo) {
     if (!refundInfo) return '';
     const statusMap = {
         '等待卖家同意': { text: '等待卖家同意', color: '#e67e22' },
+        '卖家拒绝申请': { text: '卖家拒绝申请', color: '#e74c3c' },
+        '卖家拒绝退款': { text: '卖家拒绝退款', color: '#e74c3c' },
         '卖家已同意': { text: '卖家已同意', color: '#3498db' },
         '等待买家退货': { text: '等待买家退货', color: '#3498db' },
         '等待卖家收货': { text: '等待卖家收货', color: '#8e44ad' },
@@ -655,13 +657,13 @@ function loadHistory() {
     else if (currentTab === '1688_wait_send') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待买家退货'); });
     else if (currentTab === '1688_wait_receive') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && rf.status === '退款中' && (rf.refundId||'').includes('等待卖家收货'); });
     else if (currentTab === 'done_all') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); const isRefundDone = rf && rf.status === '退款成功'; const isNon1688Done = !(r.note||'').includes('[1688:') && (r.status === 'done' || (r.note||'').includes('[退货:已下单')); return isRefundDone || isNon1688Done; });
-    else if (currentTab === '1688_error') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && ['退款关闭','卖家拒绝','申请失败'].includes(rf.status); });
+    else if (currentTab === '1688_error') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && ['退款关闭','卖家拒绝','卖家拒绝申请','卖家拒绝退款','申请失败'].includes(rf.status); });
 
     const allPending = new Set(list.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note)).map(r=>r.po_id)).size;
     const allRefunding = new Set(list.filter(r => isRefunding(r.note)).map(r=>r.po_id)).size;
     const allDone = new Set(list.filter(r => { const rf = parseRefundTag(r.note); const isRefundDone = rf && rf.status === '退款成功'; const isNon1688Done = !(r.note||'').includes('[1688:') && (r.status === 'done' || (r.note||'').includes('[退货:已下单')); return isRefundDone || isNon1688Done; }).map(r=>r.po_id)).size;
     const allUnmatched = new Set(list.filter(r => { const rt = parseReturnTag(r.note); return (r.status === 'pending' && !parseRefundTag(r.note) && !rt && (!getSupplierForGroup([r]) || hasUnmappedSku(r))) || (rt && (rt.orderId||'').includes('无法匹配')); }).map(r=>r.po_id)).size;
-    const allError = new Set(list.filter(r => { const rf = parseRefundTag(r.note); return rf && ['退款关闭','卖家拒绝','申请失败'].includes(rf.status); }).map(r=>r.po_id)).size;
+    const allError = new Set(list.filter(r => { const rf = parseRefundTag(r.note); return rf && ['退款关闭','卖家拒绝','卖家拒绝申请','卖家拒绝退款','申请失败'].includes(rf.status); }).map(r=>r.po_id)).size;
     document.getElementById('pendingCount').textContent = `待处理:${allPending}`;
     document.getElementById('refundingCount').textContent = `退款中:${allRefunding}`;
     document.getElementById('doneCount').textContent = `已完成:${allDone}`;
