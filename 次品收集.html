@@ -593,7 +593,7 @@ function switchTab(tab, btn) {
 // 解析退款标签: [退款:状态:ID] or [退款:状态]
 function parseRefundTag(note) {
     if (!note) return null;
-    const m = note.match(/\[退款:([^:\]]+)(?::([^\]]+))?\]/);
+    const m = note.match(/\[退款:([^:\]]+)(?::([^\]]*))?\]/);
     if (!m) return null;
     return { status: m[1], refundId: m[2] || '' };
 }
