@@ -645,10 +645,13 @@ function loadHistory() {
     const search = document.getElementById('searchInput').value.trim();
     let filtered = list;
     if (search) filtered = filtered.filter(r => String(r.po_id).includes(search) || (r.note||'').includes(search));
-    // Apply source filter
+    // Apply source filter (skip if searching)
+    if (!search) {
     if (currentFilter === '1688') filtered = filtered.filter(r => (r.note||'').includes('[1688:'));
     else if (currentFilter === 'non1688') filtered = filtered.filter(r => !(r.note||'').includes('[1688:'));
-    // Apply tab filter
+    }
+    // Apply tab filter (skip if searching)
+    if (!search) {
     if (currentTab === 'all') {} // 显示全部
     else if (currentTab === 'pending_all') filtered = filtered.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note));
     else if (currentTab === 'unmatched_all') filtered = filtered.filter(r => { const rt = parseReturnTag(r.note); return (r.status === 'pending' && !parseRefundTag(r.note) && !rt && !getSupplierForGroup([r])) || (rt && (rt.orderId||'').includes('无法匹配')); });
@@ -658,6 +661,7 @@ function loadHistory() {
     else if (currentTab === '1688_wait_receive') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && (rf.status === '等待卖家收货' || (rf.status === '退款中' && (rf.refundId||'').includes('等待卖家收货'))); });
     else if (currentTab === 'done_all') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); const isRefundDone = rf && rf.status === '退款成功'; const isNon1688Done = !(r.note||'').includes('[1688:') && (r.status === 'done' || (r.note||'').includes('[退货:已下单')); return isRefundDone || isNon1688Done; });
     else if (currentTab === '1688_error') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && ['退款关闭','卖家拒绝','卖家拒绝申请','卖家拒绝退款','申请失败'].includes(rf.status); });
+    } // end if (!search)
 
     const allPending = new Set(list.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note)).map(r=>r.po_id)).size;
     const allRefunding = new Set(list.filter(r => isRefunding(r.note)).map(r=>r.po_id)).size;
