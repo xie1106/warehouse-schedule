@@ -54,7 +54,7 @@ li{font-size:13px;color:#475569;margin:4px 0;}
 <table>
 <tr><th>Tab</th><th>说明</th><th>筛选逻辑</th></tr>
 <tr><td>待处理</td><td>未开始退货流程</td><td>无退款tag + 无退货tag</td></tr>
-<tr><td style="color:#d97706;">未匹配</td><td>无法匹配供应商/地址/款号颜色码数</td><td>供应商无映射 或 SKU无法解析款号颜色码数</td></tr>
+<tr><td style="color:#d97706;">未匹配</td><td>无法匹配供应商/地址</td><td>供应商无映射（SKU信息缺失不影响）</td></tr>
 <tr><td style="color:#dc2626;">退货失败</td><td>创建失败（非匹配问题）</td><td>执行失败（地址缺电话等）</td></tr>
 <tr><td style="color:#ef4444;">异常</td><td>卖家拒绝申请/拒绝退款</td><td>卖家拒绝申请 或 卖家拒绝退款</td></tr>
 <tr><td style="color:#e67e22;">卖家同意</td><td>等待卖家同意退款申请</td><td>买家已申请，等卖家操作</td></tr>
@@ -126,8 +126,8 @@ li{font-size:13px;color:#475569;margin:4px 0;}
 <p><strong>范围</strong>：所有未建聚水潭退货单的记录（含1688退款中但未建单的）</p>
 
 <h2 class="red">六、重新匹配</h2>
-<p><strong>场景</strong>：聚水潭供应商地址更新后</p>
-<p><strong>操作</strong>：点"重新匹配" → 确认 → 清除所有失败标签 → cron自动用最新地址重试</p>
+<p><strong>场景</strong>：供应商地址更新后，或新SKU需要映射</p>
+<p><strong>操作</strong>：点"重新匹配" → 确认 → 清除失败标签（不自动创建退货单，需手动点退货按钮）</p>
 <p><strong>适用</strong>：未匹配 + 退货失败的记录</p>
 
 <h2>七、供应商匹配</h2>
@@ -147,6 +147,8 @@ li{font-size:13px;color:#475569;margin:4px 0;}
 
 <h2>八、显示规则</h2>
 <ul>
+<li>商品编码显示为：款号 · 颜色 · 尺码 ×数量（如 E6696 · 蓝色 · M ×1）</li>
+<li>多款之间用红色竖线 <span style="color:#dc2626;font-weight:700;">|</span> 分隔</li>
 <li>所有状态显示🏪供应商名称</li>
 <li>所有状态显示来源标签（🔵1688 / 🟡非1688）</li>
 <li>退货已下单显示内部单号（✅ 8370xxx）</li>
@@ -157,9 +159,18 @@ li{font-size:13px;color:#475569;margin:4px 0;}
 <ul>
 <li>备注不能用换行符（用分号分隔）</li>
 <li>同供应商合并为一个退货订单</li>
-<li>"完成"逻辑：1688退款成功 或 非1688退货已下单（1688退款中有退货单号≠完成）</li>
+<li>"完成"逻辑：1688退款成功 或 非1688退货已下单且聚水潭订单未取消</li>
 <li>退货订单推送到 shopId=21571486（外贸采购退货）</li>
 <li>历史数据永久保留</li>
 </ul>
+
+<h2>十、自动同步</h2>
+<table>
+<tr><th>任务</th><th>频率</th><th>说明</th></tr>
+<tr><td>创建退货订单</td><td>每2分钟</td><td>处理[退货:待处理]标签的记录</td></tr>
+<tr><td>同步1688退款状态</td><td>每2小时</td><td>从聚水潭labels同步退款进度（labels优先于outer_status）</td></tr>
+<tr><td>同步退货订单状态</td><td>每2小时</td><td>聚水潭退货单取消→清除标签回到待处理</td></tr>
+<tr><td>SKU信息映射</td><td>前端加载时</td><td>sku_info_map.json（6万+SKU→款号·颜色·尺码）</td></tr>
+</table>
 
 </div></body></html>
