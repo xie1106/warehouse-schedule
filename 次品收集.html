@@ -683,8 +683,8 @@ function loadHistory() {
     filtered.forEach((r, i) => {
         const realIdx = list.indexOf(r);
         r._realIdx = realIdx;
-        if (r.status === 'pending' && !parseRefundTag(r.note)) {
-            // 未申请退款的pending记录：按采购单号合并
+        if (r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note)) {
+            // 未申请退款且未退货的pending记录：按采购单号合并
             if (!pendingMap[r.po_id]) { pendingMap[r.po_id] = []; groups.push({type:'group', po_id:r.po_id, items:[]}); }
             pendingMap[r.po_id].push(r);
             groups.find(g=>g.type==='group'&&g.po_id===r.po_id).items.push(r);
