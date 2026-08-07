@@ -867,7 +867,7 @@ function getSupplierForGroup(items) {
 let _po1688Map = null;
 
 async function retryAllFailed() {
-    if (!confirm('重新匹配所有"未匹配"和"退货失败"的记录？\n将清除失败标签并重新提交退货。')) return;
+    if (!confirm('重新匹配所有"未匹配"和"退货失败"的记录？\n将清除失败标签，需手动点退货按钮创建订单。')) return;
     const list = getRecords();
     const targets = list.filter(r => {
         const rt = parseReturnTag(r.note);
@@ -885,13 +885,12 @@ async function retryAllFailed() {
     let count = 0;
     for (const rec of targets) {
         let note = (rec.note||'').replace(/\s*\[退货:失败[^\]]*\]/g, '').replace(/\s*\[退货:待处理\]/g, '').trim();
-        note += ' [退货:待处理]';
         await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, {
             method: 'PATCH', headers: h, body: JSON.stringify({note})
         });
         count++;
     }
-    showToast(`✅ 已重置${count}条记录\n约2分钟内自动重新匹配并创建退货订单`, '#059669');
+    showToast(`✅ 已重置${count}条记录\n请点退货按钮创建退货订单`, '#059669');
     setTimeout(() => fetchRecords(), 3000);
 }
 
