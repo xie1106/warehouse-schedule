@@ -28,7 +28,7 @@ li{font-size:13px;color:#475569;margin:4px 0;}
 </head><body>
 <div class="page">
 <h1>次品退货 SOP</h1>
-<p class="subtitle">捷展贸易 · 最后更新：2026-08-04</p>
+<p class="subtitle">捷展贸易 · 最后更新：2026-08-12</p>
 
 <h2>一、系统概览</h2>
 <table>
@@ -76,7 +76,7 @@ li{font-size:13px;color:#475569;margin:4px 0;}
 <li>点<span class="badge" style="background:#059669;color:#fff;">一键退货</span> → 弹窗按供应商分组 → 确认</li>
 <li>系统<strong>同时</strong>做两件事：
   <ul>
-    <li><strong>创建聚水潭采购退货订单</strong>（同供应商合并，~2分钟回写内部单号）</li>
+    <li><strong>创建聚水潭采购退货订单</strong>（同供应商合并，即时回写内部单号）</li>
     <li>打开1688后台退货页面</li>
   </ul>
 </li>
@@ -95,7 +95,7 @@ li{font-size:13px;color:#475569;margin:4px 0;}
 <h3>各节点时间</h3>
 <table>
 <tr><th>节点</th><th>时间</th></tr>
-<tr><td>一键退货 → 聚水潭订单创建</td><td>~2分钟</td></tr>
+<tr><td>一键退货 → 聚水潭订单创建</td><td>即时（点击后立即创建）</td></tr>
 <tr><td>同步1688后台退款状态</td><td>每2小时自动同步</td></tr>
 <tr><td>等待卖家同意</td><td>1-3天</td></tr>
 <tr><td>买家退货（填快递单号+寄回）</td><td>打面单后1-3天</td></tr>
@@ -121,13 +121,15 @@ li{font-size:13px;color:#475569;margin:4px 0;}
 <li>弹窗列出待退货记录，按供应商分组（仅显示供应商名+数量）</li>
 <li>🔵1688 / 🟡非1688 标签区分来源</li>
 <li>勾选确认 → 提交</li>
-<li>cron ~2分钟内：按供应商合并 → 创建聚水潭退货订单 → 回写内部单号</li>
+<li>系统即时：按供应商合并 → 创建聚水潭退货订单 → 回写内部单号</li>
 </ol>
 <p><strong>范围</strong>：所有未建聚水潭退货单的记录（含1688退款中但未建单的）</p>
+<div class="note">⚠️ 退货单只能通过前端"一键退货"按钮创建，不会自动创建。</div>
 
 <h2 class="red">六、重新匹配</h2>
 <p><strong>场景</strong>：供应商地址更新后，或新SKU需要映射</p>
-<p><strong>操作</strong>：点"重新匹配" → 确认 → 清除失败标签（不自动创建退货单，需手动点退货按钮）</p>
+<p><strong>操作</strong>：点"重新匹配" → 确认 → 清除失败标签，更新供应商映射</p>
+<p><strong>注意</strong>：重新匹配<strong>不会</strong>自动创建退货单，匹配成功后需手动点"一键退货"</p>
 <p><strong>适用</strong>：未匹配 + 退货失败的记录</p>
 
 <h2>七、供应商匹配</h2>
@@ -159,12 +161,11 @@ li{font-size:13px;color:#475569;margin:4px 0;}
 <h3>记录合并规则</h3>
 <table>
 <tr><th>合并（同一组显示）</th><th>不合并（独立显示）</th></tr>
-<tr><td>同采购单号 + 都是待处理（无退款、无退货标签）</td><td>有退款标签的（1688退款状态记录）</td></tr>
-<tr><td>同采购单号 + 同退货订单号</td><td>同采购单号但不同退货订单号</td></tr>
-<tr><td></td><td>同采购单号但状态不同（一个已退货一个待处理）</td></tr>
-<tr><td></td><td>status=done 或 error</td></tr>
+<tr><td>同采购单号 + 都是待处理（无退款、无退货标签）</td><td>同采购单号但不同退货订单号</td></tr>
+<tr><td>同采购单号 + 同退货订单号</td><td>同采购单号但状态不同（一个已退货一个待处理）</td></tr>
+<tr><td>同采购单号 + 同退款状态（卖家同意/买家退货/卖家收货/完成）</td><td>status=done 或 error（无退款标签的）</td></tr>
 </table>
-<div class="note">💡 简单原则：状态相同的合并，状态不同的分开。</div>
+<div class="note">💡 所有状态（包括卖家同意、买家退货、卖家收货、完成）都能看到图片和SKU明细。</div>
 
 <h2>九、关键规则</h2>
 <ul>
@@ -178,10 +179,10 @@ li{font-size:13px;color:#475569;margin:4px 0;}
 <h2>十、自动同步</h2>
 <table>
 <tr><th>任务</th><th>频率</th><th>说明</th></tr>
-<tr><td>创建退货订单</td><td>每2分钟</td><td>处理[退货:待处理]标签的记录</td></tr>
 <tr><td>同步1688退款状态</td><td>每2小时</td><td>从聚水潭labels同步退款进度（labels优先于outer_status）</td></tr>
 <tr><td>同步退货订单状态</td><td>每2小时</td><td>聚水潭退货单取消→清除标签回到待处理</td></tr>
 <tr><td>SKU信息映射</td><td>前端加载时</td><td>sku_info_map.json（6万+SKU→款号·颜色·尺码）</td></tr>
 </table>
+<div class="note">⚠️ 退货订单不会自动创建，必须在系统中手动点"一键退货"。</div>
 
 </div></body></html>
