@@ -193,7 +193,7 @@ let currentPage = 1;
 let skuInfoMap = {};
 
 // Load SKU info map for display
-const skuInfoMapPromise = fetch('sku_info_map.json').then(r=>r.ok?r.json():{}).then(d=>{skuInfoMap=d||{};}).catch(()=>{});
+const skuInfoMapPromise = fetch('sku_info_map.json?v='+Date.now()).then(r=>r.ok?r.json():{}).then(d=>{skuInfoMap=d||{};}).catch(()=>{});
 
 function formatSkuDisplay(code, qty) {
     const info = skuInfoMap[code];
