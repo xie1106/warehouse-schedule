@@ -1059,7 +1059,7 @@ async function confirmBatchReturn() {
 }
 
 async function cancelReturnOrder(poId, orderId, btn) {
-    const ok = await showConfirm(`确定取消采购单 ${poId} 的退货订单？`);
+    const ok = await showConfirm(`确定取消采购单 ${poId} 的退货订单？\n\n⚠️ 取消后聚水潭退货单将作废，需要重新点"退货"创建。1688退款流程不受影响。`);
     if (!ok) return;
     btn.textContent = '取消中...';
     btn.disabled = true;
