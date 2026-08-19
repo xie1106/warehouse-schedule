@@ -772,7 +772,7 @@ function loadHistory() {
             <div style="font-size:12px;color:#555;margin-top:4px;">${skuSummary}</div>
             <div class="record-time">${latestTime}${count>1?' · 合并'+count+'次提交':''}</div>
             <div id="${photosId}" style="display:none;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;" data-photos='${JSON.stringify(allPhotos)}' data-poid="${g.po_id}">
-                ${allPhotos.map((p,pi)=>`<img src="${p}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="var c=this.parentElement;openModal(this.src,JSON.parse(c.dataset.photos),${pi},c.dataset.poid)">`).join('')}
+                ${allPhotos.map((p,pi)=>`<img src="${p}" loading="lazy" onerror="this.onerror=null;this.src=this.src+'?retry=1'" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="var c=this.parentElement;openModal(this.src,JSON.parse(c.dataset.photos),${pi},c.dataset.poid)">`).join('')}
             </div>`;
         if(count>1) {
             html += `<div id="${expandId}" style="display:none;margin-top:8px;border-top:1px solid #f0f0f0;padding-top:8px;">`;
@@ -1553,7 +1553,7 @@ async function togglePhotos(idx) {
                     const photos = (data[0] && data[0].photos) || [];
                     el.dataset.photos = JSON.stringify(photos);
                     const poId = el.dataset.poid || '';
-                    el.innerHTML = photos.map((p, pi) => `<img src="${p}" onclick="event.stopPropagation();openModal(null, JSON.parse(this.parentElement.dataset.photos), ${pi}, '${poId}')">`).join('');
+                    el.innerHTML = photos.map((p, pi) => `<img src="${p}" loading="lazy" onerror="this.onerror=null;this.src=this.src+'?retry=1'" onclick="event.stopPropagation();openModal(null, JSON.parse(this.parentElement.dataset.photos), ${pi}, '${poId}')">`).join('');
                     el.dataset.loaded = '1';
                 }
             }
