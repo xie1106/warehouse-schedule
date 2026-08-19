@@ -310,6 +310,9 @@ function scanSkuCode() {
 }
 
 function addOrIncrementSku(code) {
+    // 清理扫码结果中的不可见字符和特殊字符
+    code = code.replace(/[^\x20-\x7E]/g, '').trim();
+    if (!code) return;
     const container = document.getElementById('skuRows');
     const rows = container.querySelectorAll('.sku-row');
     for (const row of rows) {
