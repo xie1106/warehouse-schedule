@@ -192,6 +192,15 @@ let pageSize = 9999;
 let currentPage = 1;
 let skuInfoMap = {};
 
+// 图片代理：通过 weserv.nl 加速国内访问
+function proxyImg(url, width) {
+    if (!url || !url.startsWith('http')) return url;
+    const u = url.replace(/^https?:\/\//, '');
+    return `https://images.weserv.nl/?url=${encodeURIComponent(u)}${width ? '&w='+width : ''}&q=70`;
+}
+function thumbImg(url) { return proxyImg(url, 200); }
+function fullImg(url) { return proxyImg(url, 1000); }
+
 // Load SKU info map for display
 const skuInfoMapPromise = fetch('sku_info_map.json?v='+Date.now()).then(r=>r.ok?r.json():{}).then(d=>{skuInfoMap=d||{};}).catch(()=>{});
 
@@ -772,7 +781,7 @@ function loadHistory() {
             <div style="font-size:12px;color:#555;margin-top:4px;">${skuSummary}</div>
             <div class="record-time">${latestTime}${count>1?' · 合并'+count+'次提交':''}</div>
             <div id="${photosId}" style="display:none;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;" data-photos='${JSON.stringify(allPhotos)}' data-poid="${g.po_id}">
-                ${allPhotos.map((p,pi)=>`<img src="${p}" loading="lazy" onerror="this.onerror=null;this.src=this.src+'?retry=1'" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="var c=this.parentElement;openModal(this.src,JSON.parse(c.dataset.photos),${pi},c.dataset.poid)">`).join('')}
+                ${allPhotos.map((p,pi)=>`<img src="${thumbImg(p)}" data-full="${p}" loading="lazy" onerror="this.onerror=null;this.src='${p}'" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="var c=this.parentElement;openModal(null,JSON.parse(c.dataset.photos),${pi},c.dataset.poid)">`).join('')}
             </div>`;
         if(count>1) {
             html += `<div id="${expandId}" style="display:none;margin-top:8px;border-top:1px solid #f0f0f0;padding-top:8px;">`;
@@ -1553,7 +1562,7 @@ async function togglePhotos(idx) {
                     const photos = (data[0] && data[0].photos) || [];
                     el.dataset.photos = JSON.stringify(photos);
                     const poId = el.dataset.poid || '';
-                    el.innerHTML = photos.map((p, pi) => `<img src="${p}" loading="lazy" onerror="this.onerror=null;this.src=this.src+'?retry=1'" onclick="event.stopPropagation();openModal(null, JSON.parse(this.parentElement.dataset.photos), ${pi}, '${poId}')">`).join('');
+                    el.innerHTML = photos.map((p, pi) => `<img src="${thumbImg(p)}" data-full="${p}" loading="lazy" onerror="this.onerror=null;this.src='${p}'" onclick="event.stopPropagation();openModal(null, JSON.parse(this.parentElement.dataset.photos), ${pi}, '${poId}')">`).join('');
                     el.dataset.loaded = '1';
                 }
             }
@@ -1573,20 +1582,20 @@ function openModal(src, photos, idx, poId) {
     if (photos) { modalPhotos = photos; modalIndex = idx || 0; }
     else { modalPhotos = [src]; modalIndex = 0; }
     if (poId) modalPoId = poId;
-    document.getElementById('modalImg').src = modalPhotos[modalIndex];
+    document.getElementById('modalImg').src = fullImg(modalPhotos[modalIndex]);
     document.getElementById('imgCounter').textContent = `${modalIndex+1} / ${modalPhotos.length}`;
     document.getElementById('imgModal').style.display = 'flex';
 }
 function prevImg() {
-    if (modalIndex > 0) { modalIndex--; document.getElementById('modalImg').src = modalPhotos[modalIndex]; document.getElementById('imgCounter').textContent = `${modalIndex+1} / ${modalPhotos.length}`; }
+    if (modalIndex > 0) { modalIndex--; document.getElementById('modalImg').src = fullImg(modalPhotos[modalIndex]); document.getElementById('imgCounter').textContent = `${modalIndex+1} / ${modalPhotos.length}`; }
 }
 function nextImg() {
-    if (modalIndex < modalPhotos.length - 1) { modalIndex++; document.getElementById('modalImg').src = modalPhotos[modalIndex]; document.getElementById('imgCounter').textContent = `${modalIndex+1} / ${modalPhotos.length}`; }
+    if (modalIndex < modalPhotos.length - 1) { modalIndex++; document.getElementById('modalImg').src = fullImg(modalPhotos[modalIndex]); document.getElementById('imgCounter').textContent = `${modalIndex+1} / ${modalPhotos.length}`; }
 }
 function closeModal() { document.getElementById('imgModal').style.display = 'none'; }
 
 function downloadImg() {
-    const src = document.getElementById('modalImg').src;
+    const src = modalPhotos[modalIndex]; // 用原始URL下载
     // 微信浏览器不支持a.download，改为提示长按保存
     const isWechat = /MicroMessenger/i.test(navigator.userAgent);
     if (isWechat) {
@@ -1608,7 +1617,7 @@ function downloadImg() {
 }
 async function copyImg() {
     try {
-        const src = document.getElementById('modalImg').src;
+        const src = modalPhotos[modalIndex]; // 用原始URL
         const res = await fetch(src);
         const blob = await res.blob();
         await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
