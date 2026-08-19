@@ -290,7 +290,7 @@ function scanSkuCode() {
     window._skuScanOverlay = overlay;
     const scanner = new Html5Qrcode("skuScanReader");
     window._skuScanner = scanner;
-    scanner.start({facingMode:"environment"},{fps:15,qrbox:250}, code => {
+    scanner.start({facingMode:"environment"},{fps:30,qrbox:250}, code => {
         addOrIncrementSku(code);
         playBeep('success');
         showToast('✓ ' + code, 'green');
@@ -358,7 +358,7 @@ function openJsCamera() {
             <div style="width:90px;"></div>
         </div>`;
     document.body.appendChild(overlay);
-    navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}})
+    navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}})
         .then(stream => { window._camStream = stream; document.getElementById('cameraVideo').srcObject = stream; })
         .catch(err => { showToast('无法打开相机: '+err.message,'red'); closeJsCamera(); });
 }
@@ -387,7 +387,8 @@ function initPhotoGrid() {
     photos.forEach((p, i) => {
         const slot = document.createElement('div');
         slot.className = 'photo-slot has-photo';
-        slot.innerHTML = `<img src="${p}"><button class="del" onclick="event.stopPropagation();removePhoto(${i})">✕</button>`;
+        const imgUrl = (p instanceof Blob) ? URL.createObjectURL(p) : p;
+        slot.innerHTML = `<img src="${imgUrl}"><button class="del" onclick="event.stopPropagation();removePhoto(${i})">✕</button>`;
         grid.appendChild(slot);
     });
     const addSlot = document.createElement('div');
@@ -426,10 +427,11 @@ function compressImg(file) {
             img.onload = () => {
                 const canvas = document.createElement('canvas');
                 let w = img.width, h = img.height;
-                if (w > 1600 || h > 1600) { if (w > h) { h = h*1600/w; w = 1600; } else { w = w*1600/h; h = 1600; } }
+                const MAX = 1200;
+                if (w > MAX || h > MAX) { if (w > h) { h = h*MAX/w; w = MAX; } else { w = w*MAX/h; h = MAX; } }
                 canvas.width = w; canvas.height = h;
                 canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                resolve(canvas.toDataURL('image/jpeg', 0.8));
+                canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.6);
             };
             img.src = e.target.result;
         };
@@ -457,9 +459,7 @@ document.getElementById('poId').addEventListener('input', function() {
 });
 
 // Upload photo to Storage, return public URL
-async function uploadPhoto(base64, poId, index) {
-    const res = await fetch(base64);
-    const blob = await res.blob();
+async function uploadPhoto(blob, poId, index) {
     const filename = `${poId}/${Date.now()}_${index}.jpg`;
     const r = await fetch(`${SUPABASE_URL}/storage/v1/object/defect-photos/${filename}`, {
         method: 'POST',
@@ -469,7 +469,7 @@ async function uploadPhoto(base64, poId, index) {
     if (r.ok) {
         return `${SUPABASE_URL}/storage/v1/object/public/defect-photos/${filename}`;
     }
-    return base64; // fallback
+    return ''; // fallback
 }
 
 // Submit
@@ -479,13 +479,16 @@ async function submitRecord() {
     const btn = document.getElementById('submitBtn');
     btn.disabled = true; btn.textContent = '上传图片中...';
 
-    // 上传图片到CDN
-    const photoUrls = [];
-    for (let i = 0; i < photos.length; i++) {
-        btn.textContent = `上传图片 ${i+1}/${photos.length}...`;
-        const url = await uploadPhoto(photos[i], poId, i);
-        photoUrls.push(url);
-    }
+    // 上传图片到CDN（并行上传）
+    btn.textContent = `上传图片 0/${photos.length}...`;
+    let uploaded = 0;
+    const photoUrls = await Promise.all(photos.map((blob, i) => 
+        uploadPhoto(blob, poId, i).then(url => {
+            uploaded++;
+            btn.textContent = `上传图片 ${uploaded}/${photos.length}...`;
+            return url;
+        })
+    ));
     btn.textContent = '提交中...';
 
     // 收集SKU信息
@@ -1625,7 +1628,7 @@ function searchScan() {
     window._searchScanner = new Html5Qrcode("searchScanReader");
     window._searchScanner.start(
         { facingMode: "environment" },
-        { fps: 15, qrbox: { width: 320, height: 160 } },
+        { fps: 30, qrbox: { width: 320, height: 160 } },
         (text) => {
             document.getElementById('searchInput').value = text;
             loadHistory();
@@ -1653,7 +1656,7 @@ function startScan() {
     html5Scanner = new Html5Qrcode("scanReader");
     html5Scanner.start(
         { facingMode: "environment" },
-        { fps: 15, qrbox: { width: 320, height: 160 }, formatsToSupport: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] },
+        { fps: 30, qrbox: { width: 320, height: 160 }, formatsToSupport: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] },
         (text) => {
             if (!/^\d{6,}$/.test(text)) {
                 playBeep('error');
