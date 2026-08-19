@@ -33,7 +33,9 @@
         .badge-error { background: #fee2e2; color: #dc2626; }
         .record-time { color: #888; font-size: 11px; margin-top: 4px; }
         .record-photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; }
-        .record-photos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; cursor: pointer; }
+        .record-photos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; cursor: pointer; background: #e5e7eb; }
+        .img-loading { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
         .tab-btn { padding: 4px 8px; border: 1px solid #ddd; border-radius: 6px; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
         .tab-btn.active { background: #4A90D9; color: #fff; border-color: #4A90D9; }
         .filter-btn { padding: 4px 8px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
@@ -196,10 +198,10 @@ let skuInfoMap = {};
 function proxyImg(url, width) {
     if (!url || !url.startsWith('http')) return url;
     const u = url.replace(/^https?:\/\//, '');
-    return `https://images.weserv.nl/?url=${encodeURIComponent(u)}${width ? '&w='+width : ''}&q=70`;
+    return `https://images.weserv.nl/?url=${encodeURIComponent(u)}${width ? '&w='+width : ''}&q=50&output=webp`;
 }
-function thumbImg(url) { return proxyImg(url, 200); }
-function fullImg(url) { return proxyImg(url, 1000); }
+function thumbImg(url) { return proxyImg(url, 100); }
+function fullImg(url) { return proxyImg(url, 800); }
 
 // Load SKU info map for display
 const skuInfoMapPromise = fetch('sku_info_map.json?v='+Date.now()).then(r=>r.ok?r.json():{}).then(d=>{skuInfoMap=d||{};}).catch(()=>{});
@@ -781,7 +783,7 @@ function loadHistory() {
             <div style="font-size:12px;color:#555;margin-top:4px;">${skuSummary}</div>
             <div class="record-time">${latestTime}${count>1?' · 合并'+count+'次提交':''}</div>
             <div id="${photosId}" style="display:none;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;" data-photos='${JSON.stringify(allPhotos)}' data-poid="${g.po_id}">
-                ${allPhotos.map((p,pi)=>`<img src="${thumbImg(p)}" data-full="${p}" loading="lazy" onerror="this.onerror=null;this.src='${p}'" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="var c=this.parentElement;openModal(null,JSON.parse(c.dataset.photos),${pi},c.dataset.poid)">`).join('')}
+                ${allPhotos.map((p,pi)=>`<img class="img-loading" src="${thumbImg(p)}" data-full="${p}" loading="lazy" onload="this.classList.remove('img-loading')" onerror="this.onerror=null;this.src='${p}'" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="var c=this.parentElement;openModal(null,JSON.parse(c.dataset.photos),${pi},c.dataset.poid)">`).join('')}
             </div>`;
         if(count>1) {
             html += `<div id="${expandId}" style="display:none;margin-top:8px;border-top:1px solid #f0f0f0;padding-top:8px;">`;
@@ -1562,7 +1564,7 @@ async function togglePhotos(idx) {
                     const photos = (data[0] && data[0].photos) || [];
                     el.dataset.photos = JSON.stringify(photos);
                     const poId = el.dataset.poid || '';
-                    el.innerHTML = photos.map((p, pi) => `<img src="${thumbImg(p)}" data-full="${p}" loading="lazy" onerror="this.onerror=null;this.src='${p}'" onclick="event.stopPropagation();openModal(null, JSON.parse(this.parentElement.dataset.photos), ${pi}, '${poId}')">`).join('');
+                    el.innerHTML = photos.map((p, pi) => `<img class="img-loading" src="${thumbImg(p)}" data-full="${p}" loading="lazy" onload="this.classList.remove('img-loading')" onerror="this.onerror=null;this.src='${p}'" onclick="event.stopPropagation();openModal(null, JSON.parse(this.parentElement.dataset.photos), ${pi}, '${poId}')">`).join('');
                     el.dataset.loaded = '1';
                 }
             }
