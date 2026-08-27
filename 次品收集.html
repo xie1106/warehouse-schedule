@@ -694,15 +694,33 @@ function loadHistory() {
     const el = document.getElementById('historyList');
     if (filtered.length === 0) { el.innerHTML = '<div style="color:#999;font-size:13px;text-align:center;padding:20px;">暂无记录</div>'; document.getElementById('pagination').innerHTML=''; return; }
 
-    // 按采购单号分组（所有记录按po_id合并，显示图片和明细）
+    // 按采购单号分组（待处理的合并，有退货/退款状态的按状态分开）
     const groups = [];
     const pendingMap = {};
     filtered.forEach((r, i) => {
         const realIdx = list.indexOf(r);
         r._realIdx = realIdx;
-        const key = 'po_' + r.po_id;
-        if (!pendingMap[key]) { pendingMap[key] = []; groups.push({type:'group', po_id:r.po_id, items:pendingMap[key]}); }
-        pendingMap[key].push(r);
+        const rt = parseReturnTag(r.note);
+        const rf = parseRefundTag(r.note);
+        if (r.status === 'pending' && !rf && !rt) {
+            // 待处理（无退货无退款）：按采购单号合并
+            const key = 'p_' + r.po_id;
+            if (!pendingMap[key]) { pendingMap[key] = []; groups.push({type:'group', po_id:r.po_id, items:pendingMap[key]}); }
+            pendingMap[key].push(r);
+        } else if (rt) {
+            // 有退货标签：按采购单号+退货订单号分组
+            const key = 'r_' + r.po_id + '_' + (rt.orderId||rt.status||'');
+            if (!pendingMap[key]) { pendingMap[key] = []; groups.push({type:'group', po_id:r.po_id, items:pendingMap[key]}); }
+            pendingMap[key].push(r);
+        } else if (rf) {
+            // 有退款标签：按采购单号+退款状态分组
+            const key = 'rf_' + r.po_id + '_' + (rf.status||'');
+            if (!pendingMap[key]) { pendingMap[key] = []; groups.push({type:'group', po_id:r.po_id, items:pendingMap[key]}); }
+            pendingMap[key].push(r);
+        } else {
+            // 其他：独立显示
+            groups.push({type:'single', record:r});
+        }
     });
 
     el.innerHTML = groups.map((g, gi) => {
