@@ -2,187 +2,238 @@
 <html lang="zh-CN"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>次品退货SOP — 捷展贸易</title>
+<title>次品退货 SOP（详细版） — 捷展贸易</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:#f1f5f9;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;padding:24px 16px;line-height:1.7;}
-.page{max-width:900px;margin:0 auto;background:#fff;border-radius:16px;padding:40px 36px;box-shadow:0 4px 24px rgba(0,0,0,0.06);}
+body{background:#f1f5f9;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;padding:24px 16px;line-height:1.75;}
+.page{max-width:960px;margin:0 auto;background:#fff;border-radius:16px;padding:40px 36px;box-shadow:0 4px 24px rgba(0,0,0,0.06);}
 h1{text-align:center;font-size:26px;color:#1e293b;margin-bottom:4px;}
-.subtitle{text-align:center;font-size:13px;color:#64748b;margin-bottom:36px;}
-h2{font-size:17px;color:#1e40af;margin:32px 0 16px;padding:10px 16px;background:#eff6ff;border-radius:8px;border-left:4px solid #2563eb;}
+.subtitle{text-align:center;font-size:13px;color:#64748b;margin-bottom:28px;}
+h2{font-size:17px;color:#1e40af;margin:34px 0 14px;padding:10px 16px;background:#eff6ff;border-radius:8px;border-left:4px solid #2563eb;}
 h2.orange{color:#92400e;background:#fef9ee;border-left-color:#f59e0b;}
 h2.green{color:#065f46;background:#ecfdf5;border-left-color:#059669;}
 h2.red{color:#991b1b;background:#fef2f2;border-left-color:#dc2626;}
-h3{font-size:14px;color:#334155;margin:20px 0 10px;}
+h3{font-size:14px;color:#334155;margin:20px 0 8px;}
 p{font-size:14px;color:#475569;margin:8px 0;}
-table{width:100%;border-collapse:separate;border-spacing:0;margin:14px 0;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;}
-th{background:#eef2ff;padding:10px 14px;text-align:left;font-size:13px;font-weight:700;color:#1e40af;}
-td{padding:10px 14px;font-size:13px;color:#334155;border-top:1px solid #f1f5f9;}
+table{width:100%;border-collapse:separate;border-spacing:0;margin:12px 0;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;}
+th{background:#eef2ff;padding:9px 12px;text-align:left;font-size:13px;font-weight:700;color:#1e40af;}
+td{padding:9px 12px;font-size:13px;color:#334155;border-top:1px solid #f1f5f9;vertical-align:top;}
 tr:nth-child(even) td{background:#f8fafc;}
-.flow{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px;margin:14px 0;font-family:monospace;font-size:13px;white-space:pre-line;color:#334155;}
-.note{background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:12px 16px;margin:14px 0;font-size:13px;color:#854d0e;}
+.flow{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;margin:12px 0;font-family:Consolas,monospace;font-size:13px;white-space:pre-line;color:#334155;}
+.note{background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:12px 16px;margin:12px 0;font-size:13px;color:#854d0e;}
+.warn{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin:12px 0;font-size:13px;color:#991b1b;}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;margin:0 2px;}
-ul{padding-left:20px;margin:8px 0;}
-li{font-size:13px;color:#475569;margin:4px 0;}
+ul,ol{padding-left:22px;margin:8px 0;}
+li{font-size:13px;color:#475569;margin:5px 0;}
+code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#b91c1c;font-family:Consolas,monospace;}
 </style>
 </head><body>
 <div class="page">
-<h1>次品退货 SOP</h1>
-<p class="subtitle">捷展贸易 · 最后更新：2026-08-12</p>
+<h1>次品退货 SOP（详细操作手册）</h1>
+<p class="subtitle">捷展贸易 · 最后更新：2026-09-01</p>
 
-<h2>一、系统概览</h2>
+<div class="note">📌 <strong>一句话流程</strong>：登记次品（拍照+采购单号）→ 系统自动匹配商品/供应商/退货地址 → 点「一键退货」创建聚水潭退货单 → 点「🖨️ 面单」打印圆通电子面单 → 寄回 → 1688 后台申请退款（1688单）→ 卖家收货 → 退款完成。</div>
+
+<h2>一、系统组成</h2>
 <table>
 <tr><th>系统</th><th>职责</th></tr>
-<tr><td>次品图片收集系统</td><td>收集次品图片 + 退款/退货状态追踪 + 一键退货下单</td></tr>
-<tr><td>聚水潭ERP</td><td>采购单管理、质检次品数量、采购退货订单创建</td></tr>
-<tr><td>1688后台</td><td>退款申请、退款状态追踪（1688采购单专用）</td></tr>
+<tr><td><strong>次品图片收集系统</strong></td><td>采集次品图片、状态追踪、供应商/商品/地址自动匹配、一键退货（建聚水潭单）、打印面单</td></tr>
+<tr><td><strong>聚水潭 ERP</strong></td><td>商品资料、供应商资料、采购单、采购退货订单（shopId=21571486 外贸采购退货）、电子面单数据源</td></tr>
+<tr><td><strong>1688 后台</strong></td><td>1688 采购单的退款申请（人工提交、带图片凭证）与退款进度</td></tr>
 </table>
-<p><strong>自动识别</strong>：有1688平台订单号 → 1688流程；无 → 非1688流程</p>
+<p><strong>自动识别来源</strong>：登记时若带 1688 平台订单号 → 1688 流程；否则 → 非 1688（线下档口）流程。两者都要质检、都要退次品。</p>
 
-<!-- TAB SECTION -->
+<h2>二、快速上手（3 步）</h2>
+<ol>
+<li><strong>登记</strong>：扫描/输入采购单号 → 输入次品明细（如 <code>Y6661黑色M×1</code> 或 <code>E669622XL×2</code>）→ 拍照上传 → 保存。</li>
+<li><strong>看状态</strong>：系统自动从聚水潭匹配颜色/码数、供应商、退货地址，页面显示「处理中 / 待补地址 / 未匹配」徽章。</li>
+<li><strong>退货</strong>：点「📦 退货」一键创建聚水潭退货单 → 点「🖨️ 面单」打印圆通电子面单 → 打包寄回。</li>
+</ol>
+<div class="note">⚠️ 退货单<strong>不会自动创建</strong>，只有点了「一键退货」才会调用聚水潭 API 创建；后台定时任务只更新状态/映射，不建单。</div>
 
-<h2>二、Tab结构</h2>
-<h3>第一行：来源筛选（可组合使用）</h3>
+<h2>三、页面布局</h2>
+<h3>顶部统计条（按采购单去重计数）</h3>
+<table>
+<tr><th>计数项</th><th>含义</th></tr>
+<tr><td><span class="badge" style="background:#6b7280;color:#fff;">待处理</span></td><td>无退货标签、无退款标签的记录（含处理中/待补地址/未匹配）</td></tr>
+<tr><td><span class="badge" style="background:#2563eb;color:#fff;">退款中</span></td><td>1688 退款进行中（等待卖家同意/买家退货/卖家收货）</td></tr>
+<tr><td><span class="badge" style="background:#059669;color:#fff;">已完成</span></td><td>退款成功，或非 1688 已下单且未取消</td></tr>
+<tr><td><span class="badge" style="background:#d97706;color:#fff;">未匹配</span></td><td>无法匹配供应商（无供应商名）</td></tr>
+<tr><td><span class="badge" style="background:#dc2626;color:#fff;">异常</span></td><td>退款被拒/关闭/失败</td></tr>
+</table>
+
+<h3>来源筛选（第一行，可组合）</h3>
 <table>
 <tr><th>按钮</th><th>作用</th></tr>
 <tr><td><span class="badge" style="background:#1f2937;color:#fff;">全部</span></td><td>不限来源</td></tr>
-<tr><td><span class="badge" style="background:#1677ff;color:#fff;">1688</span></td><td>仅1688采购单</td></tr>
-<tr><td><span class="badge" style="background:#d97706;color:#fff;">非1688</span></td><td>仅非1688采购单</td></tr>
+<tr><td><span class="badge" style="background:#1677ff;color:#fff;">1688</span></td><td>只看 1688 采购单</td></tr>
+<tr><td><span class="badge" style="background:#d97706;color:#fff;">非1688</span></td><td>只看非 1688 采购单</td></tr>
 </table>
 
-<h3>第二行：状态Tab（点选中，再点取消回全部）</h3>
+<h3>状态 Tab（第二行）</h3>
 <table>
-<tr><th>Tab</th><th>说明</th><th>筛选逻辑</th></tr>
-<tr><td>待处理</td><td>未开始退货流程</td><td>无退款tag + 无退货tag</td></tr>
-<tr><td style="color:#d97706;">未匹配</td><td>无法匹配供应商/地址</td><td>供应商无映射（SKU信息缺失不影响）</td></tr>
-<tr><td style="color:#dc2626;">退货失败</td><td>创建失败（非匹配问题）</td><td>执行失败（地址缺电话等）</td></tr>
-<tr><td style="color:#ef4444;">异常</td><td>卖家拒绝申请/拒绝退款</td><td>卖家拒绝申请 或 卖家拒绝退款</td></tr>
-<tr><td style="color:#e67e22;">卖家同意</td><td>等待卖家同意退款申请</td><td>买家已申请，等卖家操作</td></tr>
-<tr><td style="color:#2563eb;">买家退货</td><td>买家填写快递单号</td><td>卖家已同意，需填写物流信息</td></tr>
-<tr><td style="color:#7c3aed;">卖家收货</td><td>退款中（对应1688"退款中"）</td><td>货已寄出，等卖家收货退款</td></tr>
-<tr><td style="color:#059669;">完成</td><td>退货/退款已完成</td><td>退款完成 或 非1688已下单</td></tr>
+<tr><th>Tab</th><th>筛选逻辑</th><th>说明</th></tr>
+<tr><td>待处理</td><td>pending + 无退货标签 + 无退款标签</td><td>未开始退货流程</td></tr>
+<tr><td style="color:#d97706;">未匹配</td><td>pending + 无退货/退款标签 + 无供应商，或退货订单号为「无法匹配」</td><td>需要人工确认供应商</td></tr>
+<tr><td style="color:#dc2626;">退货失败</td><td>退货标签 = 失败（且非无法匹配）</td><td>建单失败，可点「🔄 重试」</td></tr>
+<tr><td style="color:#ef4444;">异常</td><td>退款状态 ∈ 退款关闭/卖家拒绝/卖家拒绝申请/卖家拒绝退款/申请失败</td><td>1688 退款被拒等</td></tr>
+<tr><td style="color:#e67e22;">卖家同意</td><td>退款状态 = 等待卖家同意</td><td>等 1688 卖家同意退款</td></tr>
+<tr><td style="color:#2563eb;">买家退货</td><td>退款状态 = 等待买家退货</td><td>需填快递单号寄回</td></tr>
+<tr><td style="color:#7c3aed;">卖家收货</td><td>退款状态 = 等待卖家收货</td><td>货已寄出，等卖家收货</td></tr>
+<tr><td style="color:#059669;">完成</td><td>退款成功，或非 1688 已下单且未取消</td><td>流程结束</td></tr>
 </table>
-<h3>功能按钮</h3>
+<div class="note">💡 搜索框输入采购单号或聚水潭退货单号时，忽略 Tab 过滤直接显示。</div>
+
+<h2 class="green">四、状态徽章全解（你看到的每个徽章）</h2>
+<table>
+<tr><th>徽章</th><th>颜色</th><th>含义</th><th>下一步动作</th></tr>
+<tr><td><span class="badge" style="background:#6b7280;color:#fff;">⏳ 处理中</span></td><td>灰</td><td>已匹配到供应商+退货地址，等待退货操作</td><td>点「📦 退货」建单 → 「🖨️ 面单」打印</td></tr>
+<tr><td><span class="badge" style="background:#e67e22;color:#fff;">⚠️ 待补地址</span></td><td>橙</td><td>匹配到供应商，但退货地址缺失</td><td>联系管理员补地址</td></tr>
+<tr><td><span class="badge" style="background:#d97706;color:#fff;">❌ 未匹配</span></td><td>橙红</td><td>未匹配到供应商</td><td>核对采购单/商品编码，或「重新匹配」</td></tr>
+<tr><td><span class="badge" style="background:#059669;color:#fff;">✅ 已下单</span></td><td>绿</td><td>聚水潭退货单已创建（显示内部单号）</td><td>点「🖨️ 面单」打印发货</td></tr>
+<tr><td><span class="badge" style="background:#dc2626;color:#fff;">❌ 异常</span></td><td>红</td><td>聚水潭建单异常（含订单号）</td><td>查看原因，必要时「一键退货」重试</td></tr>
+<tr><td><span class="badge" style="background:#dc2626;color:#fff;">❌ 失败</span></td><td>红</td><td>建单失败（非匹配问题，如缺电话）</td><td>点「🔄 重试」</td></tr>
+<tr><td><span class="badge" style="background:#8e44ad;color:#fff;">⏳ 等待卖家收货</span></td><td>紫</td><td>1688/退货流程：已寄出，等收货</td><td>等待</td></tr>
+<tr><td><span class="badge" style="background:#3498db;color:#fff;">⏳ 等待买家退货</span></td><td>蓝</td><td>卖家已同意，需买家填快递单号</td><td>填面单号（1688 退款申请里填）</td></tr>
+</table>
+<p>退款徽章（1688）：等待卖家同意（橙）、卖家已同意（蓝）、等待买家退货（蓝）、等待卖家收货（紫）、退款成功（绿）、退款关闭（灰）、卖家拒绝/申请失败（红）等，颜色对应 <code>[退款:状态]</code> 标签。</p>
+
+<h2>五、记录分组与展示规则</h2>
+<h3>合并显示（同一张卡片）</h3>
 <ul>
-<li><span class="badge" style="background:#059669;color:#fff;">一键退货</span> — 按供应商合并创建聚水潭退货订单</li>
-<li><span class="badge" style="background:#dc2626;color:#fff;">重新匹配</span> — 重新匹配供应商地址 + 款号颜色码数，清除失败标签重试</li>
+<li>同采购单号 + 都是待处理（无退货、无退款标签）→ 按 PO+供应商 合并</li>
+<li>同采购单号 + 同退货订单号 → 合并</li>
+<li>同采购单号 + 同退款状态 → 合并</li>
 </ul>
-<div class="note">💡 来源筛选 × 状态Tab 组合使用。例：点"1688"+"完成" = 只看1688退款成功的</div>
+<h3>独立显示</h3>
+<ul>
+<li>同采购单号但退货订单号不同 / 退款状态不同 → 分开显示</li>
+<li>status=done 或 error（无退款标签）→ 独立显示</li>
+</ul>
+<h3>商品明细展示</h3>
+<ul>
+<li>格式：<code>款号 · 颜色 · 尺码 ×数量</code>，多款之间用红色竖线 <strong style="color:#dc2626;">|</strong> 分隔</li>
+<li>颜色/尺码来自聚水潭商品资料（自动匹配），不是人工填的</li>
+<li>卡片上显示 🏪 供应商名称；🔵1688 / 🟡非1688 来源标签</li>
+<li>已下单显示内部单号：✅ 8370xxx；退款旁显示 📦 退货单号</li>
+</ul>
 
-<h2>三、1688采购单 — 退款+退货流程</h2>
-<h3>操作步骤</h3>
-<ol style="padding-left:20px;font-size:13px;color:#475569;">
-<li>仓库扫码登记次品 → 拍照上传</li>
-<li>点<span class="badge" style="background:#059669;color:#fff;">一键退货</span> → 弹窗按供应商分组 → 确认</li>
-<li>系统<strong>同时</strong>做两件事：
-  <ul>
-    <li><strong>创建聚水潭采购退货订单</strong>（同供应商合并，即时回写内部单号）</li>
-    <li>打开1688后台退货页面</li>
-  </ul>
-</li>
-<li>在1688后台提交退款申请（带图片凭证）</li>
-<li>等卖家同意 → 填写快递单号（买家退货）</li>
-<li>在聚水潭退货订单<strong>打面单发货</strong>寄回</li>
-<li>1688状态变为"退款中"（系统显示"卖家收货"）→ 卖家确认收货 → 退款完成</li>
+<h2>六、1688 采购单 — 完整流程</h2>
+<h3>操作步骤（每一步都重要）</h3>
+<ol>
+<li><strong>登记</strong>：仓库扫码登记次品 → 拍照上传（登记时带 1688 平台订单号）。</li>
+<li><strong>点「📦 退货」</strong>：弹窗确认后，系统<strong>立即</strong>调用聚水潭 API 创建采购退货订单（同供应商合并，即时回写内部单号，标记 <code>[退货:已下单:xxxx]</code>）。</li>
+<li><strong>打印面单</strong>：点「🖨️ 面单」→ 系统用圆通电子面单接口生成面单（聚水潭同款版式：收件信息=供应商退货地址，寄件=次品退货部，含三段码/条码/快递单号），可打印寄回。</li>
+<li><strong>1688 申请退款</strong>：点「📦 退货」还会打开 1688 后台退货页面（系统带 1688 订单链接）。<strong>人工</strong>在 1688 后台提交退款申请，并把次品图片作为凭证上传。</li>
+<li><strong>等卖家同意</strong>：系统每 2 小时同步 1688 退款进度（状态显示「等待卖家同意」）。</li>
+<li><strong>填快递单号</strong>：卖家同意后，1688 退款申请进入「等待买家退货」，把面单上的快递单号填到 1688 退款申请单里。</li>
+<li><strong>寄回</strong>：用打印好的圆通面单发货。</li>
+<li><strong>卖家收货 → 退款完成</strong>：1688 状态变「退款中/等待卖家收货」，卖家确认收货后「退款成功」。</li>
 </ol>
-<div class="note">⚠️ 两条线并行：聚水潭退货单（打面单发货）+ 1688退款（拿回货款），缺一不可。</div>
+<div class="flow">登记次品 → 📦一键退货(建聚水潭单+开1688退货页) → 🖨️打面单 → 1688后台提交退款申请(带图)
+  → 等待卖家同意 → 填快递单号(等待买家退货) → 寄回 → 等待卖家收货 → 退款完成
+                          ↓
+              卖家拒绝/申请失败 → 异常（人工跟进）</div>
+<div class="warn">⚠️ 两条线并行、缺一不可：① 聚水潭退货单（用于打面单/物流）；② 1688 退款申请（用于拿回货款）。图片凭证无法自动搬运到 1688，必须人工在 1688 后台上传。</div>
 
-<h3>状态流转</h3>
-<div class="flow">待处理 → 等待卖家同意 → 等待买家退货(填快递单号) → 等待卖家收货(1688"退款中") → 退款完成
-                ↓
-           卖家拒绝申请/卖家拒绝退款(异常)</div>
-
-<h3>各节点时间</h3>
+<h3>各节点参考时间</h3>
 <table>
 <tr><th>节点</th><th>时间</th></tr>
-<tr><td>一键退货 → 聚水潭订单创建</td><td>即时（点击后立即创建）</td></tr>
-<tr><td>同步1688后台退款状态</td><td>每2小时自动同步</td></tr>
-<tr><td>等待卖家同意</td><td>1-3天</td></tr>
-<tr><td>买家退货（填快递单号+寄回）</td><td>打面单后1-3天</td></tr>
-<tr><td>卖家收货(1688退款中) → 退款完成</td><td>卖家确认后即时</td></tr>
+<tr><td>一键退货 → 聚水潭退货单创建</td><td>即时（点击后立即调用 API）</td></tr>
+<tr><td>同步 1688 退款进度</td><td>每 2 小时自动（人工可点刷新入口）</td></tr>
+<tr><td>等待卖家同意</td><td>1–3 天</td></tr>
+<tr><td>买家退货（填单号+寄回）</td><td>打面单后 1–3 天</td></tr>
+<tr><td>卖家收货 → 退款完成</td><td>卖家确认后即时</td></tr>
 </table>
 
-<h2 class="orange">四、非1688采购单 — 退货流程</h2>
+<h2 class="orange">七、非 1688 采购单 — 完整流程</h2>
 <h3>操作步骤</h3>
-<ol style="padding-left:20px;font-size:13px;color:#475569;">
-<li>仓库扫码登记次品 → 拍照上传</li>
-<li>点<span class="badge" style="background:#059669;color:#fff;">一键退货</span> → 弹窗按供应商分组 → 确认</li>
-<li>系统自动创建聚水潭采购退货订单（~2分钟）</li>
-<li>去聚水潭"外贸采购退货"店铺打面单发货</li>
+<ol>
+<li><strong>登记</strong>：扫码登记次品 → 拍照上传。</li>
+<li>系统自动匹配商品颜色/码数、供应商、退货地址（来自聚水潭资料，每 2 小时自动更新）。</li>
+<li>确认卡片显示「⏳ 处理中」+ 🏪 供应商。</li>
+<li>点「📦 退货」→ 系统立即创建聚水潭采购退货订单（<code>[退货:已下单:xxxx]</code>）。</li>
+<li>点「🖨️ 面单」→ 生成并打印圆通电子面单。</li>
+<li>打包寄回供应商（面单上的收件地址即供应商退货地址）。</li>
+<li>流程结束（显示「已完成」）。</li>
 </ol>
-<h3>状态流转</h3>
-<div class="flow">待处理 → ⏳创建中 → ✅已下单(内部单号) = 完成
-    ↓           ↓
-  未匹配     退货失败</div>
+<div class="flow">登记次品 → 自动匹配(商品/供应商/地址) → 📦一键退货(建聚水潭单) → 🖨️打面单 → 寄回 → 完成
+                ↓                        ↓
+            未匹配(补商品/供应商)      待补地址(补地址)</div>
+<div class="note">💡 非 1688 不走 1688 退款流程；退货单创建后即视为完成，主要靠聚水潭单打面单/物流。</div>
 
-<h2 class="green">五、一键退货</h2>
-<ol style="padding-left:20px;font-size:13px;color:#475569;">
-<li>点"一键退货"按钮</li>
-<li>弹窗列出待退货记录，按供应商分组（仅显示供应商名+数量）</li>
-<li>🔵1688 / 🟡非1688 标签区分来源</li>
-<li>勾选确认 → 提交</li>
-<li>系统即时：按供应商合并 → 创建聚水潭退货订单 → 回写内部单号</li>
-</ol>
-<p><strong>范围</strong>：所有未建聚水潭退货单的记录（含1688退款中但未建单的）</p>
-<div class="note">⚠️ 退货单只能通过前端"一键退货"按钮创建，不会自动创建。</div>
-
-<h2 class="red">六、重新匹配</h2>
-<p><strong>场景</strong>：供应商地址更新后，或新SKU需要映射</p>
-<p><strong>操作</strong>：点"重新匹配" → 确认 → 清除失败标签，更新供应商映射</p>
-<p><strong>注意</strong>：重新匹配<strong>不会</strong>自动创建退货单，匹配成功后需手动点"一键退货"</p>
-<p><strong>适用</strong>：未匹配 + 退货失败的记录</p>
-
-<h2>七、供应商匹配</h2>
-<h3>供应商名称获取（优先级）</h3>
-<table>
-<tr><th>优先级</th><th>方式</th></tr>
-<tr><td>1</td><td>note中 供应商:xxx 字段（1688自带）</td></tr>
-<tr><td>2</td><td>本地 return_style_map.json（前缀匹配）</td></tr>
-<tr><td>3</td><td>聚水潭商品多供应商API</td></tr>
-</table>
-<h3>退货地址获取</h3>
-<table>
-<tr><th>优先级</th><th>方式</th></tr>
-<tr><td>1</td><td>聚水潭供应商列表API</td></tr>
-<tr><td>2</td><td>本地 return_addr_map.json</td></tr>
-</table>
-
-<h2>八、显示规则</h2>
+<h2>八、一键退货（创建聚水潭退货单）</h2>
 <ul>
-<li>商品编码显示为：款号 · 颜色 · 尺码 ×数量（如 E6696 · 蓝色 · M ×1）</li>
-<li>多款之间用红色竖线 <span style="color:#dc2626;font-weight:700;">|</span> 分隔</li>
-<li>所有状态显示🏪供应商名称</li>
-<li>所有状态显示来源标签（🔵1688 / 🟡非1688）</li>
-<li>退货已下单显示内部单号（✅ 8370xxx）</li>
-<li>1688退款状态badge旁显示退货订单号（📦8370xxx）</li>
-<li>搜索框支持：采购单号 + 聚水潭内部单号（搜索时忽略tab过滤）</li>
+<li>只有点「📦 退货 / 一键退货」才会创建聚水潭退货单；<strong>后台定时任务不会自动建单</strong>。</li>
+<li>前端直接调用退货服务（Cloudflare Worker <code>return-worker</code>）→ 调聚水潭 <code>/open/jushuitan/orders/upload</code> 创建订单。</li>
+<li>订单推送店铺：<code>shopId=21571486</code>（外贸采购退货店铺）。</li>
+<li>创建成功后回写内部单号并标记 <code>[退货:已下单:内部单号]</code>；失败标记 <code>[退货:失败]</code>（可「🔄 重试」）或 <code>[退货:异常:单号]</code>。</li>
+<li>1688 与非 1688 都会建聚水潭单（1688 建单用于电子面单/物流，退款另走 1688 平台）。</li>
+<li>按供应商合并：同一采购单内同供应商的次品合并为一个退货订单。</li>
+</ul>
+<div class="warn">⚠️ 建单前请确认卡片有供应商+退货地址（处理中徽章）；「待补地址/未匹配」的记录无法建单打印。</div>
+
+<h2>九、面单打印（🖨️ 面单）</h2>
+<ul>
+<li>按钮出现条件：该采购单已匹配到<strong>有效供应商 + 退货地址</strong>。</li>
+<li>点击后：系统调用圆通电子面单 API（<code>yto-proxy</code>）实时生成面单，显示快递单号（YT 开头）。</li>
+<li>面单版式：聚水潭同款（收件信息自动换行；寄件：谢焕君 13316255984 广东省广州市番禺区大石街道会江鸿盛三路9号高昇产业园A301；含三段码/大单号/左右快递单号/明细区）。</li>
+<li>打印后把快递单号填到 1688 退款申请（1688 单）。</li>
+<li>若显示「暂无退货地址」，需先补供应商退货地址。</li>
 </ul>
 
-<h3>记录合并规则</h3>
-<table>
-<tr><th>合并（同一组显示）</th><th>不合并（独立显示）</th></tr>
-<tr><td>同采购单号 + 都是待处理（无退款、无退货标签）</td><td>同采购单号但不同退货订单号</td></tr>
-<tr><td>同采购单号 + 同退货订单号</td><td>同采购单号但状态不同（一个已退货一个待处理）</td></tr>
-<tr><td>同采购单号 + 同退款状态（卖家同意/买家退货/卖家收货/完成）</td><td>status=done 或 error（无退款标签的）</td></tr>
-</table>
-<div class="note">💡 所有状态（包括卖家同意、买家退货、卖家收货、完成）都能看到图片和SKU明细。</div>
-
-<h2>九、关键规则</h2>
+<h2>十、重新匹配</h2>
 <ul>
-<li>备注不能用换行符（用分号分隔）</li>
-<li>同供应商合并为一个退货订单</li>
-<li>"完成"逻辑：1688退款成功 或 非1688退货已下单且聚水潭订单未取消</li>
-<li>退货订单推送到 shopId=21571486（外贸采购退货）</li>
-<li>历史数据永久保留</li>
+<li><strong>适用</strong>：未匹配 + 退货失败的记录（点「重新匹配」批量触发）。</li>
+<li>作用：清除失败标签，按最新聚水潭商品/供应商/地址映射重新匹配；<strong>不会自动建单</strong>。</li>
+<li>匹配成功后需手动点「一键退货」。</li>
+<li>也可对单个失败记录点「🔄 重试」。</li>
 </ul>
 
-<h2>十、自动同步</h2>
+<h2 class="green">十一、商品/供应商/退货地址自动同步（方案A）</h2>
 <table>
-<tr><th>任务</th><th>频率</th><th>说明</th></tr>
-<tr><td>同步1688退款状态</td><td>每2小时</td><td>从聚水潭labels同步退款进度（labels优先于outer_status）</td></tr>
-<tr><td>同步退货订单状态</td><td>每2小时</td><td>聚水潭退货单取消→清除标签回到待处理</td></tr>
-<tr><td>SKU信息映射</td><td>前端加载时</td><td>sku_info_map.json（6万+SKU→款号·颜色·尺码）</td></tr>
+<tr><th>数据</th><th>来源</th><th>更新方式</th></tr>
+<tr><td>商品（SKU→款号·颜色·码数）</td><td>聚水潭普通商品资料（仅 15 个服装分类：背心/短裤/长裤/七分裤/短袖衬衫/套装/长袖衬衫/毛衣/外套/卫衣/羽绒外套/短袖T/长袖T/马甲/裙子）</td><td>每 2 小时自动（本机计划任务 JST-AutoSync → 聚水潭 → Supabase mapping_data）</td></tr>
+<tr><td>供应商（款号→供应商）</td><td>聚水潭商品资料 supplier_name + 供应商表</td><td>同上，每 2 小时</td></tr>
+<tr><td>退货地址（供应商→地址）</td><td>聚水潭供应商资料（address/mobile/contacts）</td><td>同上，每 2 小时</td></tr>
 </table>
-<div class="note">⚠️ 退货订单不会自动创建，必须在系统中手动点"一键退货"。</div>
+<ul>
+<li>前端每次打开页面从 Supabase <code>mapping_data</code> 读取最新映射，失败用本地 JSON 兜底。</li>
+<li>新增商品/供应商/地址：在聚水潭维护好后，<strong>最多 2 小时</strong>自动进入次品系统，无需人工处理。</li>
+<li>云备份方案：Cloudflare Worker（<code>jst-sync-worker</code>）每天 03/11/19 点自动同步（需聚水潭把 Cloudflare 出口网段加入 IP 白名单后生效）。</li>
+</ul>
+<div class="note">⚠️ 供应商名称带 <code>*</code> 号（打码，如 <code>吕**-整烫</code>）或为「市场」的，一律视为<strong>未匹配</strong>，归入未匹配状态。</div>
+
+<h2 class="red">十二、状态标签（note 里的标记，技术说明）</h2>
+<table>
+<tr><th>标签</th><th>含义</th></tr>
+<tr><td><code>[退货:待处理]</code></td><td>处理中（一键退货已点，等待建单/处理）</td></tr>
+<tr><td><code>[退货:已下单:内部单号]</code></td><td>聚水潭退货单已创建</td></tr>
+<tr><td><code>[退货:失败]</code></td><td>建单失败（可重试）</td></tr>
+<tr><td><code>[退货:异常:单号]</code></td><td>建单异常</td></tr>
+<tr><td><code>[退款:状态[:id]]</code></td><td>1688 退款状态（等待卖家同意/等待买家退货/等待卖家收货/退款成功/卖家拒绝等）</td></tr>
+<tr><td><code>[供应商:xxx]</code></td><td>匹配到的供应商名</td></tr>
+<tr><td><code>[地址:姓名,电话,地址]</code></td><td>退货地址</td></tr>
+<tr><td><code>[明细:颜色;码数]</code></td><td>商品明细（来自聚水潭）</td></tr>
+<tr><td><code>[1688:订单号 供应商:xxx 次品:n]</code></td><td>1688 来源信息</td></tr>
+<tr><td><code>[非1688]</code></td><td>非 1688 来源</td></tr>
+<tr><td><code>[系统:未找到该采购单]</code></td><td>聚水潭没查到该采购单（不影响流程）</td></tr>
+</table>
+
+<h2>十三、注意事项与常见问题</h2>
+<table>
+<tr><th>问题</th><th>处理</th></tr>
+<tr><td>显示「未匹配」</td><td>① 供应商带 * 号/市场 → 等聚水潭脱敏；② 商品不在 15 个分类 → 系统不收录；③ 新供应商 → 聚水潭建资料后 2 小时内自动匹配；④ 点「重新匹配」</td></tr>
+<tr><td>显示「待补地址」</td><td>聚水潭供应商资料里补充 address/mobile/contacts，最多 2 小时自动同步</td></tr>
+<tr><td>没有「🖨️ 面单」按钮</td><td>供应商或退货地址未匹配，先解决匹配问题</td></tr>
+<tr><td>打印面单失败</td><td>检查供应商地址是否含电话/完整；圆通接口异常时稍后重试</td></tr>
+<tr><td>退货失败</td><td>点「🔄 重试」；仍失败联系管理员查聚水潭退货单报错</td></tr>
+<tr><td>1688 退款状态不变</td><td>退款进度每 2 小时同步一次；紧急可联系管理员手动刷新</td></tr>
+</table>
+<ul>
+<li>备注/明细<strong>不能用换行符</strong>（用分号分隔）。</li>
+<li>历史数据永久保留；删除操作需谨慎（仅管理员）。</li>
+<li>退货地址「拒收到付件」的，寄件务必选择寄付。</li>
+</ul>
 
 </div></body></html>
