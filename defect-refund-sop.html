@@ -94,6 +94,7 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 <tr><td><span class="badge" style="background:#e67e22;color:#fff;">⏳ 等待卖家同意</span></td><td>橙</td><td>1688 退款申请已提交，等卖家</td><td>等待（可催卖家）</td></tr>
 <tr><td><span class="badge" style="background:#2563eb;color:#fff;">⏳ 等待买家退货</span></td><td>蓝</td><td>卖家已同意，需买家填快递单号</td><td>在 1688 退款申请里填写面单上的快递单号</td></tr>
 <tr><td><span class="badge" style="background:#7c3aed;color:#fff;">⏳ 等待卖家收货</span></td><td>紫</td><td>已寄回，等卖家收货</td><td>等待</td></tr>
+<tr><td><span class="badge" style="background:#059669;color:#fff;">✅ 已打印 YTxxxx</span></td><td>绿</td><td>已获取圆通电子面单（记录带 [面单:已打印:运单号]）</td><td>打包寄回；1688 单在 1688 后台填该快递单号</td></tr>
 <tr><td><span class="badge" style="background:#059669;color:#fff;">退款成功</span></td><td>绿</td><td>1688 退款到账</td><td>流程结束</td></tr>
 </table>
 <p>历史数据里的 <span class="badge" style="background:#059669;color:#fff;">✅ 已下单</span>（<code>[退货:已下单:单号]</code>）是旧流程创建的聚水潭退货单，保留显示但不影响新流程。</p>
@@ -164,7 +165,9 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 <li>按钮出现条件：该采购单已匹配到<strong>有效供应商 + 退货地址</strong>（待处理状态）。</li>
 <li>点击后：系统调用圆通电子面单 API（<code>yto-proxy</code>）实时生成面单，显示快递单号（YT 开头）。</li>
 <li>面单版式：聚水潭同款（收件信息自适应换行；寄件：谢焕君 13316255984 广东省广州市番禺区大石街道会江鸿盛三路9号高昇产业园A301；含三段码/大单号/左右快递单号/明细区）。</li>
-<li>打印成功后自动清除 [面单:异常] 标记；失败自动写入 [面单:异常:原因] 并显示「❌ 面单异常」。</li>
+<li>打印成功后自动写入 <code>[面单:已打印:运单号]</code>，卡片显示绿色「✅ 已打印 YTxxxx」徽章（刷新不丢失），面单按钮也显示已获取的单号。</li>
+<li>失败自动写入 [面单:异常:原因] 并显示「❌ 面单异常」；打印异常<strong>不会</strong>清除已打印状态。</li>
+<li>重新点击已打印按钮会重新生成一张新面单（新运单号），如需打印同一张请勿重复点击。</li>
 <li>打印后把快递单号填到 1688 退款申请（1688 单）。</li>
 </ul>
 <div class="warn">⚠️ 缺退货地址的采购单无法打印面单（未匹配：缺退货地址），需先补供应商退货地址。</div>
@@ -203,7 +206,8 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 <h2 class="red">十二、状态标签（note 里的标记，技术说明）</h2>
 <table>
 <tr><th>标签</th><th>含义</th></tr>
-<tr><td><code>[面单:异常:原因]</code></td><td>快递单号获取异常（打印失败自动写入，成功自动清除）</td></tr>
+<tr><td><code>[面单:已打印:运单号]</code></td><td>已获取电子面单（打印成功自动写入，卡片显示「✅ 已打印」）</td></tr>
+<tr><td><code>[面单:异常:原因]</code></td><td>快递单号获取异常（打印失败自动写入；成功打印后清除，不清除已打印状态）</td></tr>
 <tr><td><code>[退款:状态[:id]]</code></td><td>1688 退款状态（等待卖家同意/等待买家退货/等待卖家收货/退款成功/卖家拒绝等）</td></tr>
 <tr><td><code>[退货:已下单:单号]</code> / <code>[退货:失败]</code> / <code>[退货:异常:单号]</code> / <code>[退货:待处理]</code></td><td>旧流程（聚水潭建单）历史标签，仅展示</td></tr>
 <tr><td><code>[供应商:xxx]</code></td><td>匹配到的供应商名</td></tr>
