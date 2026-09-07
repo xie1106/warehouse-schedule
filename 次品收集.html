@@ -1,936 +1,30 @@
 <!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════
+  次品照片收集系统 · 复刻版（v1.0）
+  ────────────────────────────────────────────────────────────────
+  本文件基于线上仓库版 (github.com/xie1106/warehouse-schedule) 复刻，
+  完整保留原有全部功能，仅做以下整理：
+    ① 顶部集中系统配置（APP_CONFIG），以后调整配置无需改业务代码；
+    ② 为各功能模块添加分区注释，便于维护与后续逐步调整；
+    ③ 数据表名 / 图片存储桶名 / 加载条数等抽为可配置项。
+  重要说明（系统如何工作）：
+    · 前端负责"采集 + 打标签 + 展示状态 + 打印面单"；
+    · 记录状态是状态标记，后台【不会】自动创建聚水潭退货单；
+    · 不再通过"退货按钮/聚水潭API"创建退货单，直接点【🖨️ 面单】打印圆通电子面单；
+    · 1688 采购单点【🔗 1688后台】跳转到 1688 订单页，人工申请退款并填写快递单号；
+    · 未匹配会标明原因（缺供应商/缺退货地址/缺颜色/缺码数等）；
+    · 异常 = 退款被拒 或 快递单号获取异常。
+  ════════════════════════════════════════════════════════════════
+-->
+
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>次品照片收集系统</title>
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; height: 100vh; padding: 0; margin: 0; display: flex; flex-direction: column; overflow: hidden; }
-        .container { max-width: 500px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; height: 100%; overflow: hidden; padding: 0 12px; }
-        h1 { font-size: 18px; text-align: center; padding: 12px 0 8px; color: #333; flex-shrink: 0; }
-        .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        label { display: block; font-size: 14px; color: #333; margin-bottom: 6px; font-weight: 500; }
-        input[type=text] { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; outline: none; }
-        input:focus { border-color: #4A90D9; }
-        #poId::placeholder { font-size: 12px; color: #ccc; }
-        .photo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
-        .photo-slot { aspect-ratio: 1; border: 2px dashed #ddd; border-radius: 6px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer; background: #fafafa; }
-        .photo-slot.has-photo { border: 2px solid #4A90D9; }
-        .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
-        .photo-slot .del { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; background: rgba(220,38,38,0.9); color: #fff; border: none; border-radius: 50%; font-size: 11px; cursor: pointer; }
-        .photo-slot .add-icon { font-size: 24px; color: #bbb; }
-        .submit-btn { width: 100%; padding: 12px; background: #4A90D9; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
-        .submit-btn:disabled { background: #ccc; }
-        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; color: #fff; font-size: 14px; z-index: 9999; display: none; }
-        .record { padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #4A90D9; background: #fff; }
-        .record-header { display: flex; justify-content: space-between; align-items: center; }
-        .record-title { font-size: 14px; font-weight: 600; }
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-        .badge-pending { background: #fef3c7; color: #d97706; }
-        .badge-done { background: #d1fae5; color: #059669; }
-        .badge-error { background: #fee2e2; color: #dc2626; }
-        .record-time { color: #888; font-size: 11px; margin-top: 4px; }
-        .record-photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; }
-        .record-photos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; cursor: pointer; background: #e5e7eb; }
-        .img-loading { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
-        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-        .tab-btn { padding: 4px 8px; border: 1px solid #ddd; border-radius: 6px; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
-        .tab-btn.active { background: #4A90D9; color: #fff; border-color: #4A90D9; }
-        .filter-btn { padding: 4px 8px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
-        .filter-btn.active { background: #1f2937; color: #fff; border-color: #1f2937; }
-        .search-box { display: flex; gap: 8px; margin-bottom: 12px; }
-        .search-box input { flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
-        .record-actions { display: flex; gap: 8px; margin-top: 8px; }
-        .record-actions button { padding: 4px 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; font-size: 11px; cursor: pointer; }
-        /* 图片预览弹窗 */
-        .img-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9998; display: none; flex-direction: column; align-items: center; justify-content: center; }
-        .img-modal img { max-width: 95%; max-height: 75vh; object-fit: contain; }
-        .img-modal-actions { margin-top: 16px; display: flex; gap: 12px; }
-        .img-modal-actions button { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; color: #fff; }
-        /* 自定义确认弹窗 */
-        .confirm-overlay { position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:9998;display:none;align-items:center;justify-content:center; }
-        .confirm-box { background:#fff;border-radius:14px;padding:24px;text-align:center;max-width:280px;width:80%; }
-        .confirm-box p { font-size:16px;margin-bottom:20px;color:#333; }
-        .confirm-btns { display:flex;gap:12px; }
-        .confirm-btns button { flex:1;padding:10px;border:none;border-radius:8px;font-size:15px;font-weight:500;cursor:pointer; }
-        .confirm-cancel { background:#f0f0f0;color:#333; }
-        .confirm-ok { background:#e53e3e;color:#fff; }
-    </style>
-</head>
-<body>
-<div class="container">
-    <h1>📷 次品照片收集系统</h1>
-    <div id="unsavedTip" style="display:none;background:#fee2e2;color:#dc2626;font-size:13px;font-weight:600;text-align:center;padding:8px;border-radius:8px;margin-bottom:8px;">⚠️ 有未提交的内容，请勿退出</div>
-
-    <!-- 收集模块 -->
-    <div class="card" id="collectCard" style="padding:14px 16px;cursor:pointer;background:#f0f7ff;border:1px solid #d0e3f7;" onclick="toggleCollect(event)">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:18px;font-weight:600;color:#4A90D9;">📷 次品拍照</span>
-            <span id="collectArrow" style="font-size:15px;color:#4A90D9;font-weight:600;">展开 ▼</span>
-        </div>
-        <div id="collectForm" style="max-height:0;overflow:hidden;transition:max-height 0.25s ease;margin-top:12px;" onclick="event.stopPropagation();">
-            <div style="margin-bottom:10px;">
-                <label>采购单号 <span style="color:#e53e3e;">*</span></label>
-                <div style="display:flex;gap:8px;">
-                    <div style="flex:1;position:relative;">
-                        <input type="text" id="poId" placeholder="请输入正确采购单号" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding-right:32px;">
-                        <button onclick="document.getElementById('poId').value='';updateBtn();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;color:#999;cursor:pointer;padding:4px;">✕</button>
-                    </div>
-                    <button onclick="startScan()" style="padding:10px 20px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:14px;min-width:60px;">扫码</button>
-                </div>
-                <div id="poHint" style="display:none;color:#e53e3e;font-size:12px;margin-top:4px;"></div>
-            </div>
-            <div style="margin-bottom:10px;">
-                <label>次品商品明细 <span style="color:#e53e3e;">*</span></label>
-                <div id="skuRows"></div>
-                <div style="display:flex;gap:6px;align-items:center;margin-top:8px;">
-                    <button onclick="scanSkuCode()" style="width:100%;padding:10px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;">📷 扫描次品二维码</button>
-                </div>
-                <p style="font-size:11px;color:#999;margin-top:4px;text-align:center;">逐件扫描，同SKU自动累加数量</p>
-            </div>
-            <div style="margin-bottom:10px;">
-                <label>上传照片</label>
-                <div class="photo-grid" id="photoGrid"></div>
-                <div style="font-size:11px;color:#e53e3e;margin-top:4px;">需要吊牌、次品位置的清晰图片｜长按+号可直接拍照</div>
-            </div>
-            <div style="margin-bottom:10px;">
-                <label>备注（可选）</label>
-                <input type="text" id="note" placeholder="次品描述">
-            </div>
-            <button class="submit-btn" id="submitBtn" onclick="submitRecord()" disabled>提交</button>
-            <button class="submit-btn" id="cancelBtn" onclick="cancelEdit()" style="display:none;background:#999;margin-top:8px;">取消编辑</button>
-        </div>
-    </div>
-
-    <!-- 提交记录 -->
-    <div class="card" style="flex:1;padding-top:0;display:flex;flex-direction:column;overflow:hidden;margin-bottom:0;min-height:0;">
-        <div style="background:#fff;padding-top:12px;padding-bottom:4px;flex-shrink:0;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <span style="font-size:16px;font-weight:600;">提交记录</span>
-            <div style="font-size:11px;">
-                <span style="color:#1f2937;font-weight:600;" id="pendingCount">待处理:0</span>
-                <span style="margin-left:6px;color:#2563eb;font-weight:600;" id="refundingCount">退款中:0</span>
-                <span style="margin-left:6px;color:#059669;font-weight:600;" id="doneCount">已完成:0</span>
-                <span style="margin-left:6px;color:#d97706;font-weight:600;" id="unmatchedCount">未匹配:0</span>
-                <span style="margin-left:6px;color:#ef4444;font-weight:600;" id="errorCount">异常:0</span>
-            </div>
-        </div>
-        <div class="search-box">
-            <div style="flex:1;position:relative;">
-                <input type="text" id="searchInput" placeholder="🔍 搜索采购单号/内部单号" inputmode="numeric" oninput="loadHistory()" style="width:100%;padding-right:30px;">
-                <button onclick="document.getElementById('searchInput').value='';loadHistory();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:16px;color:#999;cursor:pointer;padding:2px;">✕</button>
-            </div>
-            <button onclick="searchScan()" style="padding:8px 14px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:13px;">扫码</button>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;background:#e8edf5;border-radius:10px;padding:6px;">
-                <div style="display:flex;gap:3px;padding:2px 2px;flex-wrap:nowrap;overflow-x:auto;">
-                    <button class="filter-btn active" onclick="switchFilter('all',this)">全部</button>
-                    <button class="filter-btn" onclick="switchFilter('1688',this)" style="color:#1677ff;">1688</button>
-                    <button class="filter-btn" onclick="switchFilter('non1688',this)" style="color:#d97706;">非1688</button>
-                    <button class="tab-btn" onclick="toggleTab('pending_all',this)">待处理</button>
-                    <button class="tab-btn" onclick="toggleTab('unmatched_all',this)" style="color:#d97706;">未匹配</button>
-                    <button class="tab-btn" onclick="toggleTab('return_failed',this)" style="color:#dc2626;">失败</button>
-                    <button class="tab-btn" onclick="toggleTab('1688_error',this)" style="color:#ef4444;">异常</button>
-                </div>
-                <div style="display:flex;gap:3px;padding:2px 2px;flex-wrap:nowrap;overflow-x:auto;">
-                    <button class="tab-btn" onclick="toggleTab('1688_wait_agree',this)" style="color:#e67e22;">卖家同意</button>
-                    <button class="tab-btn" onclick="toggleTab('1688_wait_send',this)" style="color:#2563eb;">买家退货</button>
-                    <button class="tab-btn" onclick="toggleTab('1688_wait_receive',this)" style="color:#7c3aed;">卖家收货</button>
-                    <button class="tab-btn" onclick="toggleTab('done_all',this)" style="color:#059669;">完成</button>
-                    <button class="tab-btn" onclick="batchReturnAll()" style="color:#fff;background:#059669;border-color:#059669;">退货</button>
-                    <button class="tab-btn" onclick="retryAllFailed()" style="color:#fff;background:#dc2626;border-color:#dc2626;">重匹配</button>
-                </div>
-        </div>
-        </div><!-- end inner sticky -->
-        <div id="historyList" style="flex:1;overflow-y:auto;min-height:0;-webkit-overflow-scrolling:touch;"></div>
-        <div id="pagination" style="display:flex;justify-content:center;gap:8px;margin-top:12px;"></div>
-    </div>
-</div>
-
-<!-- 图片预览弹窗 -->
-<div class="img-modal" id="imgModal" onclick="closeModal()">
-    <img id="modalImg" src="" onclick="event.stopPropagation();" style="max-width:92%;max-height:70vh;object-fit:contain;border-radius:8px;">
-    <div style="color:#fff;font-size:14px;margin-top:12px;" id="imgCounter"></div>
-    <div style="display:flex;gap:16px;margin-top:16px;" onclick="event.stopPropagation()">
-        <button onclick="prevImg()" style="padding:10px 20px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:#fff;font-size:16px;cursor:pointer;">上一张</button>
-        <button onclick="downloadImg()" style="padding:10px 20px;background:#4A90D9;border:none;border-radius:8px;color:#fff;font-size:14px;cursor:pointer;">保存图片</button>
-        <button onclick="nextImg()" style="padding:10px 20px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:#fff;font-size:16px;cursor:pointer;">下一张</button>
-    </div>
-    <button onclick="closeModal()" style="margin-top:12px;padding:8px 24px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#ccc;font-size:13px;cursor:pointer;">关闭</button>
-</div>
-
-<div class="confirm-overlay" id="confirmOverlay">
-    <div class="confirm-box">
-        <p id="confirmMsg">确定删除这条记录？</p>
-        <div class="confirm-btns">
-            <button class="confirm-cancel" onclick="confirmResolve(false)">取消</button>
-            <button class="confirm-ok" onclick="confirmResolve(true)">确定</button>
-        </div>
-    </div>
-</div>
-<div class="toast" id="toast"></div>
-<input type="file" id="fileInput" accept="image/*" style="display:none" multiple>
-<script>
-const SUPABASE_URL = 'https://elyfxyrdbuykyklfjfdr.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg';
-
-let photos = [];
-let collectOpen = /Mobi|Android|iPhone/i.test(navigator.userAgent);
-if (collectOpen) {
-    const form = document.getElementById('collectForm');
-    form.style.maxHeight = '2000px';
-    form.style.transition = 'none';
-    document.getElementById('collectArrow').textContent = '收起 ▲';
-    const card = document.getElementById('collectCard');
-    card.style.background = '#fff'; card.style.border = '';
-    setTimeout(() => { form.style.transition = 'max-height 0.25s ease'; }, 50);
-}
-let currentTab = 'all';
-let currentFilter = 'all'; // all | 1688 | non1688
-let editingIdx = -1;
-let pageSize = 9999;
-let currentPage = 1;
-let skuInfoMap = {};
-
-// 图片代理：通过 weserv.nl 加速国内访问
-function proxyImg(url, width) {
-    if (!url || !url.startsWith('http')) return url;
-    const u = url.replace(/^https?:\/\//, '');
-    return `https://images.weserv.nl/?url=${encodeURIComponent(u)}${width ? '&w='+width : ''}&q=50&output=webp`;
-}
-function thumbImg(url) { return proxyImg(url, 100); }
-function fullImg(url) { return proxyImg(url, 800); }
-
-// Load SKU info map for display
-const skuInfoMapPromise = fetch('sku_info_map.json?v='+Date.now()).then(r=>r.ok?r.json():{}).then(d=>{skuInfoMap=d||{};}).catch(()=>{});
-
-function formatSkuDisplay(code, qty) {
-    const info = skuInfoMap[code];
-    if (info && Array.isArray(info) && info[0]) {
-        const parts = [info[0]];
-        if (info[1]) parts.push(info[1]);
-        if (info[2]) parts.push(info[2]);
-        return parts.join(' · ') + ' ×' + qty;
-    }
-    return code + '×' + qty;
-}
-
-function hasUnmappedSku(record) {
-    const note = (record.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
-    const m = note.match(/^([^|]+)/);
-    if (!m) return false;
-    const parts = m[1].split(',');
-    for (const p of parts) {
-        const sm = p.trim().match(/(.+?)[×x](\d+)/);
-        const code = sm ? sm[1].trim() : p.trim();
-        if (code && !skuInfoMap[code]) return true;
-    }
-    return false;
-}
-
-function formatNoteDisplay(note) {
-    const clean = (note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
-    if (!clean) return '';
-    const pipeIdx = clean.indexOf('|');
-    const skuPart = pipeIdx >= 0 ? clean.substring(0, pipeIdx).trim() : clean;
-    const restPart = pipeIdx >= 0 ? clean.substring(pipeIdx+1).trim() : '';
-    const formatted = skuPart.split(',').map(p => {
-        const sm = p.trim().match(/(.+?)[×x](\d+)/);
-        if (sm) return formatSkuDisplay(sm[1].trim(), parseInt(sm[2]));
-        return p.trim();
-    }).join(', ');
-    return formatted + (restPart ? ' | ' + restPart : '');
-}
-
-// Audio context for beep
-function playBeep(type) {
-    try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const gain = ctx.createGain();
-        gain.connect(ctx.destination);
-        if(type === 'error') {
-            // 尖锐急促报警音（类似聚水潭）
-            for(let i=0;i<3;i++){
-                const osc = ctx.createOscillator();
-                osc.connect(gain);
-                osc.frequency.value = 2500;
-                osc.type = 'square';
-                gain.gain.value = 0.3;
-                osc.start(ctx.currentTime + i*0.15);
-                osc.stop(ctx.currentTime + i*0.15 + 0.1);
-            }
-        } else if(type === 'shutter') {
-            const osc = ctx.createOscillator();
-            osc.connect(gain); osc.frequency.value = 1200; gain.gain.value = 0.15;
-            osc.start(); osc.stop(ctx.currentTime + 0.08);
-        } else {
-            const osc = ctx.createOscillator();
-            osc.connect(gain); osc.frequency.value = 800; gain.gain.value = 0.2;
-            osc.start(); osc.stop(ctx.currentTime + 0.15);
-        }
-    } catch(e) {}
-}
-
-function toggleCollect(e) {
-    collectOpen = !collectOpen;
-    const form = document.getElementById('collectForm');
-    form.style.maxHeight = collectOpen ? form.scrollHeight + 'px' : '0';
-    document.getElementById('collectArrow').textContent = collectOpen ? '收起 ▲' : '展开 ▼';
-    const card = document.getElementById('collectCard');
-    if(collectOpen) { card.style.background = '#fff'; card.style.border = ''; }
-    else { card.style.background = '#f0f7ff'; card.style.border = '1px solid #d0e3f7'; }
-}
-
-// SKU rows — scan results display
-function renderSkuRows() {
-    const container = document.getElementById('skuRows');
-    const rows = container.querySelectorAll('.sku-row');
-    // already rendered via addOrIncrementSku
-}
-
-// SKU扫码：扫一个就退出，同SKU累加数量
-function scanSkuCode() {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;display:flex;flex-direction:column;align-items:center;';
-    overlay.innerHTML = `<div style="color:#fff;padding:16px;font-size:16px;">扫描次品吊牌二维码</div>
-        <div id="skuScanReader" style="width:100%;"></div>
-        <div style="padding:20px;"><button onclick="stopSkuScan()" style="padding:12px 32px;background:#e53e3e;color:#fff;border:none;border-radius:8px;font-size:16px;">取消</button></div>`;
-    document.body.appendChild(overlay);
-    window._skuScanOverlay = overlay;
-    const scanner = new Html5Qrcode("skuScanReader");
-    window._skuScanner = scanner;
-    scanner.start({facingMode:"environment"},{fps:30,qrbox:250}, code => {
-        addOrIncrementSku(code);
-        playBeep('success');
-        showToast('✓ ' + code, 'green');
-        stopSkuScan();
-    });
-}
-
-function addOrIncrementSku(code) {
-    // 清理扫码结果中的不可见字符和特殊字符
-    code = code.replace(/[^\x20-\x7E]/g, '').trim();
-    if (!code) return;
-    const container = document.getElementById('skuRows');
-    const rows = container.querySelectorAll('.sku-row');
-    for (const row of rows) {
-        const input = row.querySelector('.sku-input');
-        if (input.value.trim().toUpperCase() === code.toUpperCase()) {
-            const qtyInput = row.querySelector('.sku-qty');
-            qtyInput.value = parseInt(qtyInput.value || 0) + 1;
-            row.style.background = '#f0fff0';
-            setTimeout(() => row.style.background = '', 500);
-            updateBtn();
-            return;
-        }
-    }
-    // 新增一行
-    const row = document.createElement('div');
-    row.className = 'sku-row';
-    row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:8px 10px;border:1px solid #eee;border-radius:8px;background:#fff;';
-    row.innerHTML = `<input type="text" class="sku-input" value="${code}" readonly style="flex:1;padding:6px 0;border:none;font-size:14px;font-weight:500;color:#333;background:transparent;">
-        <input type="number" class="sku-qty" min="1" value="1" style="width:50px;padding:6px;text-align:center;border:1px solid #ddd;border-radius:6px;font-size:14px;">
-        <span style="font-size:12px;color:#888;">件</span>
-        <button onclick="this.parentElement.remove();updateBtn();" style="width:24px;height:24px;border:none;background:#fee2e2;color:#dc2626;border-radius:4px;font-size:12px;cursor:pointer;">×</button>`;
-    container.appendChild(row);
-    updateBtn();
-}
-
-function stopSkuScan() {
-    if(window._skuScanner) window._skuScanner.stop().catch(()=>{});
-    if(window._skuScanOverlay) window._skuScanOverlay.remove();
-}
-
-// Photo menu
-function showPhotoMenu() {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:9998;display:flex;align-items:flex-end;justify-content:center;';
-    overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
-    overlay.innerHTML = `<div style="width:100%;max-width:400px;padding:12px;margin-bottom:env(safe-area-inset-bottom);">
-        <div style="background:#fff;border-radius:14px;overflow:hidden;">
-            <button onclick="this.closest('div[style*=fixed]').remove();openJsCamera();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#333;border-bottom:1px solid #eee;cursor:pointer;">📷 拍照</button>
-            <button onclick="this.closest('div[style*=fixed]').remove();document.getElementById('fileInput').click();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#333;cursor:pointer;">🖼 手机图片</button>
-        </div>
-        <div style="background:#fff;border-radius:14px;margin-top:8px;">
-            <button onclick="this.closest('div[style*=fixed]').remove();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#666;cursor:pointer;">取消</button>
-        </div>
-    </div>`;
-    document.body.appendChild(overlay);
-}
-
-// JS Camera (bypasses WeChat file picker)
-function openJsCamera() {
-    const overlay = document.createElement('div');
-    overlay.id = 'cameraOverlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;display:flex;flex-direction:column;overflow:hidden;';
-    overlay.innerHTML = `<video id="cameraVideo" autoplay playsinline style="width:100%;height:70vh;object-fit:cover;"></video>
-        <div style="flex:1;display:flex;justify-content:center;align-items:center;background:#111;min-height:120px;gap:30px;">
-            <button onclick="closeJsCamera()" style="padding:14px 28px;background:#666;color:#fff;border:none;border-radius:8px;font-size:16px;">取消</button>
-            <button onclick="capturePhoto()" style="width:72px;height:72px;background:#fff;border:4px solid #ccc;border-radius:50%;cursor:pointer;"></button>
-            <div style="width:90px;"></div>
-        </div>`;
-    document.body.appendChild(overlay);
-    navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}})
-        .then(stream => { window._camStream = stream; document.getElementById('cameraVideo').srcObject = stream; })
-        .catch(err => { showToast('无法打开相机: '+err.message,'red'); closeJsCamera(); });
-}
-function capturePhoto() {
-    playBeep('shutter');
-    const video = document.getElementById('cameraVideo');
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-    canvas.toBlob(async blob => {
-        photos.push(await compressImg(blob));
-        initPhotoGrid();
-        closeJsCamera();
-    }, 'image/jpeg', 0.85);
-}
-function closeJsCamera() {
-    if(window._camStream) { window._camStream.getTracks().forEach(t=>t.stop()); window._camStream=null; }
-    const ov = document.getElementById('cameraOverlay');
-    if(ov) ov.remove();
-}
-
-// Photo grid
-function initPhotoGrid() {
-    const grid = document.getElementById('photoGrid');
-    grid.innerHTML = '';
-    photos.forEach((p, i) => {
-        const slot = document.createElement('div');
-        slot.className = 'photo-slot has-photo';
-        const imgUrl = (p instanceof Blob) ? URL.createObjectURL(p) : p;
-        slot.innerHTML = `<img src="${imgUrl}"><button class="del" onclick="event.stopPropagation();removePhoto(${i})">✕</button>`;
-        grid.appendChild(slot);
-    });
-    const addSlot = document.createElement('div');
-    addSlot.className = 'photo-slot';
-    addSlot.innerHTML = '<span class="add-icon">+</span>';
-    let pressTimer;
-    addSlot.addEventListener('touchstart', (e) => {
-        pressTimer = setTimeout(() => { pressTimer = 'long'; openJsCamera(); }, 500);
-    });
-    addSlot.addEventListener('touchend', (e) => {
-        if (pressTimer === 'long') { e.preventDefault(); return; }
-        clearTimeout(pressTimer);
-        showPhotoMenu();
-    });
-    addSlot.addEventListener('touchmove', () => { clearTimeout(pressTimer); });
-    addSlot.onclick = (e) => { if(e.pointerType !== 'touch') showPhotoMenu(); };
-    grid.appendChild(addSlot);
-    updateBtn();
-}
-
-function removePhoto(i) { photos.splice(i, 1); initPhotoGrid(); }
-
-document.getElementById('fileInput').addEventListener('change', async function(e) {
-    for (const file of Array.from(e.target.files)) {
-        if (file.size > 5*1024*1024) { showToast('照片超过5MB，已跳过','orange'); continue; }
-        photos.push(await compressImg(file));
-    }
-    initPhotoGrid(); this.value = '';
-});
-
-function compressImg(file) {
-    return new Promise(resolve => {
-        const reader = new FileReader();
-        reader.onload = e => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let w = img.width, h = img.height;
-                const MAX = 1200;
-                if (w > MAX || h > MAX) { if (w > h) { h = h*MAX/w; w = MAX; } else { w = w*MAX/h; h = MAX; } }
-                canvas.width = w; canvas.height = h;
-                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.6);
-            };
-            img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    });
-}
-
-// Validation
-function updateBtn() {
-    const poId = document.getElementById('poId').value.trim();
-    const skuInputs = document.querySelectorAll('.sku-input');
-    const hasAnySku = Array.from(skuInputs).some(i => i.value.trim().length > 0);
-    const isEditing = editingIdx >= 0;
-    document.getElementById('submitBtn').disabled = !(/^\d{6,}$/.test(poId) && photos.length > 0 && (hasAnySku || isEditing));
-    // 未提交提示
-    const hasUnsaved = poId.length > 0 || photos.length > 0 || hasAnySku;
-    document.getElementById('unsavedTip').style.display = hasUnsaved ? 'block' : 'none';
-}
-document.getElementById('poId').addEventListener('input', function() {
-    updateBtn();
-    const val = this.value.trim(), hint = document.getElementById('poHint');
-    if (val && !/^\d+$/.test(val)) { hint.textContent = '⚠️ 请输入纯数字'; hint.style.display = 'block'; }
-    else if (val && val.length < 6) { hint.textContent = '⚠️ 采购单号不少于6位'; hint.style.display = 'block'; }
-    else { hint.style.display = 'none'; }
-});
-
-// Upload photo to Storage, return public URL
-async function uploadPhoto(blob, poId, index) {
-    const filename = `${poId}/${Date.now()}_${index}.jpg`;
-    const r = await fetch(`${SUPABASE_URL}/storage/v1/object/defect-photos/${filename}`, {
-        method: 'POST',
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'image/jpeg' },
-        body: blob
-    });
-    if (r.ok) {
-        return `${SUPABASE_URL}/storage/v1/object/public/defect-photos/${filename}`;
-    }
-    return ''; // fallback
-}
-
-// Submit
-async function submitRecord() {
-    const poId = document.getElementById('poId').value.trim();
-    if (!/^\d{6,}$/.test(poId) || photos.length === 0) return;
-    const btn = document.getElementById('submitBtn');
-    btn.disabled = true; btn.textContent = '上传图片中...';
-
-    // 上传图片到CDN（并行上传）
-    btn.textContent = `上传图片 0/${photos.length}...`;
-    let uploaded = 0;
-    const photoUrls = await Promise.all(photos.map((blob, i) => 
-        uploadPhoto(blob, poId, i).then(url => {
-            uploaded++;
-            btn.textContent = `上传图片 ${uploaded}/${photos.length}...`;
-            return url;
-        })
-    ));
-    btn.textContent = '提交中...';
-
-    // 收集SKU信息
-    const skuItems = [];
-    document.querySelectorAll('.sku-row').forEach(row => {
-        const code = row.querySelector('.sku-input').value.trim();
-        const qty = parseInt(row.querySelector('.sku-qty').value) || 0;
-        if (code && qty > 0) skuItems.push({ code, qty });
-    });
-
-    const noteText = document.getElementById('note').value.trim();
-    const skuStr = skuItems.map(s => s.code + '×' + s.qty).join(', ');
-    const fullNote = skuStr + (noteText ? ' | ' + noteText : '');
-    const record = { po_id: poId, photos: photoUrls, note: fullNote, status: 'pending', created_at: new Date().toISOString() };
-    // 本地也存sku_items用于显示
-    record._sku_items = skuItems;
-
-    if (editingIdx >= 0) {
-        const list = getRecords();
-        const rec = list[editingIdx];
-        if (rec && rec.id) {
-            await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, {
-                method: 'PATCH', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-                body: JSON.stringify({ po_id: poId, photos: photoUrls, note: document.getElementById('note').value.trim() })
-            });
-        }
-        editingIdx = -1;
-        showToast('修改成功 ✓', 'green');
-    } else {
-        await syncToServer(record);
-        showToast('提交成功 ✓', 'green');
-    }
-
-    photos = []; initPhotoGrid();
-    document.getElementById('poId').value = '';
-    document.getElementById('note').value = '';
-    document.getElementById('skuRows').innerHTML = '';
-    await fetchRecords();
-    btn.disabled = false; btn.textContent = '提交';
-    document.getElementById('cancelBtn').style.display = 'none';
-}
-
-function saveLocal(record) {}
-function getRecords() { return window._records || []; }
-function saveRecords(list) {}
-
-async function syncToServer(record) {
-    try {
-        const {_sku_items, ...dbRecord} = record;
-        await fetch(`${SUPABASE_URL}/rest/v1/defect_reports`, {
-            method: 'POST', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-            body: JSON.stringify(dbRecord)
-        });
-    } catch(e) {}
-}
-
-async function fetchRecords() {
-    document.getElementById('historyList').innerHTML = '<div style="text-align:center;padding:20px;color:#999;">⏳ 加载中...</div>';
-    try {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 15000);
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?select=id,po_id,photos,status,note,created_at&order=created_at.desc&limit=500`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
-            signal: ctrl.signal
-        });
-        clearTimeout(timer);
-        if (r.ok) { window._records = await r.json(); }
-    } catch(e) {
-        document.getElementById('historyList').innerHTML = '<div style="text-align:center;padding:20px;color:#d97706;">⚠️ 加载超时，请点击重试</div>';
-        document.getElementById('historyList').onclick = () => { document.getElementById('historyList').onclick=null; fetchRecords(); };
-        return;
-    }
-    loadHistory();
-}
-
-// History & Search
-function switchFilter(filter, btn) {
-    currentFilter = filter;
-    currentPage = 1;
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    loadHistory();
-}
-function toggleTab(tab, btn) {
-    if (currentTab === tab) {
-        // Deselect - back to all
-        currentTab = 'all';
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    } else {
-        currentTab = tab;
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-    }
-    currentPage = 1;
-    loadHistory();
-}
-function switchTab(tab, btn) {
-    currentTab = tab;
-    currentPage = 1;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    loadHistory();
-}
-
-// 解析退款标签: [退款:状态:ID] or [退款:状态]
-function parseRefundTag(note) {
-    if (!note) return null;
-    const m = note.match(/\[退款:([^:\]]+)(?::([^\]]*))?\]/);
-    if (!m) return null;
-    return { status: m[1], refundId: m[2] || '' };
-}
-function parseReturnTag(note) {
-    if (!note) return null;
-    const m = note.match(/\[退货:([^:\]]+)(?::([^\]]+))?\]/);
-    if (!m) return null;
-    return { status: m[1], orderId: m[2] || '' };
-}
-
-// 退款状态配色
-function getRefundBadge(refundInfo) {
-    if (!refundInfo) return '';
-    const statusMap = {
-        '等待卖家同意': { text: '等待卖家同意', color: '#e67e22' },
-        '卖家拒绝申请': { text: '卖家拒绝申请', color: '#e74c3c' },
-        '卖家拒绝退款': { text: '卖家拒绝退款', color: '#e74c3c' },
-        '卖家已同意': { text: '卖家已同意', color: '#3498db' },
-        '等待买家退货': { text: '等待买家退货', color: '#3498db' },
-        '等待卖家收货': { text: '等待卖家收货', color: '#8e44ad' },
-        '已退货': { text: '已退货', color: '#8e44ad' },
-        '退款成功': { text: '退款成功', color: '#27ae60' },
-        '退款关闭': { text: '退款关闭', color: '#95a5a6' },
-        '卖家拒绝': { text: '卖家拒绝', color: '#e74c3c' },
-        '申请失败': { text: '申请失败', color: '#e74c3c' },
-        '已撤销': { text: '已撤销', color: '#95a5a6' },
-    };
-    // Try refundId first (e.g. "等待卖家同意"), then status
-    const key = (refundInfo.refundId && statusMap[refundInfo.refundId]) ? refundInfo.refundId : refundInfo.status;
-    const s = statusMap[key] || { text: refundInfo.refundId || refundInfo.status, color: '#666' };
-    return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${s.color}18;color:${s.color};border:1px solid ${s.color}40;">${s.text}</span>`;
-}
-
-function isRefunding(note) {
-    const r = parseRefundTag(note);
-    return r && !['退款成功','已撤销','退款关闭','卖家拒绝','卖家拒绝申请','卖家拒绝退款','申请失败'].includes(r.status);
-}
-function isRefunded(note) {
-    const r = parseRefundTag(note);
-    return r && r.status === '退款成功';
-}
-function isRefundError(note) {
-    const r = parseRefundTag(note);
-    return r && ['卖家拒绝','申请失败'].includes(r.status);
-}
-
-function loadHistory() {
-    const list = getRecords();
-    const search = document.getElementById('searchInput').value.trim();
-    let filtered = list;
-    if (search) filtered = filtered.filter(r => String(r.po_id).includes(search) || (r.note||'').includes(search));
-    // Apply source filter (skip if searching)
-    if (!search) {
-    if (currentFilter === '1688') filtered = filtered.filter(r => (r.note||'').includes('[1688:'));
-    else if (currentFilter === 'non1688') filtered = filtered.filter(r => !(r.note||'').includes('[1688:'));
-    }
-    // Apply tab filter (skip if searching)
-    if (!search) {
-    if (currentTab === 'all') {} // 显示全部
-    else if (currentTab === 'pending_all') filtered = filtered.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note));
-    else if (currentTab === 'unmatched_all') filtered = filtered.filter(r => { const rt = parseReturnTag(r.note); return (r.status === 'pending' && !parseRefundTag(r.note) && !rt && !getSupplierForGroup([r])) || (rt && (rt.orderId||'').includes('无法匹配')); });
-    else if (currentTab === 'return_failed') filtered = filtered.filter(r => { const rt = parseReturnTag(r.note); return rt && rt.status === '失败' && !(rt.orderId||'').includes('无法匹配'); });
-    else if (currentTab === '1688_wait_agree') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && (rf.status === '等待卖家同意' || (rf.status === '退款中' && (rf.refundId||'').includes('等待卖家同意'))); });
-    else if (currentTab === '1688_wait_send') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && (rf.status === '等待买家退货' || (rf.status === '退款中' && (rf.refundId||'').includes('等待买家退货'))); });
-    else if (currentTab === '1688_wait_receive') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && (rf.status === '等待卖家收货' || (rf.status === '退款中' && (rf.refundId||'').includes('等待卖家收货'))); });
-    else if (currentTab === 'done_all') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); const isRefundDone = rf && rf.status === '退款成功'; const isNon1688Done = !(r.note||'').includes('[1688:') && (r.status === 'done' || (r.note||'').includes('[退货:已下单')); return isRefundDone || isNon1688Done; });
-    else if (currentTab === '1688_error') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && ['退款关闭','卖家拒绝','卖家拒绝申请','卖家拒绝退款','申请失败'].includes(rf.status); });
-    } // end if (!search)
-
-    const allPending = new Set(list.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note)).map(r=>r.po_id)).size;
-    const allRefunding = new Set(list.filter(r => isRefunding(r.note)).map(r=>r.po_id)).size;
-    const allDone = new Set(list.filter(r => { const rf = parseRefundTag(r.note); const isRefundDone = rf && rf.status === '退款成功'; const isNon1688Done = !(r.note||'').includes('[1688:') && (r.status === 'done' || (r.note||'').includes('[退货:已下单')); return isRefundDone || isNon1688Done; }).map(r=>r.po_id)).size;
-    const allUnmatched = new Set(list.filter(r => { const rt = parseReturnTag(r.note); return (r.status === 'pending' && !parseRefundTag(r.note) && !rt && !getSupplierForGroup([r])) || (rt && (rt.orderId||'').includes('无法匹配')); }).map(r=>r.po_id)).size;
-    const allError = new Set(list.filter(r => { const rf = parseRefundTag(r.note); return rf && ['退款关闭','卖家拒绝','卖家拒绝申请','卖家拒绝退款','申请失败'].includes(rf.status); }).map(r=>r.po_id)).size;
-    document.getElementById('pendingCount').textContent = `待处理:${allPending}`;
-    document.getElementById('refundingCount').textContent = `退款中:${allRefunding}`;
-    document.getElementById('doneCount').textContent = `已完成:${allDone}`;
-    document.getElementById('unmatchedCount').textContent = `未匹配:${allUnmatched}`;
-    document.getElementById('errorCount').textContent = `异常:${allError}`;
-
-    const el = document.getElementById('historyList');
-    if (filtered.length === 0) { el.innerHTML = '<div style="color:#999;font-size:13px;text-align:center;padding:20px;">暂无记录</div>'; document.getElementById('pagination').innerHTML=''; return; }
-
-    // 按采购单号分组（待处理按PO+供应商合并，有退货/退款的按订单号/状态分开）
-    const groups = [];
-    const pendingMap = {};
-    filtered.forEach((r, i) => {
-        const realIdx = list.indexOf(r);
-        r._realIdx = realIdx;
-        const rt = parseReturnTag(r.note);
-        const rf = parseRefundTag(r.note);
-        const supplierMatch = (r.note||'').match(/供应商:([^\]\s]+)/);
-        const supplier = supplierMatch ? supplierMatch[1] : '_none';
-        if (r.status === 'pending' && !rf && !rt) {
-            // 待处理（无退货无退款）：按采购单号+供应商合并
-            const key = 'p_' + r.po_id + '_' + supplier;
-            if (!pendingMap[key]) { pendingMap[key] = []; groups.push({type:'group', po_id:r.po_id, items:pendingMap[key]}); }
-            pendingMap[key].push(r);
-        } else if (rt) {
-            // 有退货标签：按采购单号+退货订单号分组
-            const key = 'r_' + r.po_id + '_' + (rt.orderId||rt.status||'');
-            if (!pendingMap[key]) { pendingMap[key] = []; groups.push({type:'group', po_id:r.po_id, items:pendingMap[key]}); }
-            pendingMap[key].push(r);
-        } else if (rf) {
-            // 有退款标签：按采购单号+退款状态分组
-            const key = 'rf_' + r.po_id + '_' + (rf.status||'');
-            if (!pendingMap[key]) { pendingMap[key] = []; groups.push({type:'group', po_id:r.po_id, items:pendingMap[key]}); }
-            pendingMap[key].push(r);
-        } else {
-            // 其他：独立显示
-            groups.push({type:'single', record:r});
-        }
-    });
-
-    el.innerHTML = groups.map((g, gi) => {
-        if (g.type === 'single') {
-            const r = g.record;
-            const refundInfo = parseRefundTag(r.note);
-            const is1688Single = (r.note||'').includes('[1688:');
-            const returnInfo = parseReturnTag(r.note);
-            const statusClass = r.status==='done'?'badge-done':'badge-error';
-            const statusText = r.status==='done'?'已处理':(is1688Single?'异常':'未映射');
-            const badgeHtml = returnInfo ? (returnInfo.status === '已下单' ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#05966918;color:#059669;border:1px solid #05966940;">✅ ${returnInfo.orderId||'已下单'}</span>` : returnInfo.status === '待处理' ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#6b728018;color:#6b7280;border:1px solid #6b728040;">⏳ 创建中</span>` : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dc262618;color:#dc2626;border:1px solid #dc262640;">❌ ${returnInfo.orderId||returnInfo.status}</span>`) : refundInfo ? getRefundBadge(refundInfo) : `<span class="badge ${statusClass}">${statusText}</span>`;
-            const noteDisplay = formatNoteDisplay(r.note);
-            const singleSupplier = getSupplierForGroup([r]);
-            const singleSupplierHtml = singleSupplier ? `<div style="font-size:11px;color:#8b5cf6;font-weight:500;">🏪 ${singleSupplier}</div>` : '';
-            const sourceTag = is1688Single ? '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#1677ff;color:#fff;margin-left:4px;">1688</span>' : '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#faad14;color:#fff;margin-left:4px;">非1688</span>';
-            return `<div class="record">
-                <div class="record-header">
-                    <span class="record-title">采购单 ${r.po_id}${sourceTag}</span>
-                    ${badgeHtml}
-                </div>
-                ${singleSupplierHtml}
-                <div class="record-time">${new Date(r.created_at).toLocaleString()}${noteDisplay?' · '+noteDisplay:''}</div>
-                <div class="record-actions">
-                    ${is1688Single?`<button onclick="open1688Return('${r.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;">📦 退货</button>`:''}
-                    ${refundInfo||is1688Single?'':(r.status==='done'?`<button onclick="markUndone(${r._realIdx})" style="color:#d97706;border-color:#d97706;">↩ 反完成</button>`:`<button onclick="markDone(${r._realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`)}
-                    <button onclick="quickDelete(${r._realIdx})" style="color:#dc2626;border-color:#dc2626;">✕ 删除</button>
-                </div>
-            </div>`;
-        }
-        // Group (pending, same po_id)
-        const items = g.items;
-        const count = items.length;
-        const expandId = 'grp_' + gi;
-        const photosId = 'gphoto_' + gi;
-        const allPhotos = items.flatMap(r=>r.photos||[]);
-        const is1688 = items.some(r=>(r.note||'').includes('[1688:'));
-        const isNon1688 = items.some(r=>(r.note||'').includes('[非1688]')||(r.note||'').includes('[系统:非1688'));
-        const tagHtml = is1688 ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:#1677ff;color:#fff;margin-left:6px;">1688</span>' : isNon1688 ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:#faad14;color:#fff;margin-left:6px;">非1688</span>' : '';
-        const supplierName = getSupplierForGroup(items);
-        const supplierHtml = supplierName ? `<div style="font-size:11px;color:#8b5cf6;margin-top:2px;font-weight:500;">🏪 ${supplierName}</div>` : (is1688 ? '' : `<div style="font-size:11px;color:#dc2626;margin-top:2px;">⚠️ 未匹配供应商</div>`);
-        const btnPhotos = `<button onclick="document.getElementById('${photosId}').style.display=document.getElementById('${photosId}').style.display==='none'?'grid':'none'" style="padding:2px 8px;background:#fff;border:1.5px solid #4A90D9;border-radius:10px;color:#4A90D9;font-size:11px;cursor:pointer;margin-left:6px;">图片(${allPhotos.length})</button>`;
-        const btnDetail = count>1?`<button onclick="document.getElementById('${expandId}').style.display=document.getElementById('${expandId}').style.display==='none'?'block':'none'" style="padding:2px 8px;background:#fff;border:1.5px solid #999;border-radius:10px;color:#666;font-size:11px;cursor:pointer;margin-left:4px;">明细(${count})</button>`:'';
-        const skuMap = {};
-        items.forEach(r => {
-            const note = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
-            const m = note.match(/^([^|]+)/);
-            if(m) { const parts = m[1].split(','); parts.forEach(p => { const sm = p.trim().match(/(.+?)×(\d+)/); if(sm){ skuMap[sm[1]] = (skuMap[sm[1]]||0) + parseInt(sm[2]); } }); }
-        });
-        const skuSummary = Object.entries(skuMap).map(([k,v])=>formatSkuDisplay(k.trim(),v)).join(' <span style="color:#dc2626;font-weight:700;">|</span> ') || '';
-        const latestTime = new Date(items[0].created_at).toLocaleString();
-        const groupRefund = items.map(r=>parseRefundTag(r.note)).find(r=>r);
-        const groupReturn = items.map(r=>parseReturnTag(r.note)).find(r=>r);
-        const groupIs1688 = items.some(r=>(r.note||'').includes('[1688:'));
-        const returnBadge = groupReturn ? (groupReturn.status === '已下单' ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#05966918;color:#059669;border:1px solid #05966940;">✅ ${groupReturn.orderId || '已下单'}</span>` : groupReturn.status.startsWith('失败') ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dc262618;color:#dc2626;border:1px solid #dc262640;">❌ ${groupReturn.orderId || '失败'}</span>` : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#6b728018;color:#6b7280;border:1px solid #6b728040;">⏳ 处理中</span>`) : '';
-        const groupBadgeHtml = groupRefund ? (getRefundBadge(groupRefund) + (groupReturn && groupReturn.orderId ? ` <span style="font-size:10px;color:#059669;">📦${groupReturn.orderId}</span>` : '')) : (returnBadge || `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#6b728018;color:#6b7280;border:1px solid #6b728040;">待处理</span>`);
-
-        let html = `<div class="record">
-            <div class="record-header">
-                <span class="record-title">采购单 ${g.po_id}${tagHtml}${btnPhotos}${btnDetail}</span>
-                ${groupBadgeHtml}
-            </div>
-            ${supplierHtml}
-            <div style="font-size:12px;color:#555;margin-top:4px;">${skuSummary}</div>
-            <div class="record-time">${latestTime}${count>1?' · 合并'+count+'次提交':''}</div>
-            <div id="${photosId}" style="display:none;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;" data-photos='${JSON.stringify(allPhotos)}' data-poid="${g.po_id}">
-                ${allPhotos.map((p,pi)=>`<img class="img-loading" src="${thumbImg(p)}" data-full="${p}" loading="lazy" onload="this.classList.remove('img-loading')" onerror="this.onerror=null;this.src='${p}'" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="var c=this.parentElement;openModal(null,JSON.parse(c.dataset.photos),${pi},c.dataset.poid)">`).join('')}
-            </div>`;
-        if(count>1) {
-            html += `<div id="${expandId}" style="display:none;margin-top:8px;border-top:1px solid #f0f0f0;padding-top:8px;">`;
-            items.forEach(r => {
-                const noteDisplay = formatNoteDisplay(r.note);
-                html += `<div style="padding:8px 10px;background:${items.indexOf(r)%2===0?'#eef4fb':'#f8fafc'};border-left:4px solid #2b7de9;border-radius:0 6px 6px 0;margin-bottom:6px;font-size:12px;">
-                    <span style="color:#999;">${new Date(r.created_at).toLocaleString()}</span> · ${noteDisplay}
-                    <span style="float:right;">
-                        <button onclick="editRecord(${r._realIdx})" style="border:none;background:none;color:#4A90D9;font-size:11px;cursor:pointer;margin-right:8px;">✏️</button>
-                        <button onclick="quickDelete(${r._realIdx})" style="border:none;background:none;color:#dc2626;font-size:11px;cursor:pointer;">✕</button>
-                    </span>
-                </div>`;
-            });
-            html += `</div>`;
-        }
-        const hasReturnOrder = groupReturn && groupReturn.status !== '待处理';
-        const returnBtn = is1688 ? `<button onclick="open1688ReturnAndCreateOrder('${g.po_id}',this)" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;">📦 退货</button>` : '';
-        const non1688ReturnBtn = (!is1688 && !hasReturnOrder) ? `<button onclick="createReturnOrder('${g.po_id}',this)" style="color:#fff;background:#f59e0b;border:1px solid #f59e0b;border-radius:4px;">📦 退货</button>` : (groupReturn && groupReturn.status.startsWith('失败') ? `<button onclick="retryReturn('${g.po_id}',this)" style="color:#fff;background:#ef4444;border:1px solid #ef4444;border-radius:4px;">🔄 重试</button>` : '');
-        const refundDone = groupRefund && (groupRefund.status === '退款成功' || groupRefund.status === '完成');
-        const refundSellerReceived = groupRefund && (groupRefund.status === '等待卖家收货');
-        const cancelBtn = (groupReturn && groupReturn.status === '已下单' && !refundDone && !refundSellerReceived) ? `<button onclick="cancelReturnOrder('${g.po_id}','${groupReturn.orderId||''}',this)" style="color:#dc2626;border:1px solid #dc2626;border-radius:4px;">取消</button>` : '';
-        html += `<div class="record-actions">
-                ${returnBtn}
-                ${non1688ReturnBtn}
-                ${cancelBtn}
-                ${!groupReturn && !groupRefund ? `<button onclick="editGroup('${g.po_id}')" style="color:#1677ff;border-color:#1677ff;">✏️ 编辑</button>` : ''}
-            </div>
-        </div>`;
-        return html;
-    }).join('');
-    document.getElementById('pagination').innerHTML = '';
-}
-
-// Edit & Delete
-function editRecord(idx) {
-    const list = getRecords();
-    const r = list[idx];
-    if (!r) return;
-    editingIdx = idx;
-    document.getElementById('poId').value = r.po_id;
-    document.getElementById('note').value = r.note || '';
-    photos = [...(r.photos || [])];
-    initPhotoGrid();
-    collectOpen = true;
-    const _f = document.getElementById('collectForm'); _f.style.maxHeight = _f.scrollHeight + 2000 + 'px';
-    document.getElementById('collectArrow').textContent = '收起 ▲';
-    document.getElementById('submitBtn').textContent = '保存修改';
-    document.getElementById('cancelBtn').style.display = 'block';
-    updateBtn();
-    window.scrollTo(0, 0);
-}
-
-function cancelEdit() {
-    editingIdx = -1;
-    document.getElementById('poId').value = '';
-    document.getElementById('note').value = '';
-    document.getElementById('skuRows').innerHTML = '';
-    photos = [];
-    initPhotoGrid();
-    document.getElementById('submitBtn').textContent = '提交';
-    document.getElementById('cancelBtn').style.display = 'none';
-    updateBtn();
-}
-
-function setPageSize(size, btn) {
-    pageSize = size;
-    currentPage = 1;
-    document.querySelectorAll('#ps50,#ps100,#ps500').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    loadHistory();
-}
-function goPage(p) { currentPage = p; loadHistory(); }
-
-// 供应商映射：i_id → supplier_name
-let _styleSupplierMap = null;
-async function loadStyleMap() {
-    try {
-        const r = await fetch('return_style_map.json?t=' + Date.now());
-        _styleSupplierMap = await r.json();
-    } catch(e) { _styleSupplierMap = {}; }
-}
-function getSupplierForGroup(items) {
-    // Try extracting supplier from [1688:...供应商:xxx...] tag first
-    for (const r of items) {
-        const m = (r.note||'').match(/供应商:([^\s\]]+)/);
-        if (m && m[1]) return m[1];
-    }
-    if (!_styleSupplierMap) return null;
-    for (const r of items) {
-        const note = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
-        const m = note.match(/^([A-Za-z0-9\-]+)/);
-        if (!m) continue;
-        const raw = m[1];
-        // Try exact match first (case-insensitive)
-        for (const [k, v] of Object.entries(_styleSupplierMap)) {
-            if (k.toUpperCase() === raw.toUpperCase()) return v;
-        }
-        // Progressive trim: try shorter prefixes
-        for (let len = raw.length - 1; len >= 3; len--) {
-            const prefix = raw.substring(0, len);
-            for (const [k, v] of Object.entries(_styleSupplierMap)) {
-                if (k.toUpperCase() === prefix.toUpperCase()) return v;
-            }
-        }
-        // Try startsWith match
-        for (const [k, v] of Object.entries(_styleSupplierMap)) {
-            if (raw.toUpperCase().startsWith(k.toUpperCase()) || k.toUpperCase().startsWith(raw.toUpperCase())) return v;
-        }
-    }
-    return null;
-}
-
-// 1688退货：po_id → 1688订单链接
-let _po1688Map = null;
-
-async function retryAllFailed() {
-    if (!confirm('重新匹配所有"未匹配"和"退货失败"的记录？\n后台将重新检查供应商匹配。')) return;
-    const list = getRecords();
-    const targets = list.filter(r => {
-        const rt = parseReturnTag(r.note);
-        const rf = parseRefundTag(r.note);
-        // 退货失败的
-        if (rt && rt.status === '失败') return true;
-        // 未匹配供应商的pending（无退货标签、无退款标签）
-        if (r.status === 'pending' && !rf && !rt && !getSupplierForGroup([r])) return true;
-        return false;
-    });
-    if (!targets.length) { showToast('无需重匹配的记录', '#6b7280'); return; }
-    const h = {'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'};
-    let count = 0;
-    for (const rec of targets) {
-        let note = (rec.note||'').replace(/\s*\[退货:失败[^\]]*\]/g, '').replace(/\s*\[退货:待处理\]/g, '').replace(/\s*\[系统:重新匹配\]/g, '').trim();
-        note += ' [系统:重新匹配]';
-        await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, {
-            method: 'PATCH', headers: h, body: JSON.stringify({note})
-        });
-        count++;
-    }
-    showToast(`✅ 已提交${count}条记录重新匹配\n后台约2分钟内完成`, '#059669');
-    setTimeout(() => fetchRecords(), 3000);
-}
-
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
+// ═══ warehouse独有退货函数 ═══
 async function retryReturn(poId, btn) {
     if (!confirm(`重试采购单 ${poId} 退货？`)) return;
     btn.textContent = '⏳ 处理中...';
@@ -1107,42 +201,6 @@ async function cancelReturnOrder(poId, orderId, btn) {
     }
     showToast(`✅ 已取消，${recs.length}条记录恢复为待处理`, '#059669');
     setTimeout(() => fetchRecords(), 1500);
-}
-
-async function open1688Return(poId) {
-    if (!_po1688Map) {
-        showToast('加载1688映射...', '#4A90D9');
-        try {
-            const r = await fetch('po_1688_map.json?t=' + Date.now());
-            _po1688Map = await r.json();
-        } catch(e) { _po1688Map = {}; }
-    }
-    const orderId = _po1688Map[poId];
-    if (orderId) {
-        window.open('https://air.1688.com/app/ctf-page/trade-order-detail/index.html?orderId=' + orderId, '_blank');
-    } else {
-        showToast('未找到该采购单的1688订单号', '#ef4444');
-    }
-}
-
-async function open1688ReturnAndCreateOrder(poId, btn) {
-    // 1. Open 1688 return page
-    await open1688Return(poId);
-    // 2. Also create JST return order (tag as pending for cron)
-    const list = getRecords();
-    const items = list.filter(r => r.po_id == poId && r.status === 'pending');
-    if (!items.length) { showToast('无待处理记录', '#6b7280'); return; }
-    const h = {'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'};
-    for (const rec of items) {
-        const note = (rec.note || '') + ' [退货:待处理]';
-        await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, {
-            method: 'PATCH', headers: h, body: JSON.stringify({ note })
-        });
-    }
-    showToast(`✅ 已跳转1688退货 + 退货订单创建中(${items.length}条)\n约2分钟后自动创建聚水潭订单`, '#059669');
-    btn.textContent = '⏳ 处理中';
-    btn.disabled = true;
-    setTimeout(() => fetchRecords(), 3000);
 }
 
 async function batchReturnAll() {
@@ -1367,6 +425,1665 @@ async function confirmBatch1688Return() {
     setTimeout(() => fetchRecords(), 3000);
 }
 
+</script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+    <script src="facesheet-pdf.js"></script>
+    <script src="https://unpkg.com/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; height: 100vh; padding: 0; margin: 0; display: flex; flex-direction: column; overflow: hidden; }
+        .container { max-width: 500px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; height: 100%; overflow: hidden; padding: 0 12px; }
+        h1 { font-size: 18px; text-align: center; padding: 12px 0 8px; color: #333; flex-shrink: 0; }
+        .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        label { display: block; font-size: 14px; color: #333; margin-bottom: 6px; font-weight: 500; }
+        input[type=text] { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; outline: none; }
+        input:focus { border-color: #4A90D9; }
+        #poId::placeholder { font-size: 12px; color: #ccc; }
+        .photo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
+        .photo-slot { aspect-ratio: 1; border: 2px dashed #ddd; border-radius: 6px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer; background: #fafafa; }
+        .photo-slot.has-photo { border: 2px solid #4A90D9; }
+        .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
+        .photo-slot .del { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; background: rgba(220,38,38,0.9); color: #fff; border: none; border-radius: 50%; font-size: 11px; cursor: pointer; }
+        .photo-slot .add-icon { font-size: 24px; color: #bbb; }
+        .submit-btn { width: 100%; padding: 12px; background: #4A90D9; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
+        .submit-btn:disabled { background: #ccc; }
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; color: #fff; font-size: 14px; z-index: 9999; display: none; }
+        .record { padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #4A90D9; background: #fff; }
+        .record-header { display: flex; justify-content: space-between; align-items: center; }
+        .record-title { font-size: 14px; font-weight: 600; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .badge-pending { background: #fef3c7; color: #d97706; }
+        .badge-done { background: #d1fae5; color: #059669; }
+        .badge-error { background: #fee2e2; color: #dc2626; }
+        .record-time { color: #888; font-size: 11px; margin-top: 4px; }
+        .record-photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; }
+        .record-photos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; cursor: pointer; background: #e5e7eb; }
+        .img-loading { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        .tab-btn { padding: 4px 8px; border: 1px solid #ddd; border-radius: 6px; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .tab-btn.active { background: #4A90D9; color: #fff; border-color: #4A90D9; }
+        .filter-btn { padding: 4px 8px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .filter-btn.active { background: #1f2937; color: #fff; border-color: #1f2937; }
+        .search-box { display: flex; gap: 8px; margin-bottom: 12px; }
+        .search-box input { flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
+        .record-actions { display: flex; gap: 8px; margin-top: 8px; }
+        .record-actions button { padding: 4px 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; font-size: 11px; cursor: pointer; }
+        /* 图片预览弹窗 */
+        .img-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9998; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .img-modal img { max-width: 95%; max-height: 75vh; object-fit: contain; }
+        .img-modal-actions { margin-top: 16px; display: flex; gap: 12px; }
+        .img-modal-actions button { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; color: #fff; }
+        /* 自定义确认弹窗 */
+        .confirm-overlay { position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:9998;display:none;align-items:center;justify-content:center; }
+        .confirm-box { background:#fff;border-radius:14px;padding:24px;text-align:center;max-width:280px;width:80%; }
+        .confirm-box p { font-size:16px;margin-bottom:20px;color:#333; }
+        .confirm-btns { display:flex;gap:12px; }
+        .confirm-btns button { flex:1;padding:10px;border:none;border-radius:8px;font-size:15px;font-weight:500;cursor:pointer; }
+        .confirm-cancel { background:#f0f0f0;color:#333; }
+        .confirm-ok { background:#e53e3e;color:#fff; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>📷 次品照片收集系统</h1>
+    <div id="unsavedTip" style="display:none;background:#fee2e2;color:#dc2626;font-size:13px;font-weight:600;text-align:center;padding:8px;border-radius:8px;margin-bottom:8px;">⚠️ 有未提交的内容，请勿退出</div>
+
+    <!-- 收集模块 -->
+    <div class="card" id="collectCard" style="padding:14px 16px;cursor:pointer;background:#f0f7ff;border:1px solid #d0e3f7;" onclick="toggleCollect(event)">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:18px;font-weight:600;color:#4A90D9;">📷 次品拍照</span>
+            <span id="collectArrow" style="font-size:15px;color:#4A90D9;font-weight:600;">展开 ▼</span>
+        </div>
+        <div id="collectForm" style="max-height:0;overflow:hidden;transition:max-height 0.25s ease;margin-top:12px;" onclick="event.stopPropagation();">
+            <div style="margin-bottom:10px;">
+                <label>采购单号 <span style="color:#e53e3e;">*</span></label>
+                <div style="display:flex;gap:8px;">
+                    <div style="flex:1;position:relative;">
+                        <input type="text" id="poId" placeholder="请输入正确采购单号" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding-right:32px;">
+                        <button onclick="document.getElementById('poId').value='';updateBtn();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;color:#999;cursor:pointer;padding:4px;">✕</button>
+                    </div>
+                    <button onclick="startScan()" style="padding:10px 20px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:14px;min-width:60px;">扫码</button>
+                </div>
+                <div id="poHint" style="display:none;color:#e53e3e;font-size:12px;margin-top:4px;"></div>
+            </div>
+            <div style="margin-bottom:10px;">
+                <label>次品商品明细 <span style="color:#e53e3e;">*</span></label>
+                <div id="skuRows"></div>
+                <div style="display:flex;gap:6px;align-items:center;margin-top:8px;">
+                    <button onclick="scanSkuCode()" style="width:100%;padding:10px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;">📷 扫描次品二维码</button>
+                </div>
+                <p style="font-size:11px;color:#999;margin-top:4px;text-align:center;">逐件扫描，同SKU自动累加数量</p>
+            </div>
+            <div style="margin-bottom:10px;">
+                <label>上传照片</label>
+                <div class="photo-grid" id="photoGrid"></div>
+                <div style="font-size:11px;color:#e53e3e;margin-top:4px;">需要吊牌、次品位置的清晰图片｜长按+号可直接拍照</div>
+            </div>
+            <div style="margin-bottom:10px;">
+                <label>备注（可选）</label>
+                <input type="text" id="note" placeholder="次品描述">
+            </div>
+            <button class="submit-btn" id="submitBtn" onclick="submitRecord()" disabled>提交</button>
+            <button class="submit-btn" id="cancelBtn" onclick="cancelEdit()" style="display:none;background:#999;margin-top:8px;">取消编辑</button>
+        </div>
+    </div>
+
+    <!-- 提交记录 -->
+    <div class="card" style="flex:1;padding-top:0;display:flex;flex-direction:column;overflow:hidden;margin-bottom:0;min-height:0;">
+        <div style="background:#fff;padding-top:12px;padding-bottom:4px;flex-shrink:0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <span style="font-size:16px;font-weight:600;">提交记录</span>
+            <div style="font-size:11px;">
+                <span style="color:#1f2937;font-weight:600;" id="pendingCount">待处理:0</span>
+                <span style="margin-left:6px;color:#2563eb;font-weight:600;" id="refundingCount">退款中:0</span>
+                <span style="margin-left:6px;color:#059669;font-weight:600;" id="doneCount">已完成:0</span>
+                <span style="margin-left:6px;color:#d97706;font-weight:600;" id="unmatchedCount">未匹配:0</span>
+                <span style="margin-left:6px;color:#ef4444;font-weight:600;" id="errorCount">异常:0</span>
+            </div>
+        </div>
+        <div class="search-box">
+            <div style="flex:1;position:relative;">
+                <input type="text" id="searchInput" placeholder="🔍 搜索采购单号/快递单号" inputmode="numeric" oninput="loadHistory()" style="width:100%;padding-right:30px;">
+                <button onclick="document.getElementById('searchInput').value='';loadHistory();" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:16px;color:#999;cursor:pointer;padding:2px;">✕</button>
+            </div>
+            <button onclick="searchScan()" style="padding:8px 14px;background:#4A90D9;color:#fff;border:none;border-radius:8px;font-size:13px;">扫码</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;background:#e8edf5;border-radius:10px;padding:6px;">
+                <div style="display:flex;gap:3px;padding:2px 2px;flex-wrap:nowrap;overflow-x:auto;">
+                    <button class="filter-btn active" onclick="switchFilter('all',this)">全部</button>
+                    <button class="filter-btn" onclick="switchFilter('1688',this)" style="color:#1677ff;">1688</button>
+                    <button class="filter-btn" onclick="switchFilter('non1688',this)" style="color:#d97706;">非1688</button>
+                    <button class="tab-btn" onclick="toggleTab('pending_all',this)">待处理</button>
+                    <button class="tab-btn" onclick="toggleTab('unmatched_all',this)" style="color:#d97706;">未匹配</button>
+                    <button class="tab-btn" onclick="toggleTab('return_failed',this)" style="color:#dc2626;">失败</button>
+                    <button class="tab-btn" onclick="toggleTab('1688_error',this)" style="color:#ef4444;">异常</button>
+                </div>
+                <div style="display:flex;gap:3px;padding:2px 2px;flex-wrap:nowrap;overflow-x:auto;">
+                    <button class="tab-btn" onclick="toggleTab('1688_wait_agree',this)" style="color:#e67e22;">卖家同意</button>
+                    <button class="tab-btn" onclick="toggleTab('1688_wait_send',this)" style="color:#2563eb;">买家退货</button>
+                    <button class="tab-btn" onclick="toggleTab('1688_wait_receive',this)" style="color:#7c3aed;">卖家收货</button>
+                    <button class="tab-btn" onclick="toggleTab('done_all',this)" style="color:#059669;">完成</button>
+                    <button class="tab-btn" onclick="batchPrintBySupplier()" style="color:#fff;background:#0ea5e9;border-color:#0ea5e9;">合并打印</button>
+                    <button class="tab-btn" onclick="retryAllFailed()" style="color:#fff;background:#dc2626;border-color:#dc2626;">重匹配</button>
+                    <button class="tab-btn" id="syncJstBtn" onclick="manualSyncJST()" style="color:#fff;background:#0ea5e9;border-color:#0ea5e9;">🔄 同步聚水潭</button>
+                </div>
+        </div>
+        </div><!-- end inner sticky -->
+        <div id="historyList" style="flex:1;overflow-y:auto;min-height:0;-webkit-overflow-scrolling:touch;"></div>
+        <div id="pagination" style="display:flex;justify-content:center;gap:8px;margin-top:12px;"></div>
+    </div>
+</div>
+
+<!-- 图片预览弹窗 -->
+<div class="img-modal" id="imgModal" onclick="closeModal()">
+    <img id="modalImg" src="" onclick="event.stopPropagation();" style="max-width:92%;max-height:70vh;object-fit:contain;border-radius:8px;">
+    <div style="color:#fff;font-size:14px;margin-top:12px;" id="imgCounter"></div>
+    <div style="display:flex;gap:16px;margin-top:16px;" onclick="event.stopPropagation()">
+        <button onclick="prevImg()" style="padding:10px 20px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:#fff;font-size:16px;cursor:pointer;">上一张</button>
+        <button onclick="downloadImg()" style="padding:10px 20px;background:#4A90D9;border:none;border-radius:8px;color:#fff;font-size:14px;cursor:pointer;">保存图片</button>
+        <button onclick="nextImg()" style="padding:10px 20px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:#fff;font-size:16px;cursor:pointer;">下一张</button>
+    </div>
+    <button onclick="closeModal()" style="margin-top:12px;padding:8px 24px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#ccc;font-size:13px;cursor:pointer;">关闭</button>
+</div>
+
+<div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-box">
+        <p id="confirmMsg">确定删除这条记录？</p>
+        <div class="confirm-btns">
+            <button class="confirm-cancel" onclick="confirmResolve(false)">取消</button>
+            <button class="confirm-ok" onclick="confirmResolve(true)">确定</button>
+        </div>
+    </div>
+</div>
+<div class="toast" id="toast"></div>
+<input type="file" id="fileInput" accept="image/*" style="display:none" multiple>
+<script>
+// ════════════════════════════════════════════════════════════════
+// ★ 系统配置区：以后调整配置只需改这里 ★
+// ════════════════════════════════════════════════════════════════
+const APP_CONFIG = {
+    // --- Supabase（数据库 + 图片存储）---
+    supabaseUrl: 'https://elyfxyrdbuykyklfjfdr.supabase.co',
+    supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg',
+    tableName: 'defect_reports',      // 次品记录表名
+    photoBucket: 'defect-photos',     // 次品图片存储桶名
+    fetchLimit: 500,                  // 列表一次最多加载的记录数
+
+    // --- 聚水潭对接（按 SOP 不再创建退货单；退货单相关的旧代码已清理）---
+    returnShopId: '21571486',         // 外贸采购退货店铺 shop_id
+
+    // --- 面单打印（不再通过聚水潭API创建退货单）---
+    // 退货流程改为：直接点【🖨️ 面单】打印圆通电子面单寄回；
+    // 1688 采购单额外点【🔗 1688后台】跳转 1688 订单页人工申请退款/填快递单号。
+    // 以下地址保留（历史记录/备用）：
+
+    // --- 圆通电子面单（打印面单）---
+    ytoProxyUrl: 'https://elyfxyrdbuykyklfjfdr.supabase.co/functions/v1/yto-proxy',   // 圆通面单代理（Supabase，国内直连）
+    ytoCustomerId: 'K200416574',                              // 圆通客户编码
+    returnSender: { name: '谢焕君', phone: '13316255984', address: '广东省广州市番禺区大石街道会江鸿盛三路9号高昇产业园A301' },
+};
+
+// 兼容旧代码引用（下方业务代码无需改动）
+const SUPABASE_URL = APP_CONFIG.supabaseUrl;
+const SUPABASE_KEY = APP_CONFIG.supabaseKey;
+const PHOTO_BUCKET = APP_CONFIG.photoBucket;
+
+// ═══════════════ 全局状态 ═══════════════
+let photos = [];
+let collectOpen = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+if (collectOpen) {
+    const form = document.getElementById('collectForm');
+    form.style.maxHeight = '2000px';
+    form.style.transition = 'none';
+    document.getElementById('collectArrow').textContent = '收起 ▲';
+    const card = document.getElementById('collectCard');
+    card.style.background = '#fff'; card.style.border = '';
+    setTimeout(() => { form.style.transition = 'max-height 0.25s ease'; }, 50);
+}
+let currentTab = 'all';
+let currentFilter = 'all'; // all | 1688 | non1688
+let editingIdx = -1;
+let pageSize = 9999;
+let currentPage = 1;
+let skuInfoMap = {};
+
+// ═══════════════ 工具函数（图片代理 / SKU 显示 / 提示音 / Toast） ═══════════════
+// 图片代理：通过 weserv.nl 加速国内访问
+function proxyImg(url, width) {
+    if (!url || !url.startsWith('http')) return url;
+    const u = url.replace(/^https?:\/\//, '');
+    return `https://images.weserv.nl/?url=${encodeURIComponent(u)}${width ? '&w='+width : ''}&q=50&output=webp`;
+}
+function thumbImg(url) { return proxyImg(url, 100); }
+function fullImg(url) { return proxyImg(url, 800); }
+
+// ═══ 映射数据加载：优先从 Supabase(mapping_data) 读取（聚水潭自动同步），失败则用本地 JSON 兜底 ═══
+// 本地兜底（GitHub 上线后也能用）
+function _localMap(url, fb) {
+  const ctrl = new AbortController();
+  const tm = setTimeout(() => ctrl.abort(), 8000);
+  return fetch(url + '?v=' + Date.now(), { signal: ctrl.signal }).then(r => { clearTimeout(tm); return r.ok ? r.json() : fb; }).catch(() => { clearTimeout(tm); return fb; });
+}
+async function loadAllMaps() {
+  // Supabase 版本（含聚水潭自动同步的新商品/供应商/地址）
+  try {
+    const url = SUPABASE_URL + '/rest/v1/mapping_data?select=id,data';
+    const ctrl = new AbortController();
+    const tm = setTimeout(() => ctrl.abort(), 10000);
+    const r = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }, signal: ctrl.signal });
+    clearTimeout(tm);
+    if (r.ok) {
+      const rows = await r.json();
+      const byId = {};
+      for (const row of rows) byId[row.id] = row.data || {};
+      if (byId['sku_info'] && Object.keys(byId['sku_info']).length) skuInfoMap = byId['sku_info'];
+      if (byId['return_style'] && Object.keys(byId['return_style']).length) _styleSupplierMap = byId['return_style'];
+      if (byId['return_addr'] && Object.keys(byId['return_addr']).length) _returnAddrMap = byId['return_addr'];
+    }
+  } catch(e) {}
+  // 兜底：本地 JSON（Supabase 未同步或离线时）
+  if (!Object.keys(skuInfoMap).length) { try { skuInfoMap = await _localMap('sku_info_map.json', {}); } catch(e){} }
+  if (!Object.keys(_returnAddrMap).length) { try { _returnAddrMap = await _localMap('return_addr_map.json', {}); } catch(e){} }
+}
+let _styleSupplierMap = null;
+const skuInfoMapPromise = loadAllMaps().catch(()=>{});
+const returnAddrMapPromise = skuInfoMapPromise;
+let _returnAddrMap = {};
+
+function formatSkuDisplay(code, qty) {
+    const info = skuInfoMap[code];
+    if (info && Array.isArray(info) && info[0]) {
+        const parts = [info[0]];
+        if (info[1]) parts.push(info[1]);
+        if (info[2]) parts.push(info[2]);
+        return parts.join(' · ') + ' ×' + qty;
+    }
+    return code + '×' + qty;
+}
+
+function hasUnmappedSku(record) {
+    const note = (record.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+    const m = note.match(/^([^|]+)/);
+    if (!m) return false;
+    const parts = m[1].split(',');
+    for (const p of parts) {
+        const sm = p.trim().match(/(.+?)[×x](\d+)/);
+        const code = sm ? sm[1].trim() : p.trim();
+        if (code && !skuInfoMap[code]) return true;
+    }
+    return false;
+}
+
+function formatNoteDisplay(note) {
+    const clean = (note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+    if (!clean) return '';
+    const pipeIdx = clean.indexOf('|');
+    const skuPart = pipeIdx >= 0 ? clean.substring(0, pipeIdx).trim() : clean;
+    const restPart = pipeIdx >= 0 ? clean.substring(pipeIdx+1).trim() : '';
+    const formatted = skuPart.split(',').map(p => {
+        const sm = p.trim().match(/(.+?)[×x](\d+)/);
+        if (sm) return formatSkuDisplay(sm[1].trim(), parseInt(sm[2]));
+        return p.trim();
+    }).join(', ');
+    return formatted + (restPart ? ' | ' + restPart : '');
+}
+
+// Audio context for beep
+function playBeep(type) {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const gain = ctx.createGain();
+        gain.connect(ctx.destination);
+        if(type === 'error') {
+            // 尖锐急促报警音（类似聚水潭）
+            for(let i=0;i<3;i++){
+                const osc = ctx.createOscillator();
+                osc.connect(gain);
+                osc.frequency.value = 2500;
+                osc.type = 'square';
+                gain.gain.value = 0.3;
+                osc.start(ctx.currentTime + i*0.15);
+                osc.stop(ctx.currentTime + i*0.15 + 0.1);
+            }
+        } else if(type === 'shutter') {
+            const osc = ctx.createOscillator();
+            osc.connect(gain); osc.frequency.value = 1200; gain.gain.value = 0.15;
+            osc.start(); osc.stop(ctx.currentTime + 0.08);
+        } else {
+            const osc = ctx.createOscillator();
+            osc.connect(gain); osc.frequency.value = 800; gain.gain.value = 0.2;
+            osc.start(); osc.stop(ctx.currentTime + 0.15);
+        }
+    } catch(e) {}
+}
+
+// ═══════════════ 界面交互（展开/收起、触控手势） ═══════════════
+function toggleCollect(e) {
+    collectOpen = !collectOpen;
+    const form = document.getElementById('collectForm');
+    form.style.maxHeight = collectOpen ? form.scrollHeight + 'px' : '0';
+    document.getElementById('collectArrow').textContent = collectOpen ? '收起 ▲' : '展开 ▼';
+    const card = document.getElementById('collectCard');
+    if(collectOpen) { card.style.background = '#fff'; card.style.border = ''; }
+    else { card.style.background = '#f0f7ff'; card.style.border = '1px solid #d0e3f7'; }
+}
+
+// SKU rows — scan results display
+function renderSkuRows() {
+    const container = document.getElementById('skuRows');
+    const rows = container.querySelectorAll('.sku-row');
+    // already rendered via addOrIncrementSku
+}
+
+// ═══════════════ 扫码（采购单号 / 次品 SKU / 搜索） ═══════════════
+// SKU扫码：扫一个就退出，同SKU累加数量
+function scanSkuCode() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;display:flex;flex-direction:column;align-items:center;';
+    overlay.innerHTML = `<div style="color:#fff;padding:16px;font-size:16px;">扫描次品吊牌二维码</div>
+        <div id="skuScanReader" style="width:100%;"></div>
+        <div style="padding:20px;"><button onclick="stopSkuScan()" style="padding:12px 32px;background:#e53e3e;color:#fff;border:none;border-radius:8px;font-size:16px;">取消</button></div>`;
+    document.body.appendChild(overlay);
+    window._skuScanOverlay = overlay;
+    const scanner = new Html5Qrcode("skuScanReader");
+    window._skuScanner = scanner;
+    scanner.start({facingMode:"environment"},{fps:30,qrbox:250}, code => {
+        addOrIncrementSku(code);
+        playBeep('success');
+        showToast('✓ ' + code, 'green');
+        stopSkuScan();
+    });
+}
+
+function addOrIncrementSku(code) {
+    // 清理扫码结果中的不可见字符和特殊字符
+    code = code.replace(/[^\x20-\x7E]/g, '').trim();
+    if (!code) return;
+    const container = document.getElementById('skuRows');
+    const rows = container.querySelectorAll('.sku-row');
+    for (const row of rows) {
+        const input = row.querySelector('.sku-input');
+        if (input.value.trim().toUpperCase() === code.toUpperCase()) {
+            const qtyInput = row.querySelector('.sku-qty');
+            qtyInput.value = parseInt(qtyInput.value || 0) + 1;
+            row.style.background = '#f0fff0';
+            setTimeout(() => row.style.background = '', 500);
+            updateBtn();
+            return;
+        }
+    }
+    // 新增一行
+    const row = document.createElement('div');
+    row.className = 'sku-row';
+    row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:8px 10px;border:1px solid #eee;border-radius:8px;background:#fff;';
+    row.innerHTML = `<input type="text" class="sku-input" value="${code}" readonly style="flex:1;padding:6px 0;border:none;font-size:14px;font-weight:500;color:#333;background:transparent;">
+        <input type="number" class="sku-qty" min="1" value="1" style="width:50px;padding:6px;text-align:center;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+        <span style="font-size:12px;color:#888;">件</span>
+        <button onclick="this.parentElement.remove();updateBtn();" style="width:24px;height:24px;border:none;background:#fee2e2;color:#dc2626;border-radius:4px;font-size:12px;cursor:pointer;">×</button>`;
+    container.appendChild(row);
+    updateBtn();
+}
+
+function stopSkuScan() {
+    if(window._skuScanner) window._skuScanner.stop().catch(()=>{});
+    if(window._skuScanOverlay) window._skuScanOverlay.remove();
+}
+
+// ═══════════════ 拍照与图片（JS 相机 / 相册 / 压缩 / 网格） ═══════════════
+// Photo menu
+function showPhotoMenu() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:9998;display:flex;align-items:flex-end;justify-content:center;';
+    overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `<div style="width:100%;max-width:400px;padding:12px;margin-bottom:env(safe-area-inset-bottom);">
+        <div style="background:#fff;border-radius:14px;overflow:hidden;">
+            <button onclick="this.closest('div[style*=fixed]').remove();openJsCamera();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#333;border-bottom:1px solid #eee;cursor:pointer;">📷 拍照</button>
+            <button onclick="this.closest('div[style*=fixed]').remove();document.getElementById('fileInput').click();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#333;cursor:pointer;">🖼 手机图片</button>
+        </div>
+        <div style="background:#fff;border-radius:14px;margin-top:8px;">
+            <button onclick="this.closest('div[style*=fixed]').remove();" style="width:100%;padding:14px;border:none;background:#fff;font-size:16px;color:#666;cursor:pointer;">取消</button>
+        </div>
+    </div>`;
+    document.body.appendChild(overlay);
+}
+
+// JS Camera (bypasses WeChat file picker)
+function openJsCamera() {
+    const overlay = document.createElement('div');
+    overlay.id = 'cameraOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;display:flex;flex-direction:column;overflow:hidden;';
+    overlay.innerHTML = `<video id="cameraVideo" autoplay playsinline style="width:100%;height:70vh;object-fit:cover;"></video>
+        <div style="flex:1;display:flex;justify-content:center;align-items:center;background:#111;min-height:120px;gap:30px;">
+            <button onclick="closeJsCamera()" style="padding:14px 28px;background:#666;color:#fff;border:none;border-radius:8px;font-size:16px;">取消</button>
+            <button onclick="capturePhoto()" style="width:72px;height:72px;background:#fff;border:4px solid #ccc;border-radius:50%;cursor:pointer;"></button>
+            <div style="width:90px;"></div>
+        </div>`;
+    document.body.appendChild(overlay);
+    navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}})
+        .then(stream => { window._camStream = stream; document.getElementById('cameraVideo').srcObject = stream; })
+        .catch(err => { showToast('无法打开相机: '+err.message,'red'); closeJsCamera(); });
+}
+function capturePhoto() {
+    playBeep('shutter');
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob(async blob => {
+        photos.push(await compressImg(blob));
+        initPhotoGrid();
+        closeJsCamera();
+    }, 'image/jpeg', 0.85);
+}
+function closeJsCamera() {
+    if(window._camStream) { window._camStream.getTracks().forEach(t=>t.stop()); window._camStream=null; }
+    const ov = document.getElementById('cameraOverlay');
+    if(ov) ov.remove();
+}
+
+// Photo grid
+function initPhotoGrid() {
+    const grid = document.getElementById('photoGrid');
+    grid.innerHTML = '';
+    photos.forEach((p, i) => {
+        const slot = document.createElement('div');
+        slot.className = 'photo-slot has-photo';
+        const imgUrl = (p instanceof Blob) ? URL.createObjectURL(p) : p;
+        slot.innerHTML = `<img src="${imgUrl}"><button class="del" onclick="event.stopPropagation();removePhoto(${i})">✕</button>`;
+        grid.appendChild(slot);
+    });
+    const addSlot = document.createElement('div');
+    addSlot.className = 'photo-slot';
+    addSlot.innerHTML = '<span class="add-icon">+</span>';
+    let pressTimer;
+    addSlot.addEventListener('touchstart', (e) => {
+        pressTimer = setTimeout(() => { pressTimer = 'long'; openJsCamera(); }, 500);
+    });
+    addSlot.addEventListener('touchend', (e) => {
+        if (pressTimer === 'long') { e.preventDefault(); return; }
+        clearTimeout(pressTimer);
+        showPhotoMenu();
+    });
+    addSlot.addEventListener('touchmove', () => { clearTimeout(pressTimer); });
+    addSlot.onclick = (e) => { if(e.pointerType !== 'touch') showPhotoMenu(); };
+    grid.appendChild(addSlot);
+    updateBtn();
+}
+
+function removePhoto(i) { photos.splice(i, 1); initPhotoGrid(); }
+
+document.getElementById('fileInput').addEventListener('change', async function(e) {
+    for (const file of Array.from(e.target.files)) {
+        if (file.size > 5*1024*1024) { showToast('照片超过5MB，已跳过','orange'); continue; }
+        photos.push(await compressImg(file));
+    }
+    initPhotoGrid(); this.value = '';
+});
+
+function compressImg(file) {
+    return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let w = img.width, h = img.height;
+                const MAX = 1200;
+                if (w > MAX || h > MAX) { if (w > h) { h = h*MAX/w; w = MAX; } else { w = w*MAX/h; h = MAX; } }
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.6);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// ═══════════════ 表单校验与提交（图片上传 / 提交 / 编辑） ═══════════════
+// Validation
+function updateBtn() {
+    const poId = document.getElementById('poId').value.trim();
+    const skuInputs = document.querySelectorAll('.sku-input');
+    const hasAnySku = Array.from(skuInputs).some(i => i.value.trim().length > 0);
+    const isEditing = editingIdx >= 0;
+    document.getElementById('submitBtn').disabled = !(/^\d{6,}$/.test(poId) && photos.length > 0 && (hasAnySku || isEditing));
+    // 未提交提示
+    const hasUnsaved = poId.length > 0 || photos.length > 0 || hasAnySku;
+    document.getElementById('unsavedTip').style.display = hasUnsaved ? 'block' : 'none';
+}
+document.getElementById('poId').addEventListener('input', function() {
+    updateBtn();
+    const val = this.value.trim(), hint = document.getElementById('poHint');
+    if (val && !/^\d+$/.test(val)) { hint.textContent = '⚠️ 请输入纯数字'; hint.style.display = 'block'; }
+    else if (val && val.length < 6) { hint.textContent = '⚠️ 采购单号不少于6位'; hint.style.display = 'block'; }
+    else { hint.style.display = 'none'; }
+});
+
+// Upload photo to Storage, return public URL
+async function uploadPhoto(blob, poId, index) {
+    const filename = `${poId}/${Date.now()}_${index}.jpg`;
+    const r = await fetch(`${SUPABASE_URL}/storage/v1/object/${PHOTO_BUCKET}/${filename}`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'image/jpeg' },
+        body: blob
+    });
+    if (r.ok) {
+        return `${SUPABASE_URL}/storage/v1/object/public/${PHOTO_BUCKET}/${filename}`;
+    }
+    return ''; // fallback
+}
+
+// Submit
+async function submitRecord() {
+    const poId = document.getElementById('poId').value.trim();
+    if (!/^\d{6,}$/.test(poId) || photos.length === 0) return;
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true; btn.textContent = '上传图片中...';
+
+    // 上传图片到CDN（并行上传）
+    btn.textContent = `上传图片 0/${photos.length}...`;
+    let uploaded = 0;
+    const photoUrls = await Promise.all(photos.map((blob, i) => 
+        uploadPhoto(blob, poId, i).then(url => {
+            uploaded++;
+            btn.textContent = `上传图片 ${uploaded}/${photos.length}...`;
+            return url;
+        })
+    ));
+    btn.textContent = '提交中...';
+
+    // 收集SKU信息
+    const skuItems = [];
+    document.querySelectorAll('.sku-row').forEach(row => {
+        const code = row.querySelector('.sku-input').value.trim();
+        const qty = parseInt(row.querySelector('.sku-qty').value) || 0;
+        if (code && qty > 0) skuItems.push({ code, qty });
+    });
+
+    const noteText = document.getElementById('note').value.trim();
+    const skuStr = skuItems.map(s => s.code + '×' + s.qty).join(', ');
+    const fullNote = skuStr + (noteText ? ' | ' + noteText : '');
+    const record = { po_id: poId, photos: photoUrls, note: fullNote, status: 'pending', created_at: new Date().toISOString() };
+    // 本地也存sku_items用于显示
+    record._sku_items = skuItems;
+
+    if (editingIdx >= 0) {
+        const list = getRecords();
+        const rec = list[editingIdx];
+        if (rec && rec.id) {
+            await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, {
+                method: 'PATCH', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ po_id: poId, photos: photoUrls, note: document.getElementById('note').value.trim() })
+            });
+        }
+        editingIdx = -1;
+        showToast('修改成功 ✓', 'green');
+    } else {
+        await syncToServer(record);
+        showToast('提交成功 ✓', 'green');
+    }
+
+    photos = []; initPhotoGrid();
+    document.getElementById('poId').value = '';
+    document.getElementById('note').value = '';
+    document.getElementById('skuRows').innerHTML = '';
+    await fetchRecords();
+    btn.disabled = false; btn.textContent = '提交';
+    document.getElementById('cancelBtn').style.display = 'none';
+}
+
+function saveLocal(record) {}
+function getRecords() { return window._records || []; }
+function saveRecords(list) {}
+
+async function syncToServer(record) {
+    try {
+        const {_sku_items, ...dbRecord} = record;
+        await fetch(`${SUPABASE_URL}/rest/v1/defect_reports`, {
+            method: 'POST', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+            body: JSON.stringify(dbRecord)
+        });
+    } catch(e) {}
+}
+
+// ═══════════════ 数据读取与列表（fetchRecords / loadHistory / 筛选分页） ═══════════════
+async function fetchRecords() {
+    document.getElementById('historyList').innerHTML = '<div style="text-align:center;padding:20px;color:#999;">⏳ 加载中...</div>';
+    try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 15000);
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?select=id,po_id,photos,status,note,created_at&order=created_at.desc&limit=${APP_CONFIG.fetchLimit}`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
+            signal: ctrl.signal
+        });
+        clearTimeout(timer);
+        if (r.ok) { window._records = await r.json(); }
+    } catch(e) {
+        document.getElementById('historyList').innerHTML = '<div style="text-align:center;padding:20px;color:#d97706;">⚠️ 加载超时，请点击重试</div>';
+        document.getElementById('historyList').onclick = () => { document.getElementById('historyList').onclick=null; fetchRecords(); };
+        return;
+    }
+    loadHistory();
+}
+
+// History & Search
+function switchFilter(filter, btn) {
+    currentFilter = filter;
+    currentPage = 1;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadHistory();
+}
+function toggleTab(tab, btn) {
+    if (currentTab === tab) {
+        // Deselect - back to all
+        currentTab = 'all';
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    } else {
+        currentTab = tab;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+    currentPage = 1;
+    loadHistory();
+}
+function switchTab(tab, btn) {
+    currentTab = tab;
+    currentPage = 1;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadHistory();
+}
+
+// ═══════════════ 状态解析与展示（退款/退货标签 / 徽章 / 供应商匹配） ═══════════════
+// 解析退款标签: [退款:状态:ID] or [退款:状态]
+function parseRefundTag(note) {
+    if (!note) return null;
+    const m = note.match(/\[退款:([^:\]]+)(?::([^\]]*))?\]/);
+    if (!m) return null;
+    return { status: m[1], refundId: m[2] || '' };
+}
+function parseReturnTag(note) {
+    if (!note) return null;
+    const m = note.match(/\[退货:([^:\]]+)(?::([^\]]+))?\]/);
+    if (!m) return null;
+    return { status: m[1], orderId: m[2] || '' };
+}
+
+// 退货状态配色（已下单/待处理/失败/异常/等待卖家收货/等待买家退货）
+function getReturnBadge(returnInfo) {
+    if (!returnInfo) return '';
+    const statusMap = {
+        '已下单': { text: '已下单', color: '#059669' },
+        '待处理': { text: '处理中', color: '#6b7280' },
+        '失败': { text: '失败', color: '#dc2626' },
+        '异常': { text: '异常', color: '#dc2626' },
+        '等待卖家收货': { text: '等待卖家收货', color: '#8e44ad' },
+        '等待买家退货': { text: '等待买家退货', color: '#3498db' },
+    };
+    const key = returnInfo.status;
+    const s = statusMap[key] || { text: returnInfo.orderId || returnInfo.status, color: '#666' };
+    const icon = key === '已下单' ? '✅' : (key === '失败' || key === '异常') ? '❌' : '⏳';
+    const label = key === '已下单' ? (returnInfo.orderId || '已下单') : s.text;
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${s.color}18;color:${s.color};border:1px solid ${s.color}40;">${icon} ${label}${returnInfo.orderId && key !== '已下单' && key !== '待处理' ? ':' + returnInfo.orderId : ''}</span>`;
+}
+
+// 退款状态配色
+function getRefundBadge(refundInfo) {
+    if (!refundInfo) return '';
+    const statusMap = {
+        '等待卖家同意': { text: '等待卖家同意', color: '#e67e22' },
+        '卖家拒绝申请': { text: '卖家拒绝申请', color: '#e74c3c' },
+        '卖家拒绝退款': { text: '卖家拒绝退款', color: '#e74c3c' },
+        '卖家已同意': { text: '卖家已同意', color: '#3498db' },
+        '等待买家退货': { text: '等待买家退货', color: '#3498db' },
+        '等待卖家收货': { text: '等待卖家收货', color: '#8e44ad' },
+        '已退货': { text: '已退货', color: '#8e44ad' },
+        '退款成功': { text: '退款成功', color: '#27ae60' },
+        '退款关闭': { text: '退款关闭', color: '#95a5a6' },
+        '卖家拒绝': { text: '卖家拒绝', color: '#e74c3c' },
+        '申请失败': { text: '申请失败', color: '#e74c3c' },
+        '已撤销': { text: '已撤销', color: '#95a5a6' },
+    };
+    // Try refundId first (e.g. "等待卖家同意"), then status
+    const key = (refundInfo.refundId && statusMap[refundInfo.refundId]) ? refundInfo.refundId : refundInfo.status;
+    const s = statusMap[key] || { text: refundInfo.refundId || refundInfo.status, color: '#666' };
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${s.color}18;color:${s.color};border:1px solid ${s.color}40;">${s.text}</span>`;
+}
+
+function isRefunding(note) {
+    const r = parseRefundTag(note);
+    return r && !['退款成功','已撤销','退款关闭','卖家拒绝','卖家拒绝申请','卖家拒绝退款','申请失败'].includes(r.status);
+}
+function isRefunded(note) {
+    const r = parseRefundTag(note);
+    return r && r.status === '退款成功';
+}
+function isRefundError(note) {
+    const r = parseRefundTag(note);
+    return r && ['卖家拒绝','申请失败'].includes(r.status);
+}
+
+function loadHistory() {
+    const list = getRecords();
+    const search = document.getElementById('searchInput').value.trim();
+    let filtered = list;
+    if (search) filtered = filtered.filter(r => { const s = String(r.po_id).includes(search); const n = (r.note||'').includes(search); const w = (getWaybillPrinted([r])||'').includes(search); return s || n || w; });
+    // Apply source filter (skip if searching)
+    if (!search) {
+    if (currentFilter === '1688') filtered = filtered.filter(r => (r.note||'').includes('[1688:'));
+    else if (currentFilter === 'non1688') filtered = filtered.filter(r => !(r.note||'').includes('[1688:'));
+    }
+    // Apply tab filter (skip if searching)
+    if (!search) {
+    if (currentTab === 'all') {} // 显示全部
+    else if (currentTab === 'pending_all') filtered = filtered.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note));
+    else if (currentTab === 'unmatched_all') filtered = filtered.filter(r => { const rt = parseReturnTag(r.note); return (r.status === 'pending' && !parseRefundTag(r.note) && !rt && getMissingMatch([r]).length > 0) || (rt && (rt.orderId||'').includes('无法匹配')); });
+    else if (currentTab === 'return_failed') filtered = filtered.filter(r => { const rt = parseReturnTag(r.note); return rt && rt.status === '失败' && !(rt.orderId||'').includes('无法匹配'); });
+    else if (currentTab === '1688_wait_agree') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && (rf.status === '等待卖家同意' || (rf.status === '退款中' && (rf.refundId||'').includes('等待卖家同意'))); });
+    else if (currentTab === '1688_wait_send') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && (rf.status === '等待买家退货' || (rf.status === '退款中' && (rf.refundId||'').includes('等待买家退货'))); });
+    else if (currentTab === '1688_wait_receive') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); return rf && (rf.status === '等待卖家收货' || (rf.status === '退款中' && (rf.refundId||'').includes('等待卖家收货'))); });
+    else if (currentTab === 'done_all') filtered = filtered.filter(r => { const rf = parseRefundTag(r.note); const isRefundDone = rf && rf.status === '退款成功'; const isNon1688Done = !(r.note||'').includes('[1688:') && (r.status === 'done' || (r.note||'').includes('[退货:已下单')); return isRefundDone || isNon1688Done; });
+    else if (currentTab === '1688_error') filtered = filtered.filter(r => isAbnormalNote(r.note));
+    } // end if (!search)
+
+    const allPending = new Set(list.filter(r => r.status === 'pending' && !parseRefundTag(r.note) && !parseReturnTag(r.note)).map(r=>r.po_id)).size;
+    const allRefunding = new Set(list.filter(r => isRefunding(r.note)).map(r=>r.po_id)).size;
+    const allDone = new Set(list.filter(r => { const rf = parseRefundTag(r.note); const isRefundDone = rf && rf.status === '退款成功'; const isNon1688Done = !(r.note||'').includes('[1688:') && (r.status === 'done' || (r.note||'').includes('[退货:已下单')); return isRefundDone || isNon1688Done; }).map(r=>r.po_id)).size;
+    const allUnmatched = new Set(list.filter(r => { const rt = parseReturnTag(r.note); return (r.status === 'pending' && !parseRefundTag(r.note) && !rt && getMissingMatch([r]).length > 0) || (rt && (rt.orderId||'').includes('无法匹配')); }).map(r=>r.po_id)).size;
+    const allError = new Set(list.filter(r => isAbnormalNote(r.note)).map(r=>r.po_id)).size;
+    document.getElementById('pendingCount').textContent = `待处理:${allPending}`;
+    document.getElementById('refundingCount').textContent = `退款中:${allRefunding}`;
+    document.getElementById('doneCount').textContent = `已完成:${allDone}`;
+    document.getElementById('unmatchedCount').textContent = `未匹配:${allUnmatched}`;
+    document.getElementById('errorCount').textContent = `异常:${allError}`;
+
+    const el = document.getElementById('historyList');
+    if (filtered.length === 0) { el.innerHTML = '<div style="color:#999;font-size:13px;text-align:center;padding:20px;">暂无记录</div>'; document.getElementById('pagination').innerHTML=''; return; }
+
+    // 按采购单号分组（待处理按PO+供应商合并，有退货/退款的按订单号/状态分开）
+    const groups = [];
+    const pendingMap = {};
+    filtered.forEach((r, i) => {
+        const realIdx = list.indexOf(r);
+        r._realIdx = realIdx;
+        const rt = parseReturnTag(r.note);
+        const rf = parseRefundTag(r.note);
+        if (!rf && !rt) {
+            // 待处理（无退货无退款）：仅同采购单号合并
+            const key = 'p_' + r.po_id;
+            if (!pendingMap[key]) { pendingMap[key] = []; groups.push({type:'group', po_id:r.po_id, items:pendingMap[key]}); }
+            pendingMap[key].push(r);
+        } else {
+            // 其他状态（有退货/退款标签或已处理）：独立显示，不合并
+            groups.push({type:'single', record:r});
+        }
+    });
+
+    el.innerHTML = groups.map((g, gi) => {
+        if (g.type === 'single') {
+            const r = g.record;
+            const refundInfo = parseRefundTag(r.note);
+            const is1688Single = (r.note||'').includes('[1688:');
+            const hasReal1688Single = /\[1688:(\d{10,})\]/.test(r.note||'');
+            const returnInfo = parseReturnTag(r.note);
+            const statusClass = r.status==='done'?'badge-done':'badge-error';
+            const statusText = r.status==='done'?'完成':(is1688Single?'异常':'未映射');
+            const badgeHtml = returnInfo ? getReturnBadge(returnInfo) : refundInfo ? getRefundBadge(refundInfo) : `<span class="badge ${statusClass}">${statusText}</span>`;
+            const printedNo = getWaybillPrinted([r]);
+
+            const noteDisplay = formatNoteDisplay(r.note);
+            const singleSupplier = getSupplierForGroup([r]);
+            const singleWaybillNo = singleSupplier ? getReturnAddress(singleSupplier) : null;
+            const singleSupplierHtml = singleSupplier ? `<div style="font-size:11px;color:#8b5cf6;font-weight:500;">🏪 ${singleSupplier}</div>` : '';
+            const sourceTag = is1688Single ? '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#1677ff;color:#fff;margin-left:4px;">1688</span>' : '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#faad14;color:#fff;margin-left:4px;">非1688</span>';
+            return `<div class="record">
+                <div class="record-header">
+                    <span class="record-title" onclick="copyText('${r.po_id}','采购单 ${r.po_id}')" title="点击复制采购单号" style="cursor:pointer;">采购单 ${r.po_id}${sourceTag}</span>
+                    ${badgeHtml}
+                </div>
+                ${singleSupplierHtml}
+                <div class="record-time">${new Date(r.created_at).toLocaleString()}${noteDisplay?' · '+noteDisplay:''}</div>
+                <div class="record-actions">
+                    ${is1688Single ? `<button onclick="open1688Return('${r.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;" title="${hasReal1688Single ? '打开1688订单详情' : '未找到1688订单号，将打开1688工作台'}">🔗 1688后台</button>` : ''}
+                    ${(() => { const _printed = getPrintedMailNo(r.note); if (singleWaybillNo) { return `<button onclick="${_printed ? 'reprintWaybill' : 'printWaybillForGroup'}('${r.po_id}',this)" style="color:#fff;background:${_printed ? '#059669' : '#0ea5e9'};border:1px solid ${_printed ? '#059669' : '#0ea5e9'};border-radius:4px;" title="${_printed ? '已打印：'+_printed+'（点击重新打印）' : '点击打印圆通电子面单'}">${_printed ? '🖨️ '+_printed : '🖨️ 面单'}</button>`; } else { return `<button onclick="editRecord(${r._realIdx});setTimeout(()=>showToast('⚠️ 缺退货地址，请补充 [供应商:xxx] 或 [地址:xxx] 后保存', '#f59e0b'), 200)" style="color:#fff;background:#f59e0b;border:1px solid #f59e0b;border-radius:4px;" title="缺退货地址，点击去编辑补充">🖨️ 面单（缺地址）</button>`; } })()}
+                    ${refundInfo||is1688Single?'':(r.status==='done'?`<button onclick="markUndone(${r._realIdx})" style="color:#d97706;border-color:#d97706;">↩ 反完成</button>`:`<button onclick="markDone(${r._realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`)}
+                    <button onclick="editRecord(${r._realIdx})" style="color:#1677ff;border-color:#1677ff;">✏️ 编辑</button>
+                </div>
+            </div>`;
+        }
+        // Group (pending, same po_id)
+        const items = g.items;
+        const count = items.length;
+        const expandId = 'grp_' + gi;
+        const photosId = 'gphoto_' + gi;
+        const allPhotos = items.flatMap(r=>r.photos||[]);
+        const is1688 = items.some(r=>(r.note||'').includes('[1688:'));
+        const isNon1688 = items.some(r=>(r.note||'').includes('[非1688]')||(r.note||'').includes('[系统:非1688'));
+        const tagHtml = is1688 ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:#1677ff;color:#fff;margin-left:6px;">1688</span>' : isNon1688 ? '<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:#faad14;color:#fff;margin-left:6px;">非1688</span>' : '';
+        const supplierName = getSupplierForGroup(items);
+        const supplierHtml = supplierName ? `<div style="font-size:11px;color:#8b5cf6;margin-top:2px;font-weight:500;">🏪 ${supplierName}</div>` : (is1688 ? '' : `<div style="font-size:11px;color:#dc2626;margin-top:2px;">⚠️ 未匹配供应商</div>`);
+        const btnPhotos = `<button onclick="document.getElementById('${photosId}').style.display=document.getElementById('${photosId}').style.display==='none'?'grid':'none'" style="padding:2px 8px;background:#fff;border:1.5px solid #4A90D9;border-radius:10px;color:#4A90D9;font-size:11px;cursor:pointer;margin-left:6px;">图片(${allPhotos.length})</button>`;
+        const btnDetail = count>1?`<button onclick="document.getElementById('${expandId}').style.display=document.getElementById('${expandId}').style.display==='none'?'block':'none'" style="padding:2px 8px;background:#fff;border:1.5px solid #999;border-radius:10px;color:#666;font-size:11px;cursor:pointer;margin-left:4px;">明细(${count})</button>`:'';
+        const skuMap = {};
+        items.forEach(r => {
+            const note = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+            const m = note.match(/^([^|]+)/);
+            if(m) { const parts = m[1].split(','); parts.forEach(p => { const sm = p.trim().match(/(.+?)×(\d+)/); if(sm){ skuMap[sm[1]] = (skuMap[sm[1]]||0) + parseInt(sm[2]); } }); }
+        });
+        const skuSummary = Object.entries(skuMap).map(([k,v])=>formatSkuDisplay(k.trim(),v)).join(' <span style="color:#dc2626;font-weight:700;">|</span> ') || '';
+        const latestTime = new Date(items[0].created_at).toLocaleString();
+        const hasReal1688 = items.some(r => /\[1688:(\d{10,})\]/.test(r.note||''));
+        const groupRefund = items.map(r=>parseRefundTag(r.note)).find(r=>r);
+        const groupReturn = items.map(r=>parseReturnTag(r.note)).find(r=>r);
+        const groupIs1688 = items.some(r=>(r.note||'').includes('[1688:'));
+        const returnBadge = groupReturn ? getReturnBadge(groupReturn) : '';
+        const groupMissing = getMissingMatch(items);
+        const groupPrinted = items.every(r => getWaybillPrinted([r]));
+        const defaultBadge = groupPrinted ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#05966918;color:#059669;border:1px solid #05966940;">完成</span>` : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#6b728018;color:#6b7280;border:1px solid #6b728040;">待处理</span>`;
+        const missingReasonHtml = groupMissing.length ? `<div style="font-size:11px;color:#d97706;margin-top:2px;">⚠️ 未匹配：${groupMissing.join('、')}</div>` : '';
+        const groupWaybillAbnormal = items.some(r=>isWaybillAbnormal(r.note));
+        const groupBadgeHtml = groupWaybillAbnormal ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dc262618;color:#dc2626;border:1px solid #dc262640;">❌ 面单异常</span>` : (groupRefund ? (getRefundBadge(groupRefund) + (groupReturn && groupReturn.orderId ? ` <span style="font-size:10px;color:#059669;">📦${groupReturn.orderId}</span>` : '')) : (returnBadge || defaultBadge));
+        const printedNo = getWaybillPrinted(items);
+
+        let html = `<div class="record">
+            <div class="record-header">
+                <span class="record-title" onclick="copyText('${g.po_id}','采购单 ${g.po_id}')" title="点击复制采购单号" style="cursor:pointer;">采购单 ${g.po_id}${tagHtml}${btnPhotos}${btnDetail}</span>
+                ${groupBadgeHtml}
+            </div>
+            ${supplierHtml}
+            ${missingReasonHtml}
+            <div style="font-size:12px;color:#555;margin-top:4px;">${skuSummary}</div>
+            <div class="record-time">${latestTime}${count>1?' · 合并'+count+'次提交':''}</div>
+            <div id="${photosId}" style="display:none;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;" data-photos='${JSON.stringify(allPhotos)}' data-poid="${g.po_id}">
+                ${allPhotos.map((p,pi)=>`<img class="img-loading" src="${thumbImg(p)}" data-full="${p}" loading="lazy" onload="this.classList.remove('img-loading')" onerror="this.onerror=null;this.src='${p}'" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="var c=this.parentElement;openModal(null,JSON.parse(c.dataset.photos),${pi},c.dataset.poid)">`).join('')}
+            </div>`;
+        if(count>1) {
+            html += `<div id="${expandId}" style="display:none;margin-top:8px;border-top:1px solid #f0f0f0;padding-top:8px;">`;
+            items.forEach(r => {
+                const noteDisplay = formatNoteDisplay(r.note);
+                html += `<div style="padding:8px 10px;background:${items.indexOf(r)%2===0?'#eef4fb':'#f8fafc'};border-left:4px solid #2b7de9;border-radius:0 6px 6px 0;margin-bottom:6px;font-size:12px;">
+                    <span style="color:#999;">${new Date(r.created_at).toLocaleString()}</span> · ${noteDisplay}
+                    <span style="float:right;">
+                        <button onclick="editRecord(${r._realIdx})" style="border:none;background:none;color:#4A90D9;font-size:11px;cursor:pointer;margin-right:8px;">✏️</button>
+                    </span>
+                </div>`;
+            });
+            html += `</div>`;
+        }
+        const hasReturnOrder = groupReturn && groupReturn.status !== '待处理';
+        const returnBtn = is1688 ? `<button onclick="open1688Return('${g.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;" title="${hasReal1688 ? '打开1688订单详情' : '未找到1688订单号，将打开1688工作台'}">🔗 1688后台</button>` : '';
+        const non1688ReturnBtn = '';
+        const refundDone = groupRefund && (groupRefund.status === '退款成功' || groupRefund.status === '完成');
+        const refundSellerReceived = groupRefund && (groupRefund.status === '等待卖家收货');
+        const waybillBtn = (() => { const hasAddr = supplierName && getReturnAddress(supplierName); if (hasAddr) { return `<button onclick="${printedNo ? 'reprintWaybill' : 'printWaybillForGroup'}('${g.po_id}',this)" style="color:#fff;background:${printedNo ? '#059669' : '#0ea5e9'};border:1px solid ${printedNo ? '#059669' : '#0ea5e9'};border-radius:4px;" title="${printedNo ? '已打印：'+printedNo : '点击打印圆通电子面单'}">${printedNo ? '🖨️ '+printedNo : '🖨️ 面单'}</button>`; } else { return `<button onclick="editGroup('${g.po_id}');setTimeout(()=>showToast('⚠️ 缺退货地址，请补充供应商信息', '#f59e0b'), 200)" style="color:#fff;background:#f59e0b;border:1px solid #f59e0b;border-radius:4px;" title="缺退货地址，点击去编辑补充">🖨️ 面单（缺地址）</button>`; } })();
+        const cancelBtn = (groupReturn && groupReturn.status === '已下单' && !refundDone && !refundSellerReceived) ? `<button onclick="cancelReturnOrder('${g.po_id}','${groupReturn.orderId||''}',this)" style="color:#dc2626;border:1px solid #dc2626;border-radius:4px;">取消</button>` : '';
+        html += `<div class="record-actions">
+                ${returnBtn}
+                ${non1688ReturnBtn}
+                ${waybillBtn}
+                ${cancelBtn}
+                <button onclick="editGroup('${g.po_id}')" style="color:#1677ff;border-color:#1677ff;">✏️ 编辑</button>
+                ${printedNo ? `<span onclick="copyText('${printedNo}','${printedNo}')" title="点击复制快递单号" style="margin-left:6px;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#05966918;color:#059669;border:1px solid #05966940;cursor:pointer;">${printedNo}</span>` : ''}
+            </div>
+        </div>`;
+        return html;
+    }).join('');
+    document.getElementById('pagination').innerHTML = '';
+}
+
+// ═══════════════ 编辑与删除 ═══════════════
+// Edit & Delete
+function editRecord(idx) {
+    const list = getRecords();
+    const r = list[idx];
+    if (!r) return;
+    editingIdx = idx;
+    document.getElementById('poId').value = r.po_id;
+    document.getElementById('note').value = r.note || '';
+    photos = [...(r.photos || [])];
+    initPhotoGrid();
+    collectOpen = true;
+    const _f = document.getElementById('collectForm'); _f.style.maxHeight = _f.scrollHeight + 2000 + 'px';
+    document.getElementById('collectArrow').textContent = '收起 ▲';
+    document.getElementById('submitBtn').textContent = '保存修改';
+    document.getElementById('cancelBtn').style.display = 'block';
+    updateBtn();
+    window.scrollTo(0, 0);
+}
+
+function cancelEdit() {
+    editingIdx = -1;
+    document.getElementById('poId').value = '';
+    document.getElementById('note').value = '';
+    document.getElementById('skuRows').innerHTML = '';
+    photos = [];
+    initPhotoGrid();
+    document.getElementById('submitBtn').textContent = '提交';
+    document.getElementById('cancelBtn').style.display = 'none';
+    updateBtn();
+}
+
+function setPageSize(size, btn) {
+    pageSize = size;
+    currentPage = 1;
+    document.querySelectorAll('#ps50,#ps100,#ps500').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    loadHistory();
+}
+function goPage(p) { currentPage = p; loadHistory(); }
+
+// 供应商映射：i_id → supplier_name
+async function loadStyleMap() {
+    // loadAllMaps 已从 Supabase 读取 return_style；这里只做本地兜底
+    if (_styleSupplierMap && Object.keys(_styleSupplierMap).length) return _styleSupplierMap;
+    try {
+        const r = await fetch('return_style_map.json?t=' + Date.now());
+        const d = await r.json();
+        if (d && Object.keys(d).length) _styleSupplierMap = d;
+    } catch(e) {}
+    if (!_styleSupplierMap) _styleSupplierMap = {};
+    return _styleSupplierMap;
+}
+function getSupplierForGroup(items) {
+    // 打码/脱敏的供应商名（含*号）视为未匹配
+    const validName = (v) => { const n = String(v||'').trim(); return (v && !n.includes('*') && n !== '市场') ? v : null; };
+    // 1) 提取 note 里的供应商（最高优先级）
+    let noteSupplier = null;
+    for (const r of items) {
+        const re = /供应商:([^\]]+?)(?=\s*次品:|\])/g;
+        let m;
+        while ((m = re.exec(r.note||'')) !== null) {
+            const n = validName(m[1]);
+            if (n) { noteSupplier = n; break; }
+        }
+        if (noteSupplier) break;
+    }
+    // 1a) 若 note 供应商在退货地址表里有记录，直接用（保持原行为）
+    if (noteSupplier && (!_returnAddrMap || getReturnAddress(noteSupplier))) return noteSupplier;
+    // 2) 否则从 return_style_map 按款号兜底（修复 note 供应商无地址的场景，如 812026 案例）
+    if (_styleSupplierMap && Object.keys(_styleSupplierMap).length) {
+        for (const r of items) {
+            const note = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+            const m = note.match(/^([A-Za-z0-9\-]+)/);
+            if (!m) continue;
+            const raw = m[1];
+            const tryMatch = (k, v) => {
+                if (k.toUpperCase() !== raw.toUpperCase()) return null;
+                const sv = validName(v);
+                if (!sv) return null;
+                if (_returnAddrMap && !getReturnAddress(sv)) return null;
+                return sv;
+            };
+            // Exact match first
+            for (const [k, v] of Object.entries(_styleSupplierMap)) {
+                const r = tryMatch(k, v); if (r) return r;
+            }
+            // Progressive trim: shorter prefixes
+            for (let len = raw.length - 1; len >= 3; len--) {
+                const prefix = raw.substring(0, len);
+                for (const [k, v] of Object.entries(_styleSupplierMap)) {
+                    if (k.toUpperCase() === prefix.toUpperCase()) {
+                        const r = tryMatch(k, v); if (r) return r;
+                    }
+                }
+            }
+            // startsWith
+            for (const [k, v] of Object.entries(_styleSupplierMap)) {
+                if (raw.toUpperCase().startsWith(k.toUpperCase()) || k.toUpperCase().startsWith(raw.toUpperCase())) {
+                    const r = tryMatch(k, v); if (r) return r;
+                }
+            }
+        }
+    }
+    // 3) 最后兜底：返回 note 供应商（哪怕无地址，避免显示空）
+    return noteSupplier;
+}
+
+// ═══════════════ 圆通电子面单（打印面单）═══════════════
+// 退货地址查询：供应商 → return_addr_map.json
+function getReturnAddress(supplier) {
+    if (!supplier || !_returnAddrMap) return null;
+    const norm = String(supplier).replace(/档口/g,'').trim().toLowerCase();
+    for (const [name, info] of Object.entries(_returnAddrMap)) {
+        const nameNorm = String(name).replace(/档口/g,'').trim().toLowerCase();
+        if (norm === nameNorm || norm.includes(nameNorm) || nameNorm.includes(norm)) {
+            return typeof info === 'string' ? info : (info.address || info);
+        }
+    }
+    return null;
+}
+
+// 判断一组记录缺少哪些匹配要素（供应商/地址/颜色/码数）→ 未匹配原因
+function getMissingMatch(items) {
+    const missing = new Set();
+    const list = Array.isArray(items) ? items : [items];
+    for (const r of list) {
+        const note = (r.note||'');
+        const clean = note.replace(/\s*\[[^\]]*\]/g, '').trim();
+        const skus = [...clean.matchAll(/([A-Za-z0-9][A-Za-z0-9\-]*)[×x](\d+)/g)].map(m=>m[1]);
+        if (!skus.length) missing.add('缺商品明细');
+        for (const sku of skus) {
+            const info = skuInfoMap[sku];
+            if (!info || !info[0]) { missing.add('缺商品资料'); continue; }
+            if (!info[1]) missing.add('缺颜色');
+            if (!info[2]) missing.add('缺码数');
+        }
+        const supplier = getSupplierForGroup([r]);
+        if (!supplier) missing.add('缺供应商');
+        else if (!getReturnAddress(supplier)) missing.add('缺退货地址');
+    }
+    return [...missing];
+}
+function getWaybillPrinted(items) {
+    for (const r of (Array.isArray(items) ? items : [items])) {
+        const m = (r.note||'').match(/\[面单:已打印:([^\]]+)\]/);
+        if (m && m[1]) return m[1];
+    }
+    return '';
+}
+// 仅取运单号（去掉后面 base64 数据）
+function getPrintedMailNo(note) {
+    const m = (note||'').match(/\[面单:已打印:([^\]]+)\]/);
+    if (!m) return '';
+    const i = m[1].indexOf('|');
+    return (i >= 0 ? m[1].slice(0, i) : m[1]).trim();
+}
+// 重新打印：已打印过的不再调圆通接口，直接显示原面单
+async function reprintWaybill(poId, btn, items) {
+    if (!items) items = getRecords().filter(r => String(r.po_id) === String(poId));
+    if (!items.length) { showToast('未找到记录', '#dc2626'); return; }
+    const note = items[0].note || '';
+    const m = note.match(/\[面单:已打印:([^\]]+)\]/);
+    if (!m) { showToast('该采购单暂无已打印面单', '#d97706'); return; }
+    const captured = m[1];
+    const pipeIdx = captured.indexOf('|');
+    const dataPart = pipeIdx >= 0 ? captured.slice(pipeIdx + 1) : '';
+    const mailNo = (pipeIdx >= 0 ? captured.slice(0, pipeIdx) : captured).trim();
+    let w = null;
+    if (dataPart) {
+        try { w = JSON.parse(decodeURIComponent(escape(atob(dataPart)))); } catch(e) { w = null; }
+    }
+    if (w) {
+        showWaybillModal(w);
+        const orig = btn ? btn.textContent : '';
+        if (btn) { btn.textContent = '🖨️ 重打中...'; btn.disabled = true; setTimeout(() => { if (btn) { btn.textContent = orig; btn.disabled = false; } }, 700); }
+    } else {
+        // 老记录没有完整面单数据 → 用当前映射+原运单号构造最小面单对象直接显示（不调圆通、不覆盖原运单号）
+        const supplier = getSupplierForGroup(items);
+        const receiver = supplier ? parseAddrInfo(getReturnAddress(supplier)) : null;
+        const skuMap = {};
+        items.forEach(r => {
+            const nt = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+            const mm = nt.match(/^([^|]+)/);
+            if (mm) { mm[1].split(',').forEach(p => { const sm = p.trim().match(/(.+?)×(\d+)/); if (sm) skuMap[sm[1]] = (skuMap[sm[1]]||0) + parseInt(sm[2]); }); }
+        });
+        const skuText = Object.entries(skuMap).map(([k,v])=>formatSkuDisplay(k.trim(),v)).join(', ') || ((items[0] && items[0].note) || '服装退货');
+        const w = {
+            poId: String(poId),
+            supplier: supplier || '未知',
+            receiver: receiver || {name:'', phone:'', address:'', province:'', city:'', district:''},
+            skuText, skuMap, mailNo,
+            sender: APP_CONFIG.returnSender || {name:'谢焕君', phone:'13316255984', address:'广东省广州市番禺区大石街道会江鸿盛三路9号高昇产业园A301'},
+            qrJson: '', shortAddr: '', threeStageCode: '', printKey: '', branchCode: '', centerCode: '',
+            createdAt: new Date().toLocaleString()
+        };
+        showWaybillModal(w);
+        const orig = btn ? btn.textContent : '';
+        if (btn) { btn.textContent = '🖨️ 重打中...'; btn.disabled = true; setTimeout(() => { if (btn) { btn.textContent = orig; btn.disabled = false; } }, 700); }
+    }
+}
+// 快递单号小按钮（放在 1688/非1688 标签后，点击重新打面单）
+function isWaybillAbnormal(note) { return /\[面单:异常/.test(note||''); }
+function isAbnormalNote(note) {
+    const rf = parseRefundTag(note);
+    return (rf && ['退款关闭','卖家拒绝','卖家拒绝申请','卖家拒绝退款','申请失败'].includes(rf.status)) || isWaybillAbnormal(note);
+}
+
+// 1688 退款状态：由每 2 小时自动同步（聚水潭采购单 labels）维护，不再需要手动下拉。
+// 解析 "姓名，电话，地址"
+function parseAddrInfo(addrStr) {
+    const s = String(addrStr || '').trim();
+    if (!s) return null;
+    const parts = s.split(/[,，]/).map(p => p.trim()).filter(Boolean);
+    if (parts.length < 2) return null;
+    let name = parts[0], phone = parts[1], address = parts.slice(2).join('，');
+    if (!/^\d{6,}$/.test(phone) && parts.length >= 3) {
+        phone = parts[parts.length - 2] || '';
+        address = parts.slice(0, -1).join('，');
+    }
+    return { name, phone, address };
+}
+function splitAddr(name, phone, address) {
+    const m = (address||'').match(/(.*?省)?(.*?市)?(.*?区|.*?县|.*?旗)?(.*)/);
+    return { name, phone, province:(m&&m[1])||'', city:(m&&m[2])||'', district:(m&&m[3])||'', address:((m&&m[4])||address||'').trim() };
+}
+let _lastWaybill = null;
+// 给采购单所有记录写入/清除面单状态标签
+async function tagWaybill(poId, tag) {
+    try {
+        const h = {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'};
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?po_id=eq.${poId}`, { headers: h });
+        const recs = await r.json();
+        for (const rec of recs) {
+            let note = (rec.note||'');
+            // 写入"异常"时保留已打印状态；写入"已打印"时清掉旧的已打印/异常
+            if (tag && tag.includes('面单:异常')) {
+                note = note.replace(/\s*\[面单:异常[^\]]*\]/g, '').trim();
+            } else {
+                note = note.replace(/\s*\[面单:[^\]]*\]/g, '').trim();
+            }
+            if (tag) note = note + ' ' + tag;
+            await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, { method:'PATCH', headers:h, body: JSON.stringify({note}) });
+        }
+    } catch(e) {}
+}
+// 生成圆通电子面单并预览（点击"🖨️ 面单"）
+
+// 生成圆通电子面单并预览（点击"🖨️ 面单"）
+async function printWaybillForGroup(poId, btn) {
+    const list = getRecords();
+    const items = list.filter(r => String(r.po_id) === String(poId));
+    if (!items.length) { showToast('未找到记录', '#dc2626'); return; }
+    if (getPrintedMailNo(items[0] && items[0].note)) { await reprintWaybill(poId, btn, items); return; }
+    const supplier = getSupplierForGroup(items);
+    if (!supplier) { showToast('该采购单未匹配到有效供应商', '#dc2626'); return; }
+    const w = await generateWaybill(supplier, items, [String(poId)], btn);
+    if (w) showWaybillModal(w);
+}
+
+// 核心：为指定供应商的若干记录（可跨多个采购单）生成一张面单，并把单号写入这些采购单
+async function generateWaybill(supplier, items, labelPoIds, btn) {
+    const receiver = parseAddrInfo(getReturnAddress(supplier));
+    if (!receiver) { showToast('供应商「' + supplier + '」暂无退货地址', '#d97706'); return null; }
+    const skuMap = {};
+    items.forEach(r => {
+        const note = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+        const m = note.match(/^([^|]+)/);
+        if (m) { m[1].split(',').forEach(p => { const sm = p.trim().match(/(.+?)×(\d+)/); if (sm) skuMap[sm[1]] = (skuMap[sm[1]]||0) + parseInt(sm[2]); }); }
+    });
+    const skuText = Object.entries(skuMap).map(([k,v])=>formatSkuDisplay(k.trim(),v)).join(', ') || ((items[0] && items[0].note) || '服装退货');
+    const orig = btn ? btn.textContent : '';
+    if (btn) { btn.textContent = '⏳ 生成中...'; btn.disabled = true; }
+    const tagAll = async (tag) => { for (const p of labelPoIds) await tagWaybill(p, tag); };
+    try {
+        const sender = APP_CONFIG.returnSender || { name:'谢焕君', phone:'13316255984', address:'广东省广州市番禺区大石街道会江鸿盛三路9号高昇产业园A301' };
+        const _ac = new AbortController();
+        const _tm = setTimeout(() => _ac.abort(), 30000);
+        const resp = await fetch((APP_CONFIG.ytoProxyUrl||'').replace(/\/+$/,''), {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action:'createOrder', data: {
+                orderId: 'RET' + labelPoIds.join('_') + Date.now(),
+                sender: splitAddr(sender.name, sender.phone, sender.address),
+                receiver: splitAddr(receiver.name, receiver.phone, receiver.address),
+                itemName: skuText
+            }}), signal: _ac.signal });
+        clearTimeout(_tm);
+        const data = await resp.json().catch(()=>({}));
+        const raw = (data && data.raw) || '';
+        const mailNoM = raw.match(/<mailNo>([^<]+)<\/mailNo>/i);
+        const mailNo = mailNoM ? mailNoM[1] : '';
+        if (!mailNo) {
+            await tagAll('[面单:异常:未返回运单号]');
+            showToast('⚠️ 圆通未返回运单号: ' + raw.slice(0, 120), '#d97706');
+            if (btn) { btn.textContent = orig; btn.disabled = false; }
+            return null;
+        }
+        const qrM = raw.match(/<qrCode>([^<]+)<\/qrCode>/i);
+        let threeStageCode = '';
+        const segFields = ['threeStageCode','routingCode','routeCode','threeCode','segmentCode','printKeyWord','wayBillCode','segCode'];
+        for (const f of segFields) {
+            const mm = raw.match(new RegExp('<' + f + '>([^<]+)</' + f + '>', 'i'));
+            if (mm && mm[1] && /\d/.test(mm[1]) && /-/.test(mm[1])) { threeStageCode = mm[1]; break; }
+        }
+        const saM = raw.match(/<shortAddress>([^<]*)<\/shortAddress>/i);
+        const pkM = raw.match(/<printKeyWord>([^<]*)<\/printKeyWord>/i);
+        const rbM = raw.match(/<consigneeBranchCode>([^<]*)<\/consigneeBranchCode>/i);
+        const cbM = raw.match(/<packageCenterCode>([^<]*)<\/packageCenterCode>/i);
+        const w = {
+            poId: labelPoIds.join(','), supplier, receiver, skuText, skuMap, mailNo, sender,
+            qrJson: qrM ? qrM[1] : '',
+            shortAddr: saM ? saM[1] : '',
+            threeStageCode: threeStageCode,
+            printKey: pkM ? pkM[1] : '',
+            branchCode: rbM ? rbM[1] : '',
+            centerCode: cbM ? cbM[1] : '',
+            createdAt: new Date().toLocaleString()
+        };
+        try { const data = btoa(unescape(encodeURIComponent(JSON.stringify(w)))); await tagAll('[面单:已打印:' + mailNo + '|' + data + ']'); } catch(e) { await tagAll('[面单:已打印:' + mailNo + ']'); }
+        if (items[0] && !(items[0].note||'').includes('[1688:')) {
+            // 非 1688：打面单后状态自动改为完成
+            const h2 = {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'};
+            for (const r of items) { await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${r.id}`, { method:'PATCH', headers:h2, body: JSON.stringify({status:'done'}) }); }
+        }
+        if (btn) { btn.textContent = '🖨️ ' + mailNo; btn.disabled = false; }
+        return w;
+    } catch(e) {
+        await tagAll('[面单:异常:' + String(e.message||'获取失败').slice(0,30) + ']');
+        showToast('❌ 获取面单失败: ' + e.message, '#dc2626');
+        if (btn) { btn.textContent = orig; btn.disabled = false; }
+        return null;
+    }
+}
+
+// 按供应商合并打印：同一供应商的所有待处理采购单合并为一张面单（不创建聚水潭单）
+async function batchPrintBySupplier() {
+    const list = getRecords();
+    const pending = list.filter(r => r.status === 'pending' && !parseReturnTag(r.note) && !parseRefundTag(r.note));
+    if (!pending.length) { showToast('无待处理记录', '#6b7280'); return; }
+    const groups = {};
+    let noSup = 0;
+    for (const r of pending) {
+        const sup = getSupplierForGroup([r]);
+        if (sup) {
+            const is1688 = (r.note||'').includes('[1688:');
+            const key = sup + '|' + (is1688 ? '1688' : '非1688');
+            if (!groups[key]) groups[key] = { supplier: sup, source: is1688 ? '1688' : '非1688', items: [] };
+            groups[key].items.push(r);
+        } else noSup++;
+    }
+    const keys = Object.keys(groups).sort();
+    if (!suppliers.length) { showToast('没有可合并打印的供应商', '#d97706'); return; }
+    let html = `<div style="padding:16px;max-height:70vh;overflow-y:auto;">
+        <h3 style="margin:0 0 12px;font-size:16px;">按供应商合并打印</h3>
+        <p style="font-size:12px;color:#666;margin-bottom:12px;">同一供应商的所有待处理采购单合并为一张面单（一个快递单号、一次运费），不创建聚水潭单。</p>`;
+    keys.forEach((key) => {
+        const grp = groups[key];
+        const sup = grp.supplier;
+        const poIds = [...new Set(items.map(r=>String(r.po_id)))];
+        const skuMap = {};
+        items.forEach(r => {
+            const note = (r.note||'').replace(/\s*\[[^\]]*\]/g,'').trim();
+            const m = note.match(/^([^|]+)/);
+            if (m) { m[1].split(',').forEach(p => { const sm = p.trim().match(/(.+?)×(\d+)/); if (sm) skuMap[sm[1]] = (skuMap[sm[1]]||0)+parseInt(sm[2]); }); }
+        });
+        const skuText = Object.entries(skuMap).map(([k,v])=>k.trim()+'×'+v).join(', ');
+        const hasAddr = !!getReturnAddress(sup);
+        html += `<label style="display:flex;align-items:flex-start;gap:8px;padding:10px;margin:4px 0;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;">
+            <input type="checkbox" data-key="${key}" ${hasAddr?'checked':'disabled'} style="margin-top:3px;width:18px;height:18px;">
+            <div style="flex:1;">
+                <div style="font-weight:600;font-size:13px;color:#8b5cf6;">${sup} <span style="font-size:11px;color:#fff;background:${grp.source==='1688'?'#1677ff':'#faad14'};padding:1px 6px;border-radius:4px;margin-left:4px;">${grp.source}</span> ${hasAddr?'':'<span style="color:#d97706;font-size:11px;">⚠️缺地址</span>'}</div>
+                <div style="font-size:11px;color:#666;margin-top:2px;">采购单: ${poIds.join(', ')}（${items.length}条）</div>
+                <div style="font-size:11px;color:#999;margin-top:1px;">${skuText||'（无明细）'}</div>
+            </div>
+        </label>`;
+    });
+    if (noSup) html += `<div style="padding:8px;margin-top:8px;background:#fef2f2;border-radius:6px;font-size:11px;color:#dc2626;">⚠️ ${noSup}条记录无法匹配供应商，未列入</div>`;
+    html += `<div style="display:flex;gap:8px;margin-top:16px;">
+        <button onclick="confirmBatchPrint()" style="flex:1;padding:10px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">合并打印</button>
+        <button onclick="document.getElementById('batchReturnOverlay').style.display='none'" style="padding:10px 20px;background:#fff;border:1px solid #d1d5db;border-radius:8px;font-size:14px;cursor:pointer;">取消</button>
+    </div></div>`;
+    let overlay = document.getElementById('batchReturnOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'batchReturnOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;';
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `<div style="background:white;border-radius:14px;max-width:440px;width:100%;">${html}</div>`;
+    overlay.style.display = 'flex';
+    overlay._printGroups = groups;
+}
+
+async function confirmBatchPrint() {
+    const overlay = document.getElementById('batchReturnOverlay');
+    const checkboxes = overlay.querySelectorAll('input[type=checkbox]:checked');
+    const selected = [...checkboxes].map(cb => cb.dataset.key);
+    if (!selected.length) { showToast('请至少选择一个供应商', '#d97706'); return; }
+    const groups = overlay._printGroups;
+    overlay.style.display = 'none';
+    const results = [];
+    for (const key of selected) {
+        const items = grp.items;
+        const poIds = [...new Set(items.map(r=>String(r.po_id)))];
+        const w = await generateWaybill(sup, items, poIds, null);
+        if (w) results.push({ supplier: grp.supplier, source: grp.source, w });
+    }
+    if (!results.length) { showToast('❌ 全部生成失败，请检查地址/圆通接口', '#dc2626'); return; }
+    let html = `<div style="padding:16px;max-height:70vh;overflow-y:auto;">
+        <h3 style="margin:0 0 12px;font-size:16px;">合并打印已生成（${results.length}张）</h3>`;
+    results.forEach((res, i) => {
+        const srcColor = res.source === '1688' ? '#1677ff' : '#faad14';
+        html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;margin:4px 0;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
+            <div><div style="font-weight:600;font-size:13px;color:#065f46;">${res.supplier} <span style="font-size:10px;color:#fff;background:${srcColor};padding:1px 6px;border-radius:4px;margin-left:4px;">${res.source}</span></div>
+            <div style="font-size:11px;color:#666;">运单号：${res.w.mailNo}｜采购单：${res.w.poId}</div></div>
+            <button onclick="showWaybillModal(window.__bp[${i}])" style="padding:6px 12px;background:#0ea5e9;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">查看/打印</button>
+        </div>`;
+    });
+    html += `<div style="display:flex;gap:8px;margin-top:16px;">
+        <button onclick="document.getElementById('batchReturnOverlay').style.display='none'" style="flex:1;padding:10px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;">完成</button>
+    </div></div>`;
+    let ov = document.getElementById('batchReturnOverlay');
+    if (!ov) {
+        ov = document.createElement('div');
+        ov.id = 'batchReturnOverlay';
+        ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;';
+        document.body.appendChild(ov);
+    }
+    ov.innerHTML = `<div style="background:white;border-radius:14px;max-width:440px;width:100%;">${html}</div>`;
+    ov.style.display = 'flex';
+    window.__bp = results.map(r=>r.w);
+    setTimeout(()=>loadHistory(), 1500);
+}
+
+function showWaybillModal(w) {
+    _lastWaybill = w;
+    document.getElementById('waybillPoId').textContent = w.poId;
+    document.getElementById('waybillSupplier').textContent = w.supplier;
+    document.getElementById('waybillMailNo').textContent = w.mailNo;
+    document.getElementById('waybillSender').textContent = w.sender.name + '  ' + w.sender.phone;
+    document.getElementById('waybillSenderAddr').textContent = w.sender.address;
+    document.getElementById('waybillReceiver').textContent = w.receiver.name + '  ' + w.receiver.phone;
+    document.getElementById('waybillReceiverAddr').textContent = [w.receiver.province, w.receiver.city, w.receiver.district, w.receiver.address].filter(Boolean).join('');
+    document.getElementById('waybillItems').textContent = w.skuText;
+    document.getElementById('waybillTime').textContent = w.createdAt;
+    document.getElementById('waybillSeg').textContent = w.shortAddr || '-';
+    renderWaybillPreview(w);
+    document.getElementById('waybillModal').style.display = 'flex';
+}
+function renderWaybillPreview(w) {
+    const bc = document.getElementById('waybillBarcodePrev');
+    if (bc) bc.innerHTML = '';
+    try {
+        if (typeof JsBarcode !== 'undefined' && bc) {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+            JsBarcode(svg, w.mailNo, { format:'CODE128', width:1.6, height:48, displayValue:false, margin:0 });
+            svg.setAttribute('style','max-width:100%;height:auto;');
+            bc.appendChild(svg);
+        } else if (bc) { bc.textContent = w.mailNo; }
+    } catch(e) { if (bc) bc.textContent = w.mailNo; }
+}
+function closeWaybillModal() { document.getElementById('waybillModal').style.display = 'none'; }
+// 通用复制（带小提示），传入要复制的文本
+async function copyText(text, label) {
+    try { await navigator.clipboard.writeText(String(text)); showToast('✅ 已复制' + (label ? '：' + label : ''), '#059669'); }
+    catch(e) { showToast('复制失败：' + e.message, '#dc2626'); }
+}
+async function copyWaybillNo() {
+    const no = document.getElementById('waybillMailNo').textContent;
+    try { await navigator.clipboard.writeText(no); showToast('✅ 运单号已复制: ' + no, '#059669'); }
+    catch(e) { showToast('复制失败，请手动选择复制', 'orange'); }
+}
+// 从收货地址提取"目的地"地标（如：洛浦街道西山村开发南路2号 → 西山村）
+function extractLandmark(addr) {
+    const a = String(addr || '');
+    const m = a.match(/(?:街道|镇|乡|社区)([^，,号\d]*?(?:村|苑|花园|小区|大厦|城|园|巷|里))/);
+    if (m && m[1]) return m[1].trim();
+    const d = a.match(/([^省市区县]+?(?:区|县))/);
+    return d ? d[1] : '';
+}
+
+// 生成底部明细表格行：采购单号 | 款号 | 颜色 | 码 | 数量
+function buildSkuTableRows(w) {
+    const rows = [];
+    if (w && w.skuMap) {
+        for (const [code, qty] of Object.entries(w.skuMap)) {
+            const info = skuInfoMap[code];
+            const style = info && info[0] ? info[0] : code;
+            const color = info && info[1] ? info[1] : '';
+            const size = info && info[2] ? info[2] : '';
+            rows.push({ style, color, size, qty });
+        }
+    }
+    if (!rows.length && w && w.skuText) {
+        rows.push({ style: w.skuText, color: '', size: '', qty: '' });
+    }
+    return rows;
+}
+
+// 把条形码 SVG 旋转90°（x/y 坐标互换）生成竖排条码
+function rotateSvg90(svgStr) {
+    try {
+        let out = svgStr;
+        const wm = out.match(/width="([\d.]+)"/);
+        const hm = out.match(/height="([\d.]+)"/);
+        if (!wm || !hm) return svgStr;
+        const W = parseFloat(wm[1]), H = parseFloat(hm[1]);
+        out = out.replace(/width="[^"]*"/, 'width="' + H + '"').replace(/height="[^"]*"/, 'height="' + W + '"');
+        out = out.replace(/viewBox="[^"]*"/, 'viewBox="0 0 ' + H + ' ' + W + '"');
+        out = out.replace(/<svg /, '<svg preserveAspectRatio="none" ');
+        out = out.replace(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g,
+            (all, x, y, w, h) => '<rect x="0" y="' + x + '" width="' + h + '" height="' + w + '"');
+        return out;
+    } catch(e) { return svgStr; }
+}
+
+async function printWaybillNow() {
+    if (!_lastWaybill) return;
+    const w = _lastWaybill;
+    if (typeof generateFacesheetPdf === 'undefined') {
+        showToast('⚠️ PDF 生成组件未加载，请检查网络后重试', '#d97706');
+        return;
+    }
+    const dtStr = w.createdAt || '';
+    const dtArr = dtStr.split(' ');
+    const datePart = dtArr[0] || dtStr;
+    const timePart = dtArr[1] || '';
+    const receiverAddr = [w.receiver.province, w.receiver.city, w.receiver.district, w.receiver.address].filter(Boolean).join('');
+    const landmark = extractLandmark(receiverAddr);
+    // 收件地址：去空格后整段传给面单，由面单自适应换行
+    const addrLines = [receiverAddr.replace(/\s+/g, '')];
+    const rows = buildSkuTableRows(w);
+    const totalQty = rows.reduce((s, r) => s + (parseInt(r.qty) || 0), 0) || 1;
+    const data = {
+        mailNo: w.mailNo,
+        date: datePart,
+        time: timePart,
+        // 三段码路由码：优先用真正的三段码字段，否则回退到大头笔
+        seg: w.threeStageCode || (w.printKey && /^[\d-]+$/.test(w.printKey) ? w.printKey : ''),
+        landmark: landmark,
+        dest: w.printKey || '',   // 大头笔 (如"易世达华信")
+        dest2: '省',   // 省字永远默认
+        receiver: { name: w.receiver.name, phone: w.receiver.phone, addressLines: addrLines },
+        sender: { name: w.sender.name + ' ' + w.sender.phone, address: w.sender.address },
+        poId: w.poId,
+        rows: rows,
+        totalQty: totalQty,
+        code: '',
+        qty: '共' + totalQty + '件'
+    };
+    try {
+        // HTML/CSS 版电子面单（与聚水潭打印版式一致，横向 129x75mm）
+        localStorage.setItem('facesheet_data', JSON.stringify(data));
+        const win = window.open('facesheet.html?v=' + Date.now(), '_blank');
+        if (!win) { showToast('请允许弹出窗口', 'orange'); return; }
+        showToast('✅ 电子面单已生成: ' + w.mailNo, '#059669');
+    } catch(e) {
+        showToast('❌ 生成面单失败: ' + e.message, '#dc2626');
+    }
+}
+
+// ═══════════════ 退货与退款操作（一键退货 / 批量 / 重匹配 / 取消重试） ═══════════════
+// 1688退货：po_id → 1688订单链接
+let _po1688Map = null;
+
+// 重匹配：对"未匹配"和"退货失败/异常"记录，按最新映射（商品/供应商/地址）重新评估
+// - 清除旧的 [退货:失败]/[退货:异常]/[退货:待处理] 标签，恢复可操作
+// - 补齐/纠正 [供应商]/[地址]/[明细] 标签（仅当缺失或无效时）
+// - 不创建任何退货单/退款单，不改 1688/退款历史标签
+function refreshMatchTags(note) {
+    let n = (note||'').trim();
+    const clean = n.replace(/\s*\[[^\]]*\]/g, '').trim();
+    const skus = [...clean.matchAll(/([A-Za-z0-9][A-Za-z0-9\-]*)[×x](\d+)/g)].map(m=>m[1]);
+    let color='', size='', sup='', addrStr='';
+    for (const sku of skus) {
+        const info = skuInfoMap[sku];
+        if (info && info[0]) { color = info[1]||''; size = info[2]||''; break; }
+    }
+    sup = getSupplierForGroup([{note:n}]) || '';
+    if (sup) { const a = getReturnAddress(sup); if (a) addrStr = typeof a==='string' ? a : [a.contacts||'', a.mobile||'', a.address||''].filter(Boolean).join(','); }
+    const okName = (v) => { const s=String(v||'').trim(); return s && !s.includes('*') && s!=='市场' && s!=='None' && s!=='null'; };
+    const setTag = (re, val) => { const m = n.match(re); if (m) n = n.replace(m[0], val); else n = n + ' ' + val; return n; };
+    const supM = n.match(/\[供应商:([^\]]*)\]/);
+    if (!okName(supM && supM[1]) && sup) n = setTag(/\[供应商:[^\]]*\]/, '[供应商:'+sup+']');
+    const addrM = n.match(/\[地址:([^\]]*)\]/);
+    const curAddr = addrM ? addrM[1].trim() : '';
+    if ((!curAddr || ['None','null',',,',',,None'].includes(curAddr)) && addrStr) n = setTag(/\[地址:[^\]]*\]/, '[地址:'+addrStr+']');
+    const detM = n.match(/\[明细:([^\]]*)\]/);
+    const curDet = detM ? detM[1].trim() : '';
+    const wantDet = [color,size].filter(Boolean).join(';');
+    const detBad = !curDet || ['None','null'].includes(curDet) || /^[;,]/.test(curDet);
+    if (wantDet && (detBad || (curDet && curDet!==wantDet))) n = setTag(/\[明细:[^\]]*\]/, '[明细:'+wantDet+']');
+    return n;
+}
+// 手动触发聚水潭同步（通过 Supabase Edge Function jst-sync → 调 Cloudflare Worker）
+async function manualSyncJST() {
+    const btn = document.getElementById("syncJstBtn");
+    if (!btn) return;
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "⏳ 同步中...";
+    btn.style.background = "#6b7280";
+    btn.style.borderColor = "#6b7280";
+    try {
+        const r = await fetch(SUPABASE_URL + "/functions/v1/jst-sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY },
+            body: JSON.stringify({ mode: "fire-worker" })
+        });
+        const data = await r.json().catch(()=>({}));
+        if (data && data.ok && data.worker_http === 200) {
+            btn.textContent = "✅ 已触发";
+            btn.style.background = "#059669";
+            btn.style.borderColor = "#059669";
+            showToast("✅ 同步已触发，" + ((data.worker_response && data.worker_response.note) || "Worker 立即返回，后台执行") + "\n约 30-60 秒后刷新页面", "#059669");
+            // 60 秒后自动 reload 数据
+            setTimeout(async () => {
+                showToast("🔄 正在刷新数据...", "#4A90D9");
+                await loadAllMaps();
+                btn.textContent = origText;
+                btn.style.background = "#0ea5e9";
+                btn.style.borderColor = "#0ea5e9";
+                btn.disabled = false;
+                loadHistory();
+            }, 30000);
+        } else {
+            // 失败：尝试解析被拒 IP
+            let errMsg = (data && data.worker_response) || (data && data.worker_error) || ("HTTP " + r.status);
+            const ipMatch = String(errMsg).match(/(\d+\.\d+\.\d+\.\d+)/);
+            if (ipMatch) errMsg += "\n被拒 IP: " + ipMatch[1] + "（请加到聚水潭 IP 白名单）";
+            btn.textContent = "❌ 失败";
+            btn.style.background = "#dc2626";
+            btn.style.borderColor = "#dc2626";
+            showToast("❌ 同步失败: " + errMsg, "#dc2626");
+            setTimeout(() => {
+                btn.textContent = origText;
+                btn.style.background = "#0ea5e9";
+                btn.style.borderColor = "#0ea5e9";
+                btn.disabled = false;
+            }, 5000);
+        }
+    } catch(e) {
+        btn.textContent = "❌ 错误";
+        btn.style.background = "#dc2626";
+        btn.style.borderColor = "#dc2626";
+        showToast("❌ 网络错误: " + e.message, "#dc2626");
+        setTimeout(() => {
+            btn.textContent = origText;
+            btn.style.background = "#0ea5e9";
+            btn.style.borderColor = "#0ea5e9";
+            btn.disabled = false;
+        }, 5000);
+    }
+}
+
+
+async function retryAllFailed() {
+    if (!confirm('重新匹配所有"未匹配"和"退货失败/异常"的记录？\n将按最新映射重新评估（不创建任何退货/退款单）。')) return;
+    const list = getRecords();
+    const targets = list.filter(r => {
+        const rt = parseReturnTag(r.note);
+        const rf = parseRefundTag(r.note);
+        // 退货失败/异常（退款未完成）
+        if (rt && (rt.status === '失败' || rt.status === '异常') && !(rf && (rf.status === '退款成功' || rf.status === '完成'))) return true;
+        // 未匹配（缺供应商/地址/颜色/码数等）的待处理记录
+        if (r.status === 'pending' && !rf && !rt && getMissingMatch([r]).length > 0) return true;
+        return false;
+    });
+    if (!targets.length) { showToast('无需重匹配的记录', '#6b7280'); return; }
+    const h = {'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'};
+    let count = 0;
+    for (const rec of targets) {
+        let note = (rec.note||'')
+            .replace(/\s*\[退货:失败[^\]]*\]/g, '')
+            .replace(/\s*\[退货:异常[^\]]*\]/g, '')
+            .replace(/\s*\[退货:待处理\]/g, '')
+            .replace(/\s*\[系统:重新匹配\]/g, '').trim();
+        note = refreshMatchTags(note);
+        note += ' [系统:重新匹配]';
+        await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${rec.id}`, {
+            method: 'PATCH', headers: h, body: JSON.stringify({note})
+        });
+        count++;
+    }
+    showToast(`✅ 已重新匹配 ${count} 条（按最新映射更新，不创建退货/退款单）`, '#059669');
+    setTimeout(() => fetchRecords(), 1500);
+}
+
+
+async function open1688Return(poId) {
+    if (!_po1688Map) {
+        showToast('加载1688映射...', '#4A90D9');
+        try {
+            const r = await fetch('po_1688_map.json?t=' + Date.now());
+            _po1688Map = await r.json();
+        } catch(e) { _po1688Map = {}; }
+    }
+    // 优先查映射表；没有再从 note 解析 1688 真订单号（10+ 位纯数字）
+    let orderId = _po1688Map[poId];
+    if (!orderId) {
+        const list = getRecords();
+        const rec = list.find(r => String(r.po_id) === String(poId));
+        if (rec) {
+            const m = (rec.note || '').match(/\\[1688:(\\d{10,})\\]/);
+            if (m) orderId = m[1];
+        }
+    }
+    // 检查订单号是否有效（19 位以 33 开头）
+    const isValid1688Id = orderId && /^33\d{17}$/.test(orderId);
+    let url;
+    let toastMsg;
+    if (!orderId) {
+        const userInput = window.prompt('1) 聚水潭采购单管理 \\n\\n2) 找采购单 ${poId}\\n3) 复制【线上采购单号】列(19位以33开头) \\n4) 粘贴(取消=跳1688主页) \\n\\n1688 主订单号:');
+        if (userInput && /^33\d{17}$/.test(userInput.trim())) {
+            const newOrderId = userInput.trim();
+            const rec = getRecords().find(r => String(r.po_id) === String(poId));
+            if (rec && rec.id) {
+                const newNote = (rec.note || '') + ' [1688:' + newOrderId + ']';
+                fetch(SUPABASE_URL + '/rest/v1/defect_reports?id=eq.' + rec.id, {
+                    method:'PATCH', headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },                    body: JSON.stringify({ note: newNote })
+                });
+            }
+            toastMsg = `${poId} 已跳到1688订单详情(订单号已保存)`;
+            url = 'https://air.1688.com/app/ctf-page/trade-order-detail/index.html?orderId=' + newOrderId;
+        } else {
+            toastMsg = `${poId} 无1688订单号,跳到1688主页`;
+            url = 'https://www.1688.com/';
+        }
+    } else if (!isValid1688Id) {
+        // note 里有 [1688:xxx] 但格式异常（不是 19 位以 33 开头）
+        toastMsg = `${poId} 1688 订单号格式异常（${orderId}），打开1688主页`;
+        url = 'https://www.1688.com/';
+    } else {
+        // 真实有效订单号
+        url = 'https://air.1688.com/app/ctf-page/trade-order-detail/index.html?orderId=' + orderId;
+    }
+    if (toastMsg) showToast(toastMsg, '#f59e0b');
+    // 创建临时 <a> 标签模拟点击，避开弹窗拦截
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => a.remove(), 100);
+}
+
 async function markDoneGroup(poId) {
     const list = getRecords();
     const items = list.filter(r => r.po_id === poId && r.status === 'pending');
@@ -1579,6 +2296,7 @@ async function togglePhotos(idx) {
     }
 }
 
+// ═══════════════ 图片预览弹窗 ═══════════════
 // Image modal
 let modalPhotos = [];
 let modalIndex = 0;
@@ -1704,8 +2422,9 @@ function showToast(msg, color) {
 }
 
 initPhotoGrid();
+// ═══════════════ 初始化与页面启动 ═══════════════
 loadStyleMap().then(() => fetchRecords());
-skuInfoMapPromise.then(() => { if (window._records) loadHistory(); });
+Promise.all([skuInfoMapPromise, returnAddrMapPromise]).then(() => { if (window._records) loadHistory(); });
 
 // 未提交内容退出提示
 window.addEventListener('beforeunload', function(e) {
@@ -1776,5 +2495,41 @@ document.getElementById('historyList').addEventListener('scroll', function() {
     }
 }, {passive: true});
 </script>
+<!-- 圆通面单预览弹窗 -->
+<div id="waybillModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)closeWaybillModal()">
+    <div style="background:#fff;border-radius:14px;max-width:420px;width:100%;overflow:hidden;">
+        <div style="background:#0ea5e9;color:#fff;padding:14px 16px;font-size:15px;font-weight:700;display:flex;justify-content:space-between;align-items:center;">
+            <span>🖨️ 圆通退货面单</span>
+            <button onclick="closeWaybillModal()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;">✕</button>
+        </div>
+        <div style="padding:16px;">
+            <div style="text-align:center;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px;margin-bottom:12px;">
+                <div style="font-size:11px;color:#0369a1;">运单号（点击复制）</div>
+                <div id="waybillMailNo" style="font-size:22px;font-weight:800;letter-spacing:1px;color:#0c4a6e;cursor:pointer;" onclick="copyWaybillNo()">-</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:12px;">
+                <div id="waybillBarcodePrev" style="flex:1;text-align:center;overflow:hidden;"></div>
+                <div style="font-size:12px;line-height:1.8;flex-shrink:0;">
+                    <div style="color:#666;">三段码</div>
+                    <div id="waybillSeg" style="font-weight:800;font-size:14px;color:#0c4a6e;">-</div>
+                </div>
+            </div>
+            <div style="font-size:13px;line-height:2;">
+                <div><b>采购单：</b><span id="waybillPoId"></span></div>
+                <div><b>供应商：</b><span id="waybillSupplier"></span></div>
+                <div><b>寄件人：</b><span id="waybillSender"></span></div>
+                <div style="padding-left:56px;color:#555;" id="waybillSenderAddr"></div>
+                <div><b>收件人：</b><span id="waybillReceiver"></span></div>
+                <div style="padding-left:56px;color:#555;" id="waybillReceiverAddr"></div>
+                <div><b>退货明细：</b><span id="waybillItems"></span></div>
+                <div style="color:#999;font-size:12px;" id="waybillTime"></div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:14px;">
+                <button onclick="copyWaybillNo()" style="flex:1;padding:10px;background:#fff;border:1px solid #0ea5e9;color:#0ea5e9;border-radius:8px;font-size:14px;cursor:pointer;">📋 复制运单号</button>
+                <button onclick="printWaybillNow()" style="flex:1;padding:10px;background:#0ea5e9;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">🖨️ 打印面单</button>
+            </div>
+        </div>
+    </div>
+</div>
 </body>
 </html>
