@@ -1683,7 +1683,23 @@ async function generateWaybill(supplier, items, labelPoIds, btn) {
 // 按供应商合并打印：同一供应商的所有待处理采购单合并为一张面单（不创建聚水潭单）
 async function batchPrintBySupplier() {
     const list = getRecords();
-    const pending = list.filter(r => r.status === 'pending' && !parseReturnTag(r.note) && !parseRefundTag(r.note));
+    // 筛选可打面单的记录：
+    // 非1688: pending + 无面单
+    // 1688: 等待买家退货 + 无面单
+    const canPrint = list.filter(r => {
+        if (r.status !== 'pending') return false;
+        if (getPrintedMailNo(r.note)) return false; // 已打印面单跳过
+        const is1688 = (r.note||'').includes('[1688:');
+        if (is1688) {
+            const rf = parseRefundTag(r.note);
+            // 1688只有"等待买家退货"才能打面单
+            return rf && (rf.status === '等待买家退货' || (rf.status === '退款中' && (rf.refundId||'').includes('等待买家退货')));
+        } else {
+            // 非1688: pending即可
+            return true;
+        }
+    });
+    const pending = canPrint;
     if (!pending.length) { showToast('无待处理记录', '#6b7280'); return; }
     const groups = {};
     let noSup = 0;
@@ -1965,6 +1981,18 @@ async function manualSyncJST() {
             setTimeout(async () => {
                 showToast("🔄 正在刷新数据...", "#4A90D9");
                 await loadAllMaps();
+                await fetchRecords();
+                // 自动标done：退款成功的1688记录
+                const h = {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'};
+                let autoDone = 0;
+                for (const r of (window._records||[])) {
+                    if (r.status !== 'done' && /\[退款:(退款成功|完成)\]/.test(r.note||'')) {
+                        await fetch(`${SUPABASE_URL}/rest/v1/defect_reports?id=eq.${r.id}`, {method:'PATCH',headers:h,body:JSON.stringify({status:'done'})});
+                        r.status = 'done';
+                        autoDone++;
+                    }
+                }
+                if (autoDone) showToast(`✅ ${autoDone}条退款成功已自动完结`, '#059669');
                 btn.textContent = origText;
                 btn.style.background = "#0ea5e9";
                 btn.style.borderColor = "#0ea5e9";
