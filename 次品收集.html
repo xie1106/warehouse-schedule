@@ -1950,7 +1950,7 @@ async function printWaybillNow() {
         date: datePart,
         time: timePart,
         // 三段码路由码：优先用真正的三段码字段，否则回退到大头笔
-        seg: w.threeStageCode || (w.printKey && /^[\d-]+$/.test(w.printKey) ? w.printKey : ''),
+        seg: w.threeStageCode || w.shortAddr || (w.printKey && /^[\d-]+$/.test(w.printKey) ? w.printKey : ''),
         landmark: landmark,
         dest: w.printKey || '',   // 大头笔 (如"易世达华信")
         dest2: '省',   // 省字永远默认
