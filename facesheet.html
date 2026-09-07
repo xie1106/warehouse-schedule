@@ -57,7 +57,9 @@ function drawH(canvas,text){ var bars=code128Bars(text); var ctx=canvas.getConte
   for(var i=0;i<bars.length;i++){ var u=bars[i]*unit; if(i%2===0) ctx.fillRect(x,0,u,H); x+=u; } }
 function drawV(canvas,text){ var bars=code128Bars(text); var ctx=canvas.getContext("2d"); var W=canvas.width,H=canvas.height;
   ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H); var unit=H/bars.length; ctx.fillStyle="#000"; var y=0;
-  for(var i=0;i<bars.length;i++){ var u=bars[i]*unit; if(i%2===0) ctx.fillRect(0,y,W,u); y+=u; } }
+  var barW=W*0.6; // 条码只占canvas宽度的60%，左右留白
+  var offsetX=(W-barW)/2; // 居中
+  for(var i=0;i<bars.length;i++){ var u=bars[i]*unit; if(i%2===0) ctx.fillRect(offsetX,y,barW,u); y+=u; } }
 function setupCanvas(id,wmm,hmm){ var c=document.getElementById(id); c.width=Math.round(wmm*96/25.4*3); c.height=Math.round(hmm*96/25.4*3); }
 var mailNo="YT7641039253717";
 function setText(id,t){ var el=document.getElementById(id); if(el) el.textContent=(t==null?'':t); }
