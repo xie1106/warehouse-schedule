@@ -1250,7 +1250,7 @@ function loadHistory() {
                 <div class="record-time">${new Date(r.created_at).toLocaleString()}${noteDisplay?' · '+noteDisplay:''}</div>
                 <div class="record-actions">
                     ${is1688Single ? `<button onclick="open1688Return('${r.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;" title="${hasReal1688Single ? '打开1688订单详情' : '未找到1688订单号，将打开1688工作台'}">🔗 1688后台</button>` : ''}
-                    ${singleWaybillNo ? `<button onclick="${_printedSingle ? 'reprintWaybill' : 'printWaybillForGroup'}('${r.po_id}',this)" style="color:#fff;background:${_printedSingle ? '#059669' : '#0ea5e9'};border:1px solid ${_printedSingle ? '#059669' : '#0ea5e9'};border-radius:4px;">${_printedSingle ? '🖨️ '+_printedSingle : '🖨️ 面单'}</button>` : ''}
+                    ${singleWaybillNo ? `<button onclick="${_printedSingle ? 'reprintWaybill' : 'printWaybillForGroup'}('${r.po_id}',this)" style="color:#fff;background:${_printedSingle ? '#059669' : '#0ea5e9'};border:1px solid ${_printedSingle ? '#059669' : '#0ea5e9'};border-radius:4px;" title="${_printedSingle ? '已打印：'+_printedSingle+'，点击重打' : '打印圆通电子面单'}">${_printedSingle ? '🖨️ 重打' : '🖨️ 面单'}</button>` : ''}
                     ${refundInfo||is1688Single?'':(r.status==='done'?`<button onclick="markUndone(${r._realIdx})" style="color:#d97706;border-color:#d97706;">↩ 反完成</button>`:`<button onclick="markDone(${r._realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`)}
                     <button onclick="editRecord(${r._realIdx})" style="color:#1677ff;border-color:#1677ff;">✏️ 编辑</button>
                 </div>
@@ -1320,7 +1320,7 @@ function loadHistory() {
         const non1688ReturnBtn = '';
         const refundDone = groupRefund && (groupRefund.status === '退款成功' || groupRefund.status === '完成');
         const refundSellerReceived = groupRefund && (groupRefund.status === '等待卖家收货');
-        const waybillBtn = supplierName && getReturnAddress(supplierName) ? `<button onclick="${printedNo ? 'reprintWaybill' : 'printWaybillForGroup'}('${g.po_id}',this)" style="color:#fff;background:${printedNo ? '#059669' : '#0ea5e9'};border:1px solid ${printedNo ? '#059669' : '#0ea5e9'};border-radius:4px;">${printedNo ? '🖨️ '+printedNo : '🖨️ 面单'}</button>` : '';
+        const waybillBtn = supplierName && getReturnAddress(supplierName) ? `<button onclick="${printedNo ? 'reprintWaybill' : 'printWaybillForGroup'}('${g.po_id}',this)" style="color:#fff;background:${printedNo ? '#059669' : '#0ea5e9'};border:1px solid ${printedNo ? '#059669' : '#0ea5e9'};border-radius:4px;" title="${printedNo ? '已打印：'+printedNo+'，点击重打' : '打印圆通电子面单'}">${printedNo ? '🖨️ 重打' : '🖨️ 面单'}</button>` : '';
         const cancelBtn = (groupReturn && groupReturn.status === '已下单' && !refundDone && !refundSellerReceived) ? `<button onclick="cancelReturnOrder('${g.po_id}','${groupReturn.orderId||''}',this)" style="color:#dc2626;border:1px solid #dc2626;border-radius:4px;">取消</button>` : '';
         html += `<div class="record-actions">
                 ${returnBtn}
