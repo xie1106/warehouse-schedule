@@ -1243,14 +1243,20 @@ function loadHistory() {
             const singleWaybillNo = singleSupplier ? getReturnAddress(singleSupplier) : null;
             const singleSupplierHtml = singleSupplier ? `<div style="font-size:11px;color:#8b5cf6;font-weight:500;">🏪 ${singleSupplier}</div>` : '';
             const _printedSingle = getPrintedMailNo(r.note);
+            const singlePhotos = r.photos || [];
+            const singlePhotosId = 'sphoto_' + gi;
+            const singleBtnPhotos = singlePhotos.length ? `<button onclick="document.getElementById('${singlePhotosId}').style.display=document.getElementById('${singlePhotosId}').style.display==='none'?'grid':'none'" style="padding:2px 8px;background:#fff;border:1.5px solid #4A90D9;border-radius:10px;color:#4A90D9;font-size:11px;cursor:pointer;margin-left:6px;">图片(${singlePhotos.length})</button>` : '';
             const sourceTag = is1688Single ? '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#1677ff;color:#fff;margin-left:4px;">1688</span>' : '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#faad14;color:#fff;margin-left:4px;">非1688</span>';
             return `<div class="record">
                 <div class="record-header">
-                    <span class="record-title" onclick="copyText('${r.po_id}','采购单 ${r.po_id}')" title="点击复制采购单号" style="cursor:pointer;">采购单 ${r.po_id}${sourceTag}</span>
+                    <span class="record-title" onclick="copyText('${r.po_id}','采购单 ${r.po_id}')" title="点击复制采购单号" style="cursor:pointer;">采购单 ${r.po_id}${sourceTag}${singleBtnPhotos}</span>
                     ${badgeHtml}
                 </div>
                 ${singleSupplierHtml}
                 <div class="record-time">${new Date(r.created_at).toLocaleString()}${noteDisplay?' · '+noteDisplay:''}</div>
+                <div id="${singlePhotosId}" style="display:none;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;" data-photos='${JSON.stringify(singlePhotos)}' data-poid="${r.po_id}">
+                    ${singlePhotos.map((p,pi)=>`<img class="img-loading" src="${thumbImg(p)}" data-full="${p}" loading="lazy" onload="this.classList.remove('img-loading')" onerror="this.onerror=null;this.src='${p}'" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="var c=this.parentElement;openModal(null,JSON.parse(c.dataset.photos),${pi},c.dataset.poid)">`).join('')}
+                </div>
                 <div class="record-actions">
                     ${is1688Single ? `<button onclick="open1688Return('${r.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;" title="${hasReal1688Single ? '打开1688订单详情' : '未找到1688订单号，将打开1688工作台'}">🔗 1688后台</button>` : ''}
                     ${singleWaybillNo ? `<button onclick="${_printedSingle ? 'reprintWaybill' : 'printWaybillForGroup'}('${r.po_id}',this)" style="color:#fff;background:${_printedSingle ? '#059669' : '#0ea5e9'};border:1px solid ${_printedSingle ? '#059669' : '#0ea5e9'};border-radius:4px;" title="${_printedSingle ? '已打印：'+_printedSingle+'，点击重打' : '打印圆通电子面单'}">${_printedSingle ? '🖨️ 重打' : '🖨️ 面单'}</button>` : ''}
