@@ -170,10 +170,11 @@ document.getElementById("mn").textContent=mailNo;
 setupCanvas("barcodeH",49.00,10.90); drawH(document.getElementById("barcodeH"),mailNo);
 setupCanvas("barcodeV",7.00,51.90); drawV(document.getElementById("barcodeV"),mailNo);
 renderItems([{style:"黑色",color:"S",size:"1",qty:1},{style:"红色",color:"M",size:"2",qty:2}]);
-// === 数据加载（3重保障） ===
+// === 数据加载（优先读最新数据） ===
 var _loaded = false;
-try { var raw = localStorage.getItem("facesheet_data"); if (raw) { loadData(JSON.parse(raw)); _loaded = true; } } catch(e) { console.error('localStorage:', e); }
-try { if (!_loaded && window.opener && window.opener._facesheetData) { loadData(window.opener._facesheetData); _loaded = true; } } catch(e) { console.error('opener._facesheetData:', e); }
+// 1. opener._facesheetData（最新，最可靠）
+try { if (window.opener && window.opener._facesheetData) { loadData(window.opener._facesheetData); _loaded = true; } } catch(e) {}
+// 2. opener._lastWaybill
 try { if (!_loaded && window.opener && window.opener._lastWaybill) {
     var w = window.opener._lastWaybill;
     var dtArr = (w.createdAt||'').split(' ');
@@ -186,7 +187,9 @@ try { if (!_loaded && window.opener && window.opener._lastWaybill) {
         sender:{name:w.sender.name+' '+w.sender.phone, address:w.sender.address},
         poId:w.poId, rows:rr, totalQty:tq, code:'', qty:'共'+tq+'件'});
     _loaded = true;
-} } catch(e) { console.error('opener._lastWaybill:', e); }
+} } catch(e) {}
+// 3. localStorage（fallback，刷新页面时用）
+try { if (!_loaded) { var raw = localStorage.getItem("facesheet_data"); if (raw) { loadData(JSON.parse(raw)); _loaded = true; } } } catch(e) {}
 if (!_loaded) console.warn('面单数据未加载');
 var _lastData = null;
 function _trackData(d){ if(d) _lastData = d; }
