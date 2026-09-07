@@ -1484,11 +1484,16 @@ function getMissingMatch(items) {
         const clean = note.replace(/\s*\[[^\]]*\]/g, '').trim();
         const skus = [...clean.matchAll(/([A-Za-z0-9][A-Za-z0-9\-]*)[×x](\d+)/g)].map(m=>m[1]);
         if (!skus.length) missing.add('缺商品明细');
+        // 如果note里有[明细:]标签，视为已有颜色码数信息（不再强制查skuInfoMap）
+        const hasDetailTag = /\[明细:[^\]]+\]/.test(note);
         for (const sku of skus) {
             const info = skuInfoMap[sku];
-            if (!info || !info[0]) { missing.add('缺商品资料'); continue; }
-            if (!info[1]) missing.add('缺颜色');
-            if (!info[2]) missing.add('缺码数');
+            if (!info || !info[0]) {
+                if (!hasDetailTag) missing.add('缺商品资料');
+                continue;
+            }
+            if (!info[1] && !hasDetailTag) missing.add('缺颜色');
+            if (!info[2] && !hasDetailTag) missing.add('缺码数');
         }
         const supplier = getSupplierForGroup([r]);
         if (!supplier) missing.add('缺供应商');
