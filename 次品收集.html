@@ -1456,11 +1456,20 @@ function getSupplierForGroup(items) {
 // 退货地址查询：供应商 → return_addr_map.json
 function getReturnAddress(supplier) {
     if (!supplier || !_returnAddrMap) return null;
-    const norm = String(supplier).replace(/档口/g,'').trim().toLowerCase();
+    const norm = String(supplier).replace(/档口[-—]/g,'').replace(/档口/g,'').trim().toLowerCase();
     for (const [name, info] of Object.entries(_returnAddrMap)) {
-        const nameNorm = String(name).replace(/档口/g,'').trim().toLowerCase();
+        const nameNorm = String(name).replace(/档口[-—]/g,'').replace(/档口/g,'').trim().toLowerCase();
         if (norm === nameNorm || norm.includes(nameNorm) || nameNorm.includes(norm)) {
-            return typeof info === 'string' ? info : (info.address || info);
+            if (typeof info === 'string') return info;
+            // dict格式：{contacts, mobile, address} → 组装为 "联系人，电话，地址"
+            if (info && typeof info === 'object') {
+                const parts = [];
+                if (info.contacts) parts.push(info.contacts);
+                if (info.mobile) parts.push(String(info.mobile).trim());
+                if (info.address) parts.push(info.address);
+                return parts.length ? parts.join('，') : null;
+            }
+            return null;
         }
     }
     return null;
