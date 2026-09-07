@@ -1987,9 +1987,11 @@ async function printWaybillNow() {
         qty: '共' + totalQty + '件'
     };
     try {
-        // HTML/CSS 版电子面单（与聚水潭打印版式一致，横向 129x75mm）
+        // HTML/CSS 版电子面单
         localStorage.setItem('facesheet_data', JSON.stringify(data));
-        const win = window.open('facesheet.html?v=' + Date.now(), '_blank');
+        // 同时通过URL参数传递（避免localStorage跨标签页不同步）
+        const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(data)))).replace(/\+/g,'-').replace(/\//g,'_');
+        const win = window.open('facesheet.html?d=' + b64, '_blank');
         if (!win) { showToast('请允许弹出窗口', 'orange'); return; }
         showToast('✅ 电子面单已生成: ' + w.mailNo, '#059669');
     } catch(e) {
