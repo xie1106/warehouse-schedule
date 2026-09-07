@@ -1557,6 +1557,16 @@ async function reprintWaybill(poId, btn, items) {
         try { w = JSON.parse(decodeURIComponent(escape(atob(dataPart)))); } catch(e) { w = null; }
     }
     if (w) {
+        // 修复：如果缓存的receiver.name是"收件人"或为空，从供应商地址映射重新获取
+        if (w.receiver && (!w.receiver.name || w.receiver.name === '收件人')) {
+            const supplier = w.supplier || getSupplierForGroup(items);
+            if (supplier) {
+                const freshReceiver = parseAddrInfo(getReturnAddress(supplier));
+                if (freshReceiver && freshReceiver.name && freshReceiver.name !== '收件人') {
+                    w.receiver = splitAddr(freshReceiver.name, freshReceiver.phone, freshReceiver.address);
+                }
+            }
+        }
         showWaybillModal(w);
         const orig = btn ? btn.textContent : '';
         if (btn) { btn.textContent = '🖨️ 重打中...'; btn.disabled = true; setTimeout(() => { if (btn) { btn.textContent = orig; btn.disabled = false; } }, 700); }
