@@ -54,32 +54,17 @@ function code128Bars(text){
   return bars;
 }
 function drawH(canvas, text) {
-  // 用临时SVG生成条码，再画到canvas
-  var tmp = document.createElement('svg');
-  try { JsBarcode(tmp, text, {format:'CODE128', displayValue:false, margin:0, width:2, height:100}); } catch(e){ return; }
-  var svgData = new XMLSerializer().serializeToString(tmp);
-  var img = new Image();
-  img.onload = function(){ var ctx=canvas.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0,canvas.width,canvas.height); };
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
+  try { JsBarcode(canvas, text, {format:'CODE128', displayValue:false, margin:0, width:2, height:canvas.height}); } catch(e){ console.error('drawH error:', e); }
 }
 function drawV(canvas, text) {
-  // 先画横向条码到临时canvas，再旋转画到竖向canvas
+  // 先画到临时canvas（横向），再旋转到竖向canvas
   var tmpCanvas = document.createElement('canvas');
   tmpCanvas.width = canvas.height; tmpCanvas.height = canvas.width;
-  var tmp = document.createElement('svg');
-  try { JsBarcode(tmp, text, {format:'CODE128', displayValue:false, margin:0, width:2, height:100}); } catch(e){ return; }
-  var svgData = new XMLSerializer().serializeToString(tmp);
-  var img = new Image();
-  img.onload = function(){
-    var tmpCtx = tmpCanvas.getContext('2d');
-    tmpCtx.fillStyle='#fff'; tmpCtx.fillRect(0,0,tmpCanvas.width,tmpCanvas.height);
-    tmpCtx.drawImage(img,0,0,tmpCanvas.width,tmpCanvas.height);
-    var ctx = canvas.getContext('2d');
-    ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.save(); ctx.translate(canvas.width,0); ctx.rotate(Math.PI/2);
-    ctx.drawImage(tmpCanvas,0,0); ctx.restore();
-  };
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
+  try { JsBarcode(tmpCanvas, text, {format:'CODE128', displayValue:false, margin:0, width:2, height:tmpCanvas.height}); } catch(e){ console.error('drawV error:', e); return; }
+  var ctx = canvas.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.save(); ctx.translate(canvas.width,0); ctx.rotate(Math.PI/2);
+  ctx.drawImage(tmpCanvas,0,0); ctx.restore();
 }
 function setupCanvas(id,wmm,hmm){ var c=document.getElementById(id); c.width=Math.round(wmm*96/25.4*3); c.height=Math.round(hmm*96/25.4*3); }
 var mailNo="YT7641039253717";
