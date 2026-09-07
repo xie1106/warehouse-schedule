@@ -1240,18 +1240,17 @@ function loadHistory() {
             const singleWaybillNo = singleSupplier ? getReturnAddress(singleSupplier) : null;
             const singleSupplierHtml = singleSupplier ? `<div style="font-size:11px;color:#8b5cf6;font-weight:500;">🏪 ${singleSupplier}</div>` : '';
             const _printedSingle = getPrintedMailNo(r.note);
-            const waybillTag = _printedSingle ? `<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#d1fae5;color:#059669;margin-left:6px;cursor:pointer;" onclick="reprintWaybill('${r.po_id}',this,[${JSON.stringify(r)}])" title="点击重新打印面单">🚚 ${_printedSingle}</span>` : '';
             const sourceTag = is1688Single ? '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#1677ff;color:#fff;margin-left:4px;">1688</span>' : '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#faad14;color:#fff;margin-left:4px;">非1688</span>';
             return `<div class="record">
                 <div class="record-header">
-                    <span class="record-title" onclick="copyText('${r.po_id}','采购单 ${r.po_id}')" title="点击复制采购单号" style="cursor:pointer;">采购单 ${r.po_id}${sourceTag}${waybillTag}</span>
+                    <span class="record-title" onclick="copyText('${r.po_id}','采购单 ${r.po_id}')" title="点击复制采购单号" style="cursor:pointer;">采购单 ${r.po_id}${sourceTag}</span>
                     ${badgeHtml}
                 </div>
                 ${singleSupplierHtml}
                 <div class="record-time">${new Date(r.created_at).toLocaleString()}${noteDisplay?' · '+noteDisplay:''}</div>
                 <div class="record-actions">
                     ${is1688Single ? `<button onclick="open1688Return('${r.po_id}')" style="color:#fff;background:#1677ff;border:1px solid #1677ff;border-radius:4px;" title="${hasReal1688Single ? '打开1688订单详情' : '未找到1688订单号，将打开1688工作台'}">🔗 1688后台</button>` : ''}
-                    ${singleWaybillNo ? `<button onclick="${_printedSingle ? 'reprintWaybill' : 'printWaybillForGroup'}('${r.po_id}',this)" style="color:#fff;background:${_printedSingle ? '#059669' : '#0ea5e9'};border:1px solid ${_printedSingle ? '#059669' : '#0ea5e9'};border-radius:4px;" title="${_printedSingle ? '重新打印面单' : '打印圆通电子面单'}">${_printedSingle ? '🖨️ 重打' : '🖨️ 面单'}</button>` : ''}
+                    ${singleWaybillNo ? `<button onclick="${_printedSingle ? 'reprintWaybill' : 'printWaybillForGroup'}('${r.po_id}',this)" style="color:#fff;background:${_printedSingle ? '#059669' : '#0ea5e9'};border:1px solid ${_printedSingle ? '#059669' : '#0ea5e9'};border-radius:4px;">${_printedSingle ? '🖨️ '+_printedSingle : '🖨️ 面单'}</button>` : ''}
                     ${refundInfo||is1688Single?'':(r.status==='done'?`<button onclick="markUndone(${r._realIdx})" style="color:#d97706;border-color:#d97706;">↩ 反完成</button>`:`<button onclick="markDone(${r._realIdx})" style="color:#059669;border-color:#059669;">✅ 完成</button>`)}
                     <button onclick="editRecord(${r._realIdx})" style="color:#1677ff;border-color:#1677ff;">✏️ 编辑</button>
                 </div>
@@ -1290,11 +1289,10 @@ function loadHistory() {
         const groupWaybillAbnormal = items.some(r=>isWaybillAbnormal(r.note));
         const groupBadgeHtml = groupWaybillAbnormal ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dc262618;color:#dc2626;border:1px solid #dc262640;">❌ 面单异常</span>` : (groupRefund ? (getRefundBadge(groupRefund) + (groupReturn && groupReturn.orderId ? ` <span style="font-size:10px;color:#059669;">📦${groupReturn.orderId}</span>` : '')) : (returnBadge || defaultBadge));
         const printedNo = getPrintedMailNo(items[0] && items[0].note);
-        const waybillTag = printedNo ? `<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#d1fae5;color:#059669;margin-left:6px;cursor:pointer;" onclick="reprintWaybill('${g.po_id}',this)" title="点击重新打印面单">🚚 ${printedNo}</span>` : '';
 
         let html = `<div class="record">
             <div class="record-header">
-                <span class="record-title" onclick="copyText('${g.po_id}','采购单 ${g.po_id}')" title="点击复制采购单号" style="cursor:pointer;">采购单 ${g.po_id}${tagHtml}${waybillTag}${btnPhotos}${btnDetail}</span>
+                <span class="record-title" onclick="copyText('${g.po_id}','采购单 ${g.po_id}')" title="点击复制采购单号" style="cursor:pointer;">采购单 ${g.po_id}${tagHtml}${btnPhotos}${btnDetail}</span>
                 ${groupBadgeHtml}
             </div>
             ${supplierHtml}
@@ -1322,7 +1320,7 @@ function loadHistory() {
         const non1688ReturnBtn = '';
         const refundDone = groupRefund && (groupRefund.status === '退款成功' || groupRefund.status === '完成');
         const refundSellerReceived = groupRefund && (groupRefund.status === '等待卖家收货');
-        const waybillBtn = supplierName && getReturnAddress(supplierName) ? `<button onclick="${printedNo ? 'reprintWaybill' : 'printWaybillForGroup'}('${g.po_id}',this)" style="color:#fff;background:${printedNo ? '#059669' : '#0ea5e9'};border:1px solid ${printedNo ? '#059669' : '#0ea5e9'};border-radius:4px;" title="${printedNo ? '重新打印面单' : '打印圆通电子面单'}">${printedNo ? '🖨️ 重打' : '🖨️ 面单'}</button>` : '';
+        const waybillBtn = supplierName && getReturnAddress(supplierName) ? `<button onclick="${printedNo ? 'reprintWaybill' : 'printWaybillForGroup'}('${g.po_id}',this)" style="color:#fff;background:${printedNo ? '#059669' : '#0ea5e9'};border:1px solid ${printedNo ? '#059669' : '#0ea5e9'};border-radius:4px;">${printedNo ? '🖨️ '+printedNo : '🖨️ 面单'}</button>` : '';
         const cancelBtn = (groupReturn && groupReturn.status === '已下单' && !refundDone && !refundSellerReceived) ? `<button onclick="cancelReturnOrder('${g.po_id}','${groupReturn.orderId||''}',this)" style="color:#dc2626;border:1px solid #dc2626;border-radius:4px;">取消</button>` : '';
         html += `<div class="record-actions">
                 ${returnBtn}
