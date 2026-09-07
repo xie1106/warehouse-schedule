@@ -1940,7 +1940,8 @@ async function printWaybillNow() {
     const datePart = dtArr[0] || dtStr;
     const timePart = dtArr[1] || '';
     const receiverAddr = [w.receiver.province, w.receiver.city, w.receiver.district, w.receiver.address].filter(Boolean).join('');
-    const landmark = extractLandmark(receiverAddr);
+    // 大头笔：直接用printKey，不要从地址提取
+    const landmark = w.printKey || '';
     // 收件地址：去空格后整段传给面单，由面单自适应换行
     const addrLines = [receiverAddr.replace(/\s+/g, '')];
     const rows = buildSkuTableRows(w);
