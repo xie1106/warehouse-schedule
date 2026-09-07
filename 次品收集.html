@@ -1463,11 +1463,24 @@ function getReturnAddress(supplier) {
     for (const [name, info] of Object.entries(_returnAddrMap)) {
         const nameNorm = String(name).replace(/档口[-—]/g,'').replace(/档口/g,'').trim().toLowerCase();
         if (norm === nameNorm || norm.includes(nameNorm) || nameNorm.includes(norm)) {
-            if (typeof info === 'string') return info;
-            // dict格式：{contacts, mobile, address} → 组装为 "联系人，电话，地址"
+            if (typeof info === 'string') {
+                // 字符串格式："收件人，电话，地址" → 如果联系人是占位符则替换为供应商名
+                const parts = info.split(/[,，]/).map(p => p.trim());
+                if (parts.length >= 2 && ['收件人','收货人','联系人',''].includes(parts[0])) {
+                    parts[0] = name.replace(/[*-]/g,'').trim() || name;
+                    return parts.join('，');
+                }
+                return info;
+            }
             if (info && typeof info === 'object') {
                 const parts = [];
-                if (info.contacts) parts.push(info.contacts);
+                // contacts是占位符时用供应商名代替
+                const contacts = info.contacts || '';
+                if (['收件人','收货人','联系人',''].includes(contacts)) {
+                    parts.push(name.replace(/[*-]/g,'').trim() || name);
+                } else {
+                    parts.push(contacts);
+                }
                 if (info.mobile) parts.push(String(info.mobile).trim());
                 if (info.address) parts.push(info.address);
                 return parts.length ? parts.join('，') : null;
