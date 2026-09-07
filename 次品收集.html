@@ -2088,7 +2088,7 @@ async function open1688Return(poId) {
         const list = getRecords();
         const rec = list.find(r => String(r.po_id) === String(poId));
         if (rec) {
-            const m = (rec.note || '').match(/\\[1688:(\\d{10,})\\]/);
+            const m = (rec.note || '').match(/\[1688:(\d{10,})\]/);
             if (m) orderId = m[1];
         }
     }
