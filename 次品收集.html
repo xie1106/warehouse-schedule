@@ -1977,7 +1977,7 @@ async function printWaybillNow() {
         seg: w.threeStageCode || w.shortAddr || (w.printKey && /^[\d-]+$/.test(w.printKey) ? w.printKey : ''),
         landmark: landmark,
         dest: w.printKey || '',   // 大头笔 (如"易世达华信")
-        dest2: '省',   // 省字永远默认
+        dest2: '',   // 省字由圆通决定，不强制显示
         receiver: { name: w.receiver.name, phone: w.receiver.phone, addressLines: addrLines },
         sender: { name: w.sender.name + ' ' + w.sender.phone, address: w.sender.address },
         poId: w.poId,
