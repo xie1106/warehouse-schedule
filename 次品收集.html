@@ -653,11 +653,14 @@ let skuInfoMap = {};
 // 图片代理：通过 weserv.nl 加速国内访问
 function proxyImg(url, width) {
     if (!url || !url.startsWith('http')) return url;
-    const u = url.replace(/^https?:\/\//, '');
-    return `https://images.weserv.nl/?url=${encodeURIComponent(u)}${width ? '&w='+width : ''}&q=50&output=webp`;
+    // Supabase Storage 直接加载（不用外部代理，避免被墙/404）
+    if (url.includes('supabase.co/storage')) {
+        return width ? url + (url.includes('?') ? '&' : '?') + 'width=' + width : url;
+    }
+    return url;
 }
-function thumbImg(url) { return proxyImg(url, 100); }
-function fullImg(url) { return proxyImg(url, 800); }
+function thumbImg(url) { return proxyImg(url, 200); }
+function fullImg(url) { return proxyImg(url); }
 
 // ═══ 映射数据加载：优先从 Supabase(mapping_data) 读取（聚水潭自动同步），失败则用本地 JSON 兜底 ═══
 // 本地兜底（GitHub 上线后也能用）
