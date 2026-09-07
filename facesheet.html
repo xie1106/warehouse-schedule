@@ -167,30 +167,10 @@ setText("el_saddr3", sL2);
   renderItems(d.rows || [{style:d.pattern||'', color:'', size:'', qty:d.totalQty!=null?d.totalQty:''}]);
 }
 document.getElementById("mn").textContent=mailNo;
-setupCanvas("barcodeH",49.00,10.90); drawH(document.getElementById("barcodeH"),mailNo);
-setupCanvas("barcodeV",7.00,51.90); drawV(document.getElementById("barcodeV"),mailNo);
-renderItems([{style:"黑色",color:"S",size:"1",qty:1},{style:"红色",color:"M",size:"2",qty:2}]);
+// 条码和商品明细只在loadData中绘制，不在初始化时用默认值绘制
 // === 数据加载（优先读最新数据） ===
-var _loaded = false;
-// 1. opener._facesheetData（最新，最可靠）
-try { if (window.opener && window.opener._facesheetData) { loadData(window.opener._facesheetData); _loaded = true; } } catch(e) {}
-// 2. opener._lastWaybill
-try { if (!_loaded && window.opener && window.opener._lastWaybill) {
-    var w = window.opener._lastWaybill;
-    var dtArr = (w.createdAt||'').split(' ');
-    var recvAddr = [w.receiver.province, w.receiver.city, w.receiver.district, w.receiver.address].filter(Boolean).join('');
-    var rr = []; if (w.skuMap) { for (var sk in w.skuMap) rr.push({style:sk, qty:w.skuMap[sk]}); }
-    var tq = rr.reduce(function(s,r){return s+(parseInt(r.qty)||0);},0)||1;
-    loadData({mailNo:w.mailNo, date:dtArr[0]||'', time:dtArr[1]||'',
-        seg:w.threeStageCode||w.shortAddr||'', landmark:w.printKey||'', dest:w.printKey||'', dest2:'',
-        receiver:{name:w.receiver.name, phone:w.receiver.phone, addressLines:[recvAddr.replace(/\s+/g,'')]},
-        sender:{name:w.sender.name+' '+w.sender.phone, address:w.sender.address},
-        poId:w.poId, rows:rr, totalQty:tq, code:'', qty:'共'+tq+'件'});
-    _loaded = true;
-} } catch(e) {}
-// 3. localStorage（fallback，刷新页面时用）
-try { if (!_loaded) { var raw = localStorage.getItem("facesheet_data"); if (raw) { loadData(JSON.parse(raw)); _loaded = true; } } } catch(e) {}
-if (!_loaded) console.warn('面单数据未加载');
+// 不再从localStorage自动加载（会读到旧数据覆盖新数据）
+// 数据由父窗口通过 win.loadFacesheetData(data) 推送
 var _lastData = null;
 function _trackData(d){ if(d) _lastData = d; }
 async function copyData(){
