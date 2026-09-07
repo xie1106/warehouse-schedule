@@ -567,7 +567,6 @@ async function confirmBatch1688Return() {
                     <button class="tab-btn" onclick="toggleTab('done_all',this)" style="color:#059669;">完成</button>
                     <button class="tab-btn" onclick="batchPrintBySupplier()" style="color:#fff;background:#0ea5e9;border-color:#0ea5e9;">合并打印</button>
                     <button class="tab-btn" onclick="retryAllFailed()" style="color:#fff;background:#dc2626;border-color:#dc2626;">重匹配</button>
-                    <button class="tab-btn" id="syncJstBtn" onclick="manualSyncJST()" style="color:#fff;background:#0ea5e9;border-color:#0ea5e9;">🔄 同步聚水潭</button>
                 </div>
         </div>
         </div><!-- end inner sticky -->
@@ -1713,13 +1712,14 @@ async function batchPrintBySupplier() {
         } else noSup++;
     }
     const keys = Object.keys(groups).sort();
-    if (!suppliers.length) { showToast('没有可合并打印的供应商', '#d97706'); return; }
+    if (!keys.length) { showToast(noSup ? '待处理记录均缺供应商，请先补充' : '没有可合并打印的记录', '#d97706'); return; }
     let html = `<div style="padding:16px;max-height:70vh;overflow-y:auto;">
         <h3 style="margin:0 0 12px;font-size:16px;">按供应商合并打印</h3>
         <p style="font-size:12px;color:#666;margin-bottom:12px;">同一供应商的所有待处理采购单合并为一张面单（一个快递单号、一次运费），不创建聚水潭单。</p>`;
     keys.forEach((key) => {
         const grp = groups[key];
         const sup = grp.supplier;
+        const items = grp.items;
         const poIds = [...new Set(items.map(r=>String(r.po_id)))];
         const skuMap = {};
         items.forEach(r => {
@@ -1764,6 +1764,8 @@ async function confirmBatchPrint() {
     overlay.style.display = 'none';
     const results = [];
     for (const key of selected) {
+        const grp = groups[key];
+        const sup = grp.supplier;
         const items = grp.items;
         const poIds = [...new Set(items.map(r=>String(r.po_id)))];
         const w = await generateWaybill(sup, items, poIds, null);
