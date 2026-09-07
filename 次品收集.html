@@ -567,7 +567,6 @@ async function confirmBatch1688Return() {
                     <button class="tab-btn" onclick="toggleTab('done_all',this)" style="color:#059669;">完成</button>
                     <button class="tab-btn" onclick="batchPrintBySupplier()" style="color:#fff;background:#0ea5e9;border-color:#0ea5e9;">合并打印</button>
                     <button class="tab-btn" onclick="retryAllFailed()" style="color:#fff;background:#dc2626;border-color:#dc2626;">重匹配</button>
-                    <button class="tab-btn" id="syncJstBtn" onclick="manualSyncJST()" style="color:#fff;background:#0ea5e9;border-color:#0ea5e9;">🔄 同步聚水潭</button>
                 </div>
         </div>
         </div><!-- end inner sticky -->
@@ -1582,8 +1581,16 @@ function parseAddrInfo(addrStr) {
     return { name, phone, address };
 }
 function splitAddr(name, phone, address) {
-    const m = (address||'').match(/(.*?省)?(.*?市)?(.*?区|.*?县|.*?旗)?(.*)/);
-    return { name, phone, province:(m&&m[1])||'', city:(m&&m[2])||'', district:(m&&m[3])||'', address:((m&&m[4])||address||'').trim() };
+    // 去除多余空格
+    const addr = (address||'').replace(/\s+/g, '');
+    const m = addr.match(/(.*?省)?(.*?市)?(.*?区|.*?县|.*?旗)?(.*)/);
+    let province = (m&&m[1])||'', city = (m&&m[2])||'', district = (m&&m[3])||'';
+    // 自动补省：如果没有省但有市，根据常见城市补省
+    if (!province && city) {
+        const cityProvinceMap = {'广州市':'广东省','深圳市':'广东省','东莞市':'广东省','佛山市':'广东省','中山市':'广东省','珠海市':'广东省','惠州市':'广东省','江门市':'广东省','揭阳市':'广东省','汕头市':'广东省','温州市':'浙江省','杭州市':'浙江省','金华市':'浙江省','绍兴市':'浙江省','宁波市':'浙江省','上海市':'上海市','北京市':'北京市','苏州市':'江苏省','南京市':'江苏省','无锡市':'江苏省','常州市':'江苏省','福州市':'福建省','泉州市':'福建省','厦门市':'福建省','长沙市':'湖南省','武汉市':'湖北省','成都市':'四川省','重庆市':'重庆市','南宁市':'广西壮族自治区','昆明市':'云南省','贵阳市':'贵州省','济南市':'山东省','青岛市':'山东省','郑州市':'河南省','西安市':'陕西省','太原市':'山西省','石家庄市':'河北省','沈阳市':'辽宁省','大连市':'辽宁省','哈尔滨市':'黑龙江省','长春市':'吉林省','合肥市':'安徽省','南昌市':'江西省','海口市':'海南省'};
+        province = cityProvinceMap[city] || '';
+    }
+    return { name, phone, province, city, district, address:((m&&m[4])||addr||'').trim() };
 }
 let _lastWaybill = null;
 // 给采购单所有记录写入/清除面单状态标签
