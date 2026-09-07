@@ -169,43 +169,31 @@ document.getElementById("mn").textContent=mailNo;
 setupCanvas("barcodeH",49.00,10.90); drawH(document.getElementById("barcodeH"),mailNo);
 setupCanvas("barcodeV",7.00,51.90); drawV(document.getElementById("barcodeV"),mailNo);
 renderItems([{style:"黑色",color:"S",size:"1",qty:1},{style:"红色",color:"M",size:"2",qty:2}]);
-try { var raw = localStorage.getItem("facesheet_data"); if (raw) { loadData(JSON.parse(raw)); /* 保留数据，刷新后仍能读出 */ } } catch(e) { console.error('localStorage读取失败:', e); }
-try { var qp = new URLSearchParams(location.search).get("d"); if (qp) { loadData(JSON.parse(decodeURIComponent(escape(atob(qp.replace(/-/g,"+").replace(/_/g,"/")))))); } } catch(e) { console.error('URL参数解析失败:', e); }
-// Fallback: 从opener读取（如果是popup打开的）
-try { if (window.opener && window.opener._lastWaybill) { 
+// === 数据加载（3重保障） ===
+var _loaded = false;
+// 1. localStorage
+try { var raw = localStorage.getItem("facesheet_data"); if (raw) { loadData(JSON.parse(raw)); _loaded = true; } } catch(e) { console.error('localStorage:', e); }
+// 2. window.opener._facesheetData
+try { if (!_loaded && window.opener && window.opener._facesheetData) { loadData(window.opener._facesheetData); _loaded = true; } } catch(e) { console.error('opener._facesheetData:', e); }
+// 3. window.opener._lastWaybill（构造data对象）
+try { if (!_loaded && window.opener && window.opener._lastWaybill) {
     var w = window.opener._lastWaybill;
     var dtStr = w.createdAt || '';
     var dtArr = dtStr.split(' ');
-    var datePart = dtArr[0] || dtStr;
-    var timePart = dtArr[1] || '';
     var receiverAddr = [w.receiver.province, w.receiver.city, w.receiver.district, w.receiver.address].filter(Boolean).join('');
-    var landmark = w.printKey || '';
-    var addrLines = [receiverAddr.replace(/\s+/g, '')];
     var rows = [];
-    if (w.skuMap) {
-        for (var sku in w.skuMap) {
-            rows.push({style: sku, qty: w.skuMap[sku]});
-        }
-    }
-    var totalQty = rows.reduce((s, r) => s + (parseInt(r.qty) || 0), 0) || 1;
-    var data = {
-        mailNo: w.mailNo,
-        date: datePart,
-        time: timePart,
-        seg: w.threeStageCode || w.shortAddr || (w.printKey && /^[\d-]+$/.test(w.printKey) ? w.printKey : ''),
-        landmark: landmark,
-        dest: w.printKey || '',
-        dest2: '',
-        receiver: { name: w.receiver.name, phone: w.receiver.phone, addressLines: addrLines },
+    if (w.skuMap) { for (var sku in w.skuMap) { rows.push({style: sku, qty: w.skuMap[sku]}); } }
+    var totalQty = rows.reduce(function(s, r){ return s + (parseInt(r.qty) || 0); }, 0) || 1;
+    loadData({
+        mailNo: w.mailNo, date: dtArr[0]||dtStr, time: dtArr[1]||'',
+        seg: w.threeStageCode || w.shortAddr || '', landmark: w.printKey || '', dest: w.printKey || '', dest2: '',
+        receiver: { name: w.receiver.name, phone: w.receiver.phone, addressLines: [receiverAddr.replace(/\s+/g, '')] },
         sender: { name: w.sender.name + ' ' + w.sender.phone, address: w.sender.address },
-        poId: w.poId,
-        rows: rows,
-        totalQty: totalQty,
-        code: '',
-        qty: '共' + totalQty + '件'
-    };
-    loadData(data);
-} } catch(e) { console.error('从opener读取失败:', e); }
+        poId: w.poId, rows: rows, totalQty: totalQty, code: '', qty: '共' + totalQty + '件'
+    });
+    _loaded = true;
+} } catch(e) { console.error('opener._lastWaybill:', e); }
+if (!_loaded) { console.warn('面单数据未加载：localStorage/opener均无数据'); }
 var _lastData = null;
 function _trackData(d){ if(d) _lastData = d; }
 async function copyData(){

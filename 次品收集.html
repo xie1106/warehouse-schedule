@@ -1988,10 +1988,10 @@ async function printWaybillNow() {
     };
     try {
         // HTML/CSS 版电子面单
+        // 把数据挂在全局，供新窗口读取
+        window._facesheetData = data;
         localStorage.setItem('facesheet_data', JSON.stringify(data));
-        // 同时通过URL参数传递（避免localStorage跨标签页不同步）
-        const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(data)))).replace(/\+/g,'-').replace(/\//g,'_');
-        const win = window.open('facesheet.html?d=' + b64, '_blank');
+        const win = window.open('facesheet.html?t=' + Date.now(), '_blank');
         if (!win) { showToast('请允许弹出窗口', 'orange'); return; }
         showToast('✅ 电子面单已生成: ' + w.mailNo, '#059669');
     } catch(e) {
