@@ -669,28 +669,10 @@ function _localMap(url, fb) {
   return fetch(url + '?v=' + Date.now(), { signal: ctrl.signal }).then(r => { clearTimeout(tm); return r.ok ? r.json() : fb; }).catch(() => { clearTimeout(tm); return fb; });
 }
 async function loadAllMaps() {
-  // 优先从本地JSON加载（GitHub Pages，免费无流量限制）
+  // 从本地JSON加载（GitHub Pages，免费无流量限制）
   try { skuInfoMap = await _localMap('sku_info_map.json', {}); } catch(e) {}
   try { _returnAddrMap = await _localMap('return_addr_map.json', {}); } catch(e) {}
   try { _styleSupplierMap = await _localMap('return_style_map.json', null); } catch(e) {}
-  // Supabase 作为 fallback（仅当本地JSON加载失败时）
-  if (!Object.keys(skuInfoMap).length || !Object.keys(_returnAddrMap).length) {
-    try {
-      const url = SUPABASE_URL + '/rest/v1/mapping_data?select=id,data';
-      const ctrl = new AbortController();
-      const tm = setTimeout(() => ctrl.abort(), 10000);
-      const r = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }, signal: ctrl.signal });
-      clearTimeout(tm);
-      if (r.ok) {
-        const rows = await r.json();
-        const byId = {};
-        for (const row of rows) byId[row.id] = row.data || {};
-        if (!Object.keys(skuInfoMap).length && byId['sku_info']) skuInfoMap = byId['sku_info'];
-        if (!_styleSupplierMap && byId['return_style']) _styleSupplierMap = byId['return_style'];
-        if (!Object.keys(_returnAddrMap).length && byId['return_addr']) _returnAddrMap = byId['return_addr'];
-      }
-    } catch(e) {}
-  }
 }
 let _styleSupplierMap = null;
 const skuInfoMapPromise = loadAllMaps().catch(()=>{});
