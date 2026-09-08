@@ -30,16 +30,19 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 </head><body>
 <div class="page">
 <h1>次品退货 SOP（详细操作手册）</h1>
-<p class="subtitle">捷展贸易 · 最后更新：2026-09-02</p>
+<p class="subtitle">捷展贸易 · 最后更新：2026-09-08</p>
 
-<div class="note">📌 <strong>一句话流程</strong>：登记次品（拍照+采购单号）→ 系统自动匹配商品/供应商/退货地址 → 点【🖨️ 面单】直接打印圆通电子面单 → 打包寄回 → 1688 采购单再点【🔗 1688后台】人工申请退款并填快递单号 → 卖家收货 → 退款完成。<br><strong>重要</strong>：本系统<u>不再通过「退货按钮/聚水潭API」创建退货单</u>，面单直接打印。</div>
+<div class="note">📌 <strong>一句话流程</strong>：登记次品（拍照+采购单号）→ 系统自动匹配供应商/退货地址 → 点【🖨️ 面单】直接打印圆通电子面单 → 打包寄回 → 1688 采购单再点【🔗 1688后台】人工申请退款并填快递单号 → 卖家收货 → 退款完成。<br><strong>重要</strong>：本系统<u>不再通过「退货按钮/聚水潭API」创建退货单</u>，面单直接打印。</div>
 
 <h2>一、系统组成</h2>
 <table>
 <tr><th>系统</th><th>职责</th></tr>
-<tr><td><strong>次品图片收集系统</strong></td><td>采集次品图片、状态追踪、商品/供应商/地址自动匹配、打印面单、跳转1688后台</td></tr>
-<tr><td><strong>聚水潭 ERP</strong></td><td>商品资料、供应商资料、采购单、退货地址数据源（只作为数据来源，<u>不建退货单</u>）</td></tr>
+<tr><td><strong>次品图片收集系统</strong><br><small>GitHub Pages: defect-collect</small></td><td>采集次品图片、状态追踪、供应商/地址自动匹配、打印面单、跳转1688后台</td></tr>
+<tr><td><strong>Supabase（新项目）</strong><br><small>tlnlzbnwxkorquhpwmca</small></td><td>仅存 defect_reports 表 + defect-photos 图片存储桶</td></tr>
+<tr><td><strong>GitHub Pages JSON</strong></td><td>mapping数据（SKU/供应商/退货地址）+ 1688采购单退款状态（purchase_status.json）</td></tr>
+<tr><td><strong>聚水潭 ERP</strong></td><td>商品资料、供应商资料、采购单labels（1688退款状态数据源）</td></tr>
 <tr><td><strong>1688 后台</strong></td><td>1688 采购单的退款申请（人工提交、带图片凭证）与退款进度、填写快递单号</td></tr>
+<tr><td><strong>Cloudflare Worker</strong><br><small>yto-proxy.458914253.workers.dev</small></td><td>圆通电子面单API代理</td></tr>
 </table>
 <p><strong>自动识别来源</strong>：登记时若带 1688 平台订单号 → 1688 流程；否则 → 非 1688（线下档口）流程。两者都要质检、都要退次品。</p>
 
@@ -74,7 +77,7 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 <table>
 <tr><th>Tab</th><th>筛选逻辑</th><th>说明</th></tr>
 <tr><td>待处理</td><td>pending + 无退货标签 + 无退款标签</td><td>默认状态（新登记未处理）</td></tr>
-<tr><td style="color:#d97706;">未匹配</td><td>pending + 无退货/退款标签 + 缺任一匹配要素</td><td>缺供应商/地址/颜色/码数/商品资料</td></tr>
+<tr><td style="color:#d97706;">未匹配</td><td>pending + 无退货/退款标签 + 缺供应商或缺退货地址</td><td>缺供应商/退货地址</td></tr>
 <tr><td style="color:#dc2626;">失败</td><td>退货标签 = 失败（历史数据）</td><td>旧流程建单失败的记录</td></tr>
 <tr><td style="color:#ef4444;">异常</td><td>退款被拒(退款关闭/卖家拒绝/卖家拒绝申请/卖家拒绝退款/申请失败) 或 快递单号获取异常([面单:异常])</td><td>需要人工跟进</td></tr>
 <tr><td style="color:#e67e22;">卖家同意</td><td>退款状态 = 等待卖家同意</td><td>等 1688 卖家同意退款</td></tr>
@@ -175,15 +178,12 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 <div class="warn">⚠️ 缺退货地址的采购单无法打印面单（未匹配：缺退货地址），需先补供应商退货地址。</div>
 
 <h2>九、未匹配原因与处理</h2>
+<p><strong>判定规则</strong>：只有「缺供应商」和「缺退货地址」才算未匹配。缺商品资料/颜色/码数不影响退货操作。</p>
 <table>
 <tr><th>未匹配原因</th><th>含义</th><th>处理办法</th></tr>
-<tr><td>缺供应商</td><td>未匹配到供应商（含供应商带 * 号/市场）</td><td>等聚水潭脱敏；或在聚水潭补充商品供应商资料（≤2小时自动同步）</td></tr>
-<tr><td>缺退货地址</td><td>有供应商但无退货地址</td><td>在聚水潭供应商资料补地址（≤2小时同步），或联系管理员手工补</td></tr>
-<tr><td>缺颜色 / 缺码数</td><td>商品资料里颜色/码数为空</td><td>在聚水潭商品资料补全属性（≤2小时同步）</td></tr>
-<tr><td>缺商品资料</td><td>SKU 不在系统收录范围（15个服装分类之外 或 聚水潭查无此SKU）</td><td>核对商品编码是否正确；确认分类是否在允许清单内</td></tr>
-<tr><td>缺商品明细</td><td>记录里没有可解析的 SKU×数量</td><td>编辑记录补全明细</td></tr>
+<tr><td>缺供应商</td><td>未匹配到供应商（含供应商带 * 号/市场）</td><td>等聚水潭脱敏；或在聚水潭补充商品供应商资料（同步后自动匹配）</td></tr>
+<tr><td>缺退货地址</td><td>有供应商但无退货地址</td><td>在聚水潭供应商资料补地址（同步后生效），或联系管理员手工补</td></tr>
 </table>
-<div class="note">💡 未匹配的记录仍会显示"待处理"徽章，并在下方标注「⚠️ 未匹配：缺XX、缺XX」，方便一眼看出原因。</div>
 
 <h2>十、异常的定义与处理</h2>
 <table>
@@ -206,19 +206,23 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 <li>正常情况下页面刷新就会按最新映射自动计算；重匹配按钮用于<strong>手动立即清理旧失败/异常标签并刷新匹配标签</strong>。</li>
 </ul>
 
-<h2 class="green">十二、商品/供应商/退货地址自动同步</h2>
+<h2 class="green">十二、数据同步架构</h2>
 <table>
-<tr><th>数据</th><th>来源</th><th>更新方式</th></tr>
-<tr><td>商品（SKU→款号·颜色·码数）</td><td>聚水潭普通商品资料（仅 15 个服装分类：背心/短裤/长裤/七分裤/短袖衬衫/套装/长袖衬衫/毛衣/外套/卫衣/羽绒外套/短袖T/长袖T/马甲/裙子）</td><td>每 2 小时自动（本机计划任务 → 聚水潭 → Supabase mapping_data）</td></tr>
-<tr><td>供应商（款号→供应商）</td><td>聚水潭商品资料 supplier_name + 供应商表</td><td>同上，每 2 小时</td></tr>
-<tr><td>退货地址（供应商→地址）</td><td>聚水潭供应商资料（address/mobile/contacts）</td><td>同上，每 2 小时</td></tr>
-<tr><td>1688 退款状态（采购单→退款进度）</td><td>聚水潭采购单 labels（如「1688一键下单,退款成功」）</td><td>每 2 小时自动，写回 [退款:状态]</td></tr>
+<tr><th>数据</th><th>来源</th><th>存储</th><th>更新方式</th></tr>
+<tr><td>商品（SKU→款号·颜色·码数）</td><td>聚水潭商品资料</td><td>sku_info_map.json（GitHub Pages）</td><td>手动更新CSV后推送</td></tr>
+<tr><td>供应商（款号→供应商）</td><td>聚水潭商品资料 supplier_name</td><td>return_style_map.json（GitHub Pages）</td><td>同上</td></tr>
+<tr><td>退货地址（供应商→地址）</td><td>聚水潭供应商资料</td><td>return_addr_map.json（GitHub Pages）</td><td>同上</td></tr>
+<tr><td>1688 退款状态</td><td>聚水潭采购单API labels字段</td><td>purchase_status.json（GitHub Pages）</td><td>sync_purchase_status.py 定时同步</td></tr>
+<tr><td>次品记录</td><td>前端录入</td><td>Supabase defect_reports 表</td><td>实时</td></tr>
+<tr><td>次品照片</td><td>前端上传</td><td>Supabase Storage defect-photos</td><td>实时</td></tr>
 </table>
+<h3>1688退款状态同步机制</h3>
 <ul>
-<li>前端每次打开页面从 Supabase <code>mapping_data</code> 读取最新映射，失败用本地 JSON 兜底。</li>
-<li>新增商品/供应商/地址：在聚水潭维护好后，<strong>最多 2 小时</strong>自动进入次品系统，无需人工处理。</li>
+<li>脚本 <code>sync_purchase_status.py</code> 从Supabase获取所有po_id → 批量查聚水潭采购单API（每批≤20个）→ 提取labels字段中的退款状态</li>
+<li>labels包含完整状态链：线上申请取消 → 等待卖家同意 → 等待买家退货 → 等待卖家收货 → 退款成功/退款关闭</li>
+<li>输出 purchase_status.json 推送到GitHub Pages，前端加载后显示对应TAB和徽章</li>
 </ul>
-<div class="note">⚠️ 供应商名称带 <code>*</code> 号（打码）或为「市场」的，一律视为未匹配（缺供应商）。</div>
+<div class="note">⚠️ mapping数据（SKU/供应商/地址）100%从GitHub Pages JSON加载，不走Supabase（节省流量配额）。前端带 <code>?t=时间戳</code> 防缓存。</div>
 
 <h2 class="red">十三、状态标签（note 里的标记，技术说明）</h2>
 <table>
