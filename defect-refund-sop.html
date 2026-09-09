@@ -30,7 +30,7 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 </head><body>
 <div class="page">
 <h1>次品退货 SOP（详细操作手册）</h1>
-<p class="subtitle">捷展贸易 · 最后更新：2026-09-08</p>
+<p class="subtitle">捷展贸易 · 最后更新：2026-09-09</p>
 
 <div class="note">📌 <strong>一句话流程</strong>：登记次品（拍照+采购单号）→ 系统自动匹配供应商/退货地址 → 点【🖨️ 面单】直接打印圆通电子面单 → 打包寄回 → 1688 采购单再点【🔗 1688后台】人工申请退款并填快递单号 → 卖家收货 → 退款完成。<br><strong>重要</strong>：本系统<u>不再通过「退货按钮/聚水潭API」创建退货单</u>，面单直接打印。</div>
 
@@ -42,7 +42,7 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 <tr><td><strong>GitHub Pages JSON</strong></td><td>mapping数据（SKU/供应商/退货地址）+ 1688采购单退款状态（purchase_status.json）</td></tr>
 <tr><td><strong>聚水潭 ERP</strong></td><td>商品资料、供应商资料、采购单labels（1688退款状态数据源）</td></tr>
 <tr><td><strong>1688 后台</strong></td><td>1688 采购单的退款申请（人工提交、带图片凭证）与退款进度、填写快递单号</td></tr>
-<tr><td><strong>Cloudflare Worker</strong><br><small>yto-proxy.458914253.workers.dev</small></td><td>圆通电子面单API代理</td></tr>
+<tr><td><strong>Supabase Edge Function</strong><br><small>圆通面单代理（中转Cloudflare Worker）</small></td><td>圆通电子面单API代理，解决公司网络无法直连问题</td></tr>
 </table>
 <p><strong>自动识别来源</strong>：登记时若带 1688 平台订单号 → 1688 流程；否则 → 非 1688（线下档口）流程。两者都要质检、都要退次品。</p>
 
@@ -90,8 +90,9 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 <h2 class="green">四、状态徽章全解</h2>
 <table>
 <tr><th>徽章</th><th>颜色</th><th>含义</th><th>下一步动作</th></tr>
-<tr><td><span class="badge" style="background:#6b7280;color:#fff;">待处理</span></td><td>灰</td><td>已登记、匹配完整，等待打面单寄回</td><td>点【🖨️ 面单】打印寄回（1688 另点【🔗 1688后台】）</td></tr>
-<tr><td><span class="badge" style="background:#d97706;color:#fff;">未匹配</span>（含原因）</td><td>橙</td><td>缺：供应商 / 退货地址 / 颜色 / 码数 / 商品资料 / 商品明细</td><td>按原因处理（见第八节）</td></tr>
+<tr><td><span class="badge" style="background:#6b7280;color:#fff;">待处理</span></td><td>灰</td><td>已登记、匹配完整，等待打面单寄回</td><td>点【🖨️ 面单】打印寄回（1688 另点【🔗 1688】）</td></tr>
+<tr><td><span class="badge" style="background:#e67e22;color:#fff;">等待同意</span></td><td>橙</td><td>1688 采购单已打印面单，准备/已提交退款申请</td><td>去 1688 后台提交退款申请（如尚未提交），等卖家同意</td></tr>
+<tr><td><span class="badge" style="background:#d97706;color:#fff;">未匹配</span>（含原因）</td><td>橙</td><td>缺：供应商 / 退货地址</td><td>按原因处理（见第九节）</td></tr>
 <tr><td><span class="badge" style="background:#dc2626;color:#fff;">❌ 面单异常</span></td><td>红</td><td>圆通电子面单获取失败（快递单号获取异常）</td><td>稍后重试打印；仍失败联系管理员查圆通接口</td></tr>
 <tr><td><span class="badge" style="background:#dc2626;color:#fff;">❌ 异常</span></td><td>红</td><td>退款被拒/关闭/失败（1688）</td><td>查看 1688 后台原因，重新申请或人工处理</td></tr>
 <tr><td><span class="badge" style="background:#e67e22;color:#fff;">⏳ 等待卖家同意</span></td><td>橙</td><td>1688 退款申请已提交，等卖家</td><td>等待（可催卖家）</td></tr>
@@ -125,17 +126,18 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 <ol>
 <li><strong>登记</strong>：扫码登记次品 → 拍照上传（登记时带 1688 平台订单号）。</li>
 <li>系统自动匹配颜色/码数、供应商、退货地址，显示「待处理」。</li>
-<li><strong>点【🖨️ 面单】</strong>：直接打印圆通电子面单（收件=供应商退货地址，寄件=次品退货部，含快递单号/三段码）。</li>
-<li><strong>点【🔗 1688后台】</strong>：跳转到 1688 订单详情页，<strong>人工</strong>提交退款申请（带次品图片凭证）。</li>
+<li><strong>点【🖨️ 面单】</strong>：直接打印圆通电子面单。1688 采购单状态自动变为「等待同意」（橙色），非 1688 变为「完成」。</li>
+<li><strong>点【🔗 1688】</strong>：跳转到 1688 订单详情页，<strong>人工</strong>提交退款申请（带次品图片凭证）。</li>
 <li>等卖家同意：系统<strong>每 2 小时自动</strong>从聚水潭采购单 labels 同步 1688 退款进度（退款成功/等待买家退货/等待卖家收货/退款关闭等），记录自动显示对应徽章，无需人工维护。</li>
 <li><strong>填快递单号</strong>：卖家同意后 1688 显示「等待买家退货」，把面单上的快递单号填进 1688 退款申请。</li>
 <li>用打印好的面单打包寄回。</li>
 <li>卖家收货 → 退款完成。</li>
 </ol>
-<div class="flow">登记次品 → 待处理(自动匹配) → 🖨️打面单 → 🔗1688后台提交退款申请(带图)
+<div class="flow">登记次品 → 待处理(自动匹配) → 🖨️打面单(状态变等待同意) → 🔗1688提交退款申请(带图)
   → 等待卖家同意 → 填快递单号(等待买家退货) → 寄回 → 等待卖家收货 → 退款完成
                           ↓
-            退款被拒/关闭 → 异常（人工跟进重新申请）</div>
+            退款被拒/关闭 → 异常（人工跟进重新申请）
+  取消面单 → 状态回到待处理（可重新打印）</div>
 <div class="warn">⚠️ 退款申请与图片凭证<strong>必须人工</strong>在 1688 后台操作（图片无法自动搬运到 1688）。</div>
 
 <h3>各节点参考时间</h3>
@@ -168,8 +170,9 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 <li>按钮出现条件：该采购单已匹配到<strong>有效供应商 + 退货地址</strong>（待处理状态）。</li>
 <li>点击后：系统调用圆通电子面单 API（<code>yto-proxy</code>）实时生成面单，显示快递单号（YT 开头）。<strong>使用的圆通月结账号：K200416574</strong>（客户编码与客户ID一致）。</li>
 <li>面单版式：聚水潭同款（收件信息自适应换行；寄件：谢焕君 13316255984 广东省广州市番禺区大石街道会江鸿盛三路9号高昇产业园A301；含三段码/大单号/左右快递单号/明细区）。</li>
-<li>打印成功后自动写入 <code>[面单:已打印:运单号]</code>，卡片显示绿色「✅ 已打印 YTxxxx」徽章（刷新不丢失），面单按钮也显示已获取的单号。</li>
-<li>失败自动写入 [面单:异常:原因] 并显示「❌ 面单异常」；打印异常<strong>不会</strong>清除已打印状态。</li>
+<li>打印成功后自动写入 <code>[面单:已打印:运单号]</code>，卡片显示绿色「✅ 已打印 YTxxxx」徽章（刷新不丢失）。1688 采购单状态自动变为「等待同意」。</li>
+<li>失败自动写入 [面单:异常:原因] 并显示「❌ 面单异常」。</li>
+<li>点击「取消」按钮可取消面单，状态回到待处理，可重新打印。</li>
 <li>重新点击已打印按钮会重新生成一张新面单（新运单号），如需打印同一张请勿重复点击。</li>
 <li>打印后把快递单号填到 1688 退款申请（1688 单）。</li>
 <li><strong>按供应商合并打印（工具栏「合并打印」）</strong>：同一供应商的所有待处理采购单合并为<strong>一张面单</strong>（一个快递单号、一次运费），<strong>1688 与非 1688 不合并</strong>（分组时按供应商+来源拆分，各生成各的）。勾选后批量生成；不创建聚水潭单。结果列表可逐张查看/打印。</li>
