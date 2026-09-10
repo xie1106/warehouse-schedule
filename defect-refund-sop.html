@@ -30,7 +30,7 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 </head><body>
 <div class="page">
 <h1>次品退货 SOP（详细操作手册）</h1>
-<p class="subtitle">捷展贸易 · 最后更新：2026-09-09</p>
+<p class="subtitle">捷展贸易 · 最后更新：2026-09-10</p>
 
 <div class="note">📌 <strong>一句话流程</strong>：登记次品（拍照+采购单号）→ 系统自动匹配供应商/退货地址 → 点【🖨️ 面单】直接打印圆通电子面单 → 打包寄回 → 1688 采购单再点【🔗 1688后台】人工申请退款并填快递单号 → 卖家收货 → 退款完成。<br><strong>重要</strong>：本系统<u>不再通过「退货按钮/聚水潭API」创建退货单</u>，面单直接打印。</div>
 
@@ -209,7 +209,7 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 <li>正常情况下页面刷新就会按最新映射自动计算；重匹配按钮用于<strong>手动立即清理旧失败/异常标签并刷新匹配标签</strong>。</li>
 </ul>
 
-<h2 class="green">十二、数据同步架构</h2>
+<h2>十二、数据同步架构</h2>
 <table>
 <tr><th>数据</th><th>来源</th><th>存储</th><th>更新方式</th></tr>
 <tr><td>商品（SKU→款号·颜色·码数）</td><td>聚水潭商品资料</td><td>sku_info_map.json（GitHub Pages）</td><td>手动更新CSV后推送</td></tr>
@@ -227,7 +227,7 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 </ul>
 <div class="note">⚠️ mapping数据（SKU/供应商/地址）100%从GitHub Pages JSON加载，不走Supabase（节省流量配额）。前端带 <code>?t=时间戳</code> 防缓存。</div>
 
-<h2 class="red">十三、状态标签（note 里的标记，技术说明）</h2>
+<h2>十三、状态标签（note 里的标记，技术说明）</h2>
 <table>
 <tr><th>标签</th><th>含义</th></tr>
 <tr><td><code>[面单:已打印:运单号]</code></td><td>已获取电子面单（打印成功自动写入，卡片显示「✅ 已打印」）</td></tr>
@@ -243,16 +243,70 @@ code{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px;color:#
 </table>
 
 <h2>十四、数据自动同步</h2>
-<table>
-<tr><th>数据</th><th>频率</th><th>说明</th></tr>
-<tr><td>SKU 映射（颜色/码数/供应商）</td><td>每天凌晨 2:00</td><td>聚水潭最近 7 天修改的 SKU → sku_info_map.json + return_style_map.json</td></tr>
-<tr><td>供应商退货地址</td><td>每天凌晨 2:00</td><td>聚水潭供应商列表 → return_addr_map.json</td></tr>
-<tr><td>1688 采购单退款状态</td><td>每天凌晨 2:00</td><td>聚水潭采购单 labels → purchase_status.json</td></tr>
-<tr><td>1688 订单号映射</td><td>每天凌晨 2:00</td><td>聚水潭采购单 plat_so_id → po_1688_map.json</td></tr>
-</table>
-<div class="note">💡 所有数据自动推送到 GitHub Pages，前端打开即最新。如需紧急刷新，联系管理员手动触发同步脚本。</div>
 
-<h2>十五、注意事项与常见问题</h2>
+<h3>14.1 同步架构</h3>
+<div class="flow">聚水潭 ERP → 同步脚本(sync_defect_mappings.py) → JSON文件 → GitHub Pages → 前端页面加载</div>
+
+<h3>14.2 每日自动同步内容（凌晨 2:00）</h3>
+<table>
+<tr><th>步骤</th><th>数据</th><th>来源</th><th>输出</th></tr>
+<tr><td>1</td><td>SKU 映射（颜色/码数/供应商）</td><td>聚水潭 /open/sku/query（最近7天）</td><td>sku_info_map.json + return_style_map.json</td></tr>
+<tr><td>2</td><td>供应商退货地址</td><td>聚水潭 /open/supplier/query</td><td>return_addr_map.json</td></tr>
+<tr><td>3</td><td>1688 采购单状态 + 订单号</td><td>聚水潭 /open/purchase/query</td><td>purchase_status.json + po_1688_map.json</td></tr>
+<tr><td>4</td><td>自动重匹配</td><td>步骤1-3的最新数据</td><td>Supabase 记录（补齐供应商/地址）</td></tr>
+</table>
+
+<h3>14.3 排除的商品分类（不同步）</h3>
+<p>邮费、半成品、定制、饰品、帽子、袜子、围巾、福袋、面料补卡、加工、辅料、宣传册、包装材料、压膜、客户辅料</p>
+
+<h3>14.4 自动防护机制</h3>
+<table>
+<tr><th>风险</th><th>防护</th></tr>
+<tr><td>聚水潭 Token 过期</td><td>同步脚本自动检测并刷新 Token，无需人工干预</td></tr>
+<tr><td>同步超时</td><td>Cron 超时 300 秒（5分钟），SKU查询限50页</td></tr>
+<tr><td>未匹配记录</td><td>同步完数据后自动扫描并补齐供应商/地址，用户打开页面即看到最新匹配结果</td></tr>
+</table>
+
+<h3>14.5 面单打印链路</h3>
+<div class="flow">用户点🖨️面单 → 前端(GitHub Pages) → Supabase Edge Function → Cloudflare Worker → 圆通API(HTTP)</div>
+<div class="note">💡 公司网络屏蔽 *.workers.dev 和 *.vercel.app，通过 Supabase 域名中转解决。</div>
+
+<h2 class="red">十五、系统维护职责（虾OK）</h2>
+
+<h3>15.1 我（虾OK）负责的事</h3>
+<table>
+<tr><th>职责</th><th>触发条件</th><th>说明</th></tr>
+<tr><td>每日数据同步</td><td>自动（凌晨2:00 cron）</td><td>聚水潭→GitHub Pages，含自动重匹配</td></tr>
+<tr><td>Token 刷新</td><td>自动（同步时检测过期则刷新）</td><td>聚水潭 access_token 有效期30天</td></tr>
+<tr><td>同步异常排查</td><td>cron报错时</td><td>检查日志、修复问题、确保下次正常运行</td></tr>
+<tr><td>新供应商/退货地址缺失</td><td>huanjun反馈</td><td>在聚水潭更新后，下次凌晨自动同步；紧急时手动触发</td></tr>
+<tr><td>前端Bug修复</td><td>huanjun反馈</td><td>修复后推送到GitHub Pages</td></tr>
+<tr><td>SOP更新</td><td>功能变更时</td><td>保持文档与实际系统一致</td></tr>
+</table>
+
+<h3>15.2 每次改动的自检清单</h3>
+<table>
+<tr><th>检查项</th><th>说明</th></tr>
+<tr><td>✅ Token是否有效</td><td>聚水潭API调用前确认token未过期</td></tr>
+<tr><td>✅ 数据格式一致</td><td>JSON文件的value格式（数组/对象）前后端一致</td></tr>
+<tr><td>✅ Cron能跑通</td><td>手动执行一次同步脚本确认无报错</td></tr>
+<tr><td>✅ 前端缓存刷新</td><td>改版本号(CACHE_VER)强制清缓存</td></tr>
+<tr><td>✅ 跨设备测试</td><td>确认其他设备也能正常访问和操作</td></tr>
+<tr><td>✅ 不引用旧项目</td><td>所有代码和配置只用新Supabase(tlnlzbnwxkorquhpwmca)</td></tr>
+</table>
+
+<h3>15.3 关键配置</h3>
+<table>
+<tr><th>组件</th><th>地址/标识</th></tr>
+<tr><td>前端页面</td><td>GitHub Pages: xie1106/defect-collect</td></tr>
+<tr><td>数据库</td><td>Supabase: tlnlzbnwxkorquhpwmca.supabase.co</td></tr>
+<tr><td>面单代理</td><td>Supabase Edge Function → Cloudflare Worker → 圆通API</td></tr>
+<tr><td>ERP数据源</td><td>聚水潭API（Token自动刷新）</td></tr>
+<tr><td>同步脚本</td><td>scripts/sync_defect_mappings.py</td></tr>
+<tr><td>Cron任务</td><td>defect-daily-sync（每天02:00）</td></tr>
+</table>
+
+<h2>十六、注意事项与常见问题</h2>
 <table>
 <tr><th>问题</th><th>处理</th></tr>
 <tr><td>显示「未匹配：缺供应商」</td><td>① 供应商带 * 号/市场 → 等脱敏；② 新供应商 → 聚水潭建资料后 2 小时自动匹配</td></tr>
