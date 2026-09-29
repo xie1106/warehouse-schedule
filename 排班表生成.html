@@ -1486,13 +1486,6 @@
     }
 
     async function setCellStatus(name, day, status) {
-        // 周一不可设为休息类状态
-        const dow = new Date(currentYear, currentMonth - 1, day).getDay();
-        if (dow === 1 && status !== 'work' && status !== 'duty') {
-            showToast('周一全员不休，不能设为休息', 'error');
-            hideDropdown();
-            return;
-        }
         const oldStatus = scheduleData[name][day - 1];
         scheduleData[name][day - 1] = status;
         // 检查休息总天数是否超过应休天数
