@@ -476,7 +476,7 @@ async function loadHistory(){
     const label=r.status==='pending'?'待审核':r.status==='approved'?'已通过':'已驳回';
     const pw=r.type==='piece'&&r.unit_price>1?'color:var(--danger);font-weight:600':'';
     const delBtn=isAdmin()?' <button class="edit-btn" style="color:var(--danger);border-color:var(--danger)" onclick="event.stopPropagation();deleteRecord(\''+r.id+'\')">删除</button>':'';
-    const priceCol=sp&&r.type==='piece'?'<td style="'+pw+'">¥'+r.unit_price+'</td>':'';
+    const priceCol=sp?'<td style="'+pw+'">¥'+r.unit_price+(r.type==='time'?'/时':'')+'</td>':'';
     html+=`<tr class="clickable" onclick='openEdit(${JSON.stringify(r).replace(/'/g,"&#39;")})'><td>${date}</td>${showWorker?'<td>'+r.worker_name+'</td>':''}<td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td>${priceCol}<td><span class="badge ${badge}">${label}</span></td>${delBtn?'<td onclick="event.stopPropagation()">'+delBtn+'</td>':''}</tr>`;
   });
   html+='</tbody></table></div>';
@@ -551,7 +551,7 @@ async function loadApprove(){
     const typeStr=r.type==='piece'?'计件':'计时';
     const qtyStr=r.type==='piece'?(r.quantity+'件'):((r.duration_minutes/60).toFixed(1)+'h');
     const priceWarn=r.type==='piece'&&r.unit_price>1?'color:var(--danger);font-weight:600;':'';
-    const priceStr=r.type==='piece'?'<span style="'+priceWarn+'">¥'+r.unit_price+'</span>':'';
+    const priceStr=r.type==='piece'?'<span style="'+priceWarn+'">¥'+r.unit_price+'</span>':'<span>¥'+r.unit_price+'/时</span>';
     html+=`<div class="card" style="padding:10px;cursor:pointer" onclick="openEdit(window._approveData[${i}])">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div style="flex:1;min-width:0">
