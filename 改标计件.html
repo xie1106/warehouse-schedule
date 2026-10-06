@@ -57,7 +57,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .worker-list{display:flex;flex-direction:column;gap:8px}
 .worker-item{padding:12px;border:1px solid var(--border);border-radius:8px;text-align:center;font-size:15px;cursor:pointer}
 .worker-item:active{background:var(--primary);color:#fff;border-color:var(--primary)}
-.approve-actions{display:flex;gap:8px;margin-top:8px}
+.record-table{width:100%;border-collapse:collapse;font-size:13px}
+.record-table th{background:var(--bg);padding:8px 6px;text-align:left;font-weight:600;font-size:12px;color:var(--text2);border-bottom:2px solid var(--border);white-space:nowrap}
+.record-table td{padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:middle}
+.record-table tr:last-child td{border-bottom:none}
+.edit-btn{background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:12px;cursor:pointer;color:var(--primary)}
+.edit-btn:active{background:var(--primary);color:#fff}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-card{background:#fff;border-radius:12px;padding:20px;width:100%;max-width:400px;max-height:80vh;overflow-y:auto}
 .reject-input{margin-top:8px;display:none}
 .reject-input.show{display:block}
 .filter-bar{display:flex;gap:8px;margin-bottom:10px}
@@ -189,6 +196,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div class="card-title">工价设置</div>
     <div class="form-group"><label>计时工价（元/小时）</label><input id="settingHourPrice" type="number" inputmode="decimal" step="0.5" value="39.5"></div>
     <button class="btn btn-primary btn-sm" onclick="saveHourPrice()">保存</button>
+  </div>
+</div>
+
+<!-- 编辑弹窗 -->
+<div class="modal-overlay" id="editModal" style="display:none" onclick="if(event.target===this)closeEdit()">
+  <div class="modal-card">
+    <div class="card-title">修改记录</div>
+    <div class="form-group"><label>款号</label><input id="editStyle"></div>
+    <div class="form-group"><label>销售</label><input id="editSales"></div>
+    <div id="editPieceFields">
+      <div class="form-group"><label>数量</label><input id="editQty" type="number" inputmode="numeric"></div>
+      <div class="form-group" id="editPricePieceWrap"><label>单价（元/件）</label><input id="editPiecePrice" type="number" inputmode="decimal" step="0.1"></div>
+    </div>
+    <div id="editTimeFields" style="display:none">
+      <div class="form-group"><label>工时（小时）</label><input id="editHours" type="number" inputmode="decimal" step="0.1"></div>
+      <div class="form-group" id="editPriceTimeWrap"><label>工时单价（元/小时）</label><input id="editHourPrice" type="number" inputmode="decimal" step="0.5"></div>
+    </div>
+    <div class="form-group"><label>备注</label><textarea id="editRemark" rows="2"></textarea></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="saveEdit()" style="flex:1">保存</button>
+      <button class="btn" onclick="closeEdit()" style="flex:1;background:var(--border)">取消</button>
+    </div>
   </div>
 </div>
 
@@ -324,24 +353,63 @@ async function loadHistory(){
   const status=document.getElementById('historyStatus').value;
   const type=document.getElementById('historyType').value;
   let q='?order=created_at.desc&limit=100';
-  // Workers see own, approver/admin see all
   if(userRole()==='worker')q+=`&worker_id=eq.${currentUser.id}`;
   if(status!=='all')q+=`&status=eq.${status}`;
   if(type!=='all')q+=`&type=eq.${type}`;
   const data=await sb('label_records','GET',null,q);
   const el=document.getElementById('historyList');
   if(!data||!data.length){el.innerHTML='<div class="empty">暂无记录</div>';return;}
-  const showPrice=canSeePrice();
-  el.innerHTML=data.map(r=>{
+  const sp=canSeePrice();const showWorker=userRole()!=='worker';
+  let html='<table class="record-table"><thead><tr><th>日期</th>'+(showWorker?'<th>工人</th>':'')+'<th>类型</th><th>款号</th><th>销售</th><th>数量/工时</th>'+(sp?'<th>单价</th><th>金额</th>':'')+'<th>状态</th><th></th></tr></thead><tbody>';
+  data.forEach(r=>{
+    const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const typeStr=r.type==='piece'?'计件':'计时';
+    const qtyStr=r.type==='piece'?(r.quantity+'件'):((r.duration_minutes/60).toFixed(1)+'h');
+    const amt=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
     const badge=r.status==='pending'?'badge-pending':r.status==='approved'?'badge-approved':'badge-rejected';
     const label=r.status==='pending'?'待审核':r.status==='approved'?'已通过':'已驳回';
-    const detail=r.type==='piece'?`${r.quantity}件${showPrice?' × ¥'+r.unit_price:''}`:((r.duration_minutes/60).toFixed(1)+'小时');
-    const amount=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
-    const amountStr=showPrice?' = ¥'+amount:'';
-    const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-    const worker=userRole()!=='worker'?` | ${r.worker_name}`:'';
-    return `<div class="record-item"><div class="record-row"><span class="record-style">${r.style_no}</span><span class="badge ${badge}">${label}</span></div><div class="record-detail">${r.type==='piece'?'计件':'计时'} | ${detail}${amountStr}${r.salesperson?' | '+r.salesperson:''}${worker}</div><div class="record-detail">${date}${r.reject_reason?' | 驳回：'+r.reject_reason:''}</div></div>`;
-  }).join('');
+    html+=`<tr><td>${date}</td>${showWorker?'<td>'+r.worker_name+'</td>':''}<td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td>${sp?'<td>¥'+r.unit_price+'</td><td>¥'+amt+'</td>':''}<td><span class="badge ${badge}">${label}</span></td><td><button class="edit-btn" onclick='openEdit(${JSON.stringify(r).replace(/'/g,"&#39;")})'>编辑</button></td></tr>`;
+  });
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
+
+let editingId=null;
+function openEdit(r){
+  editingId=r.id;
+  document.getElementById('editStyle').value=r.style_no||'';
+  document.getElementById('editSales').value=r.salesperson||'';
+  document.getElementById('editRemark').value=r.remark||'';
+  const sp=canSeePrice();
+  if(r.type==='piece'){
+    document.getElementById('editPieceFields').style.display='block';
+    document.getElementById('editTimeFields').style.display='none';
+    document.getElementById('editQty').value=r.quantity||'';
+    document.getElementById('editPiecePrice').value=r.unit_price||'';
+    document.getElementById('editPricePieceWrap').style.display=sp?'block':'none';
+  }else{
+    document.getElementById('editPieceFields').style.display='none';
+    document.getElementById('editTimeFields').style.display='block';
+    document.getElementById('editHours').value=r.duration_minutes?(r.duration_minutes/60).toFixed(1):'';
+    document.getElementById('editHourPrice').value=r.unit_price||'';
+    document.getElementById('editPriceTimeWrap').style.display=sp?'block':'none';
+  }
+  document.getElementById('editModal').style.display='flex';
+}
+function closeEdit(){document.getElementById('editModal').style.display='none';editingId=null;}
+async function saveEdit(){
+  if(!editingId)return;
+  const patch={style_no:document.getElementById('editStyle').value.trim(),salesperson:document.getElementById('editSales').value.trim(),remark:document.getElementById('editRemark').value.trim(),status:'pending',reject_reason:null,approved_by:null,approved_at:null};
+  if(document.getElementById('editPieceFields').style.display!=='none'){
+    patch.quantity=parseInt(document.getElementById('editQty').value)||0;
+    if(canSeePrice())patch.unit_price=parseFloat(document.getElementById('editPiecePrice').value)||0;
+  }else{
+    const hrs=parseFloat(document.getElementById('editHours').value)||0;
+    patch.duration_minutes=Math.round(hrs*60*10)/10;
+    if(canSeePrice())patch.unit_price=parseFloat(document.getElementById('editHourPrice').value)||HOUR_PRICE;
+  }
+  await sb('label_records','PATCH',patch,`?id=eq.${editingId}`);
+  closeEdit();loadHistory();loadStats();
 }
 
 async function loadStats(){
