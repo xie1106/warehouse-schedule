@@ -340,8 +340,9 @@ function loadTimerState(){
   updateTimer();updateTimerUI();
 }
 let timerStopped=false;
+let stoppedMinutes=0;
 function startTimer(){
-  timerRunning=true;timerStopped=false;
+  timerRunning=true;timerStopped=false;stoppedMinutes=0;
   document.getElementById('timerDisplay').classList.add('running');
   timerInterval=setInterval(()=>{timerSeconds++;updateTimer();if(timerSeconds%5===0)saveTimerState();},1000);
   updateTimerUI();saveTimerState();
@@ -352,13 +353,16 @@ function pauseTimer(){
   updateTimerUI();saveTimerState();
 }
 function stopTimer(){
-  clearInterval(timerInterval);timerRunning=false;timerStopped=false;timerSeconds=0;
+  clearInterval(timerInterval);timerRunning=false;
+  stoppedMinutes=Math.round(timerSeconds/60*10)/10;
+  timerSeconds=0;timerStopped=false;
   document.getElementById('timerDisplay').classList.remove('running');
-  updateTimer();updateTimerUI();localStorage.removeItem('label_timer');
+  updateTimer();updateTimerUI();updateTimeResult();
+  localStorage.removeItem('label_timer');
 }
 function resetTimerFull(){
-  clearInterval(timerInterval);timerSeconds=0;timerRunning=false;timerStopped=false;
-  updateTimer();updateTimerUI();localStorage.removeItem('label_timer');
+  clearInterval(timerInterval);timerSeconds=0;timerRunning=false;timerStopped=false;stoppedMinutes=0;
+  updateTimer();updateTimerUI();updateTimeResult();localStorage.removeItem('label_timer');
 }
 function updateTimer(){
   const h=Math.floor(timerSeconds/3600),m=Math.floor((timerSeconds%3600)/60),s=timerSeconds%60;
@@ -373,8 +377,8 @@ function updateTimeResult(){
     if(mins<=0){el.innerHTML='<span style="color:var(--danger);font-weight:600">结束时间须晚于开始时间</span>';return;}
     el.innerHTML=`<span style="color:var(--primary);font-size:18px;font-weight:700">工时：${(mins/60).toFixed(1)} 小时（${mins} 分钟）</span>`;
   }else{
-    if(timerSeconds<1){el.innerHTML='<span style="color:var(--text2);font-size:14px">工时将显示在这里</span>';return;}
-    const mins=Math.round(timerSeconds/60*10)/10;
+    const mins=stoppedMinutes>0?stoppedMinutes:(timerSeconds>0?Math.round(timerSeconds/60*10)/10:0);
+    if(mins<0.1){el.innerHTML='<span style="color:var(--text2);font-size:14px">工时将显示在这里</span>';return;}
     el.innerHTML=`<span style="color:var(--primary);font-size:18px;font-weight:700">工时：${(mins/60).toFixed(1)} 小时（${Math.round(mins)} 分钟）</span>`;
   }
 }
@@ -428,8 +432,9 @@ async function submitRecord(){
       minutes=getManualMinutes();
       if(minutes<=0){alert('结束时间须晚于开始时间');return;}
     } else {
-      if(timerSeconds<60){alert('计时不足1分钟，请先结束计时');return;}
-      minutes=Math.round(timerSeconds/60*10)/10;
+      if(stoppedMinutes>0){minutes=stoppedMinutes;}
+      else if(timerSeconds>=60){minutes=Math.round(timerSeconds/60*10)/10;}
+      else{alert('请先计时或输入时间');return;}
     }
     rec.duration_minutes=minutes;rec.unit_price=HOUR_PRICE;
   }
