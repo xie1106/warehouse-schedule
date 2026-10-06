@@ -76,6 +76,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .role-worker{background:#DBEAFE;color:#1E40AF}
 .role-approver{background:#FEF3C7;color:#92400E}
 .role-admin{background:#EDE9FE;color:#5B21B6}
+.role-checker{background:#ECFDF5;color:#047857}
 </style>
 </head>
 <body>
@@ -91,7 +92,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div id="addFormLogin" style="display:none;margin-top:12px">
       <div class="form-group"><input id="newNameLogin" placeholder="姓名"></div>
       <div class="form-group">
-        <select id="newRoleLogin"><option value="worker">车标人</option><option value="approver">审核人</option><option value="admin">管理员</option></select>
+        <select id="newRoleLogin"><option value="worker">车标人</option><option value="approver">审核人</option><option value="admin">管理员</option><option value="checker">对账</option></select>
       </div>
       <div class="form-group"><input id="newPinLogin" placeholder="PIN码（4位数字）" type="password" maxlength="4" inputmode="numeric"></div>
       <button class="btn btn-primary" onclick="addMemberFrom('login')">添加</button>
@@ -106,10 +107,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <span class="user-info" id="headerUser" onclick="logout()"></span>
 </div>
 <div class="tabs" id="mainTabs">
-  <div class="tab" data-page="record" data-roles="worker,admin" data-order-worker="1" data-order-approver="9" data-order-admin="3">录入</div>
-  <div class="tab" data-page="history" data-roles="worker,approver,admin" data-order-worker="2" data-order-approver="2" data-order-admin="1">记录</div>
-  <div class="tab" data-page="approve" data-roles="approver,admin" data-order-worker="9" data-order-approver="1" data-order-admin="4">审核</div>
-  <div class="tab" data-page="manage" data-roles="admin" data-order-worker="9" data-order-approver="9" data-order-admin="2">管理</div>
+  <div class="tab" data-page="record" data-roles="worker,admin" data-order-worker="1" data-order-approver="9" data-order-admin="3" data-order-checker="9">录入</div>
+  <div class="tab" data-page="history" data-roles="worker,approver,admin,checker" data-order-worker="2" data-order-approver="2" data-order-admin="1" data-order-checker="1">记录</div>
+  <div class="tab" data-page="approve" data-roles="approver,admin" data-order-worker="9" data-order-approver="1" data-order-admin="4" data-order-checker="9">审核</div>
+  <div class="tab" data-page="manage" data-roles="admin" data-order-worker="9" data-order-approver="9" data-order-admin="2" data-order-checker="9">管理</div>
 </div>
 
 <!-- 录入页 -->
@@ -208,7 +209,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div id="addFormManage" style="display:none;margin-top:12px">
       <div class="form-group"><input id="newNameManage" placeholder="姓名"></div>
       <div class="form-group">
-        <select id="newRoleManage"><option value="worker">车标人</option><option value="approver">审核人</option><option value="admin">管理员</option></select>
+        <select id="newRoleManage"><option value="worker">车标人</option><option value="approver">审核人</option><option value="admin">管理员</option><option value="checker">对账</option></select>
       </div>
       <div class="form-group"><input id="newPinManage" placeholder="PIN码（4位数字）" type="password" maxlength="4" inputmode="numeric"></div>
       <button class="btn btn-success btn-sm" onclick="addMemberFrom('manage')">确认添加</button>
@@ -268,7 +269,7 @@ function userRole(){
 function canSee(roles){return roles.split(',').includes(userRole());}
 function isAdmin(){return userRole()==='admin';}
 function isApprover(){return userRole()==='approver'||isAdmin();}
-function canSeePrice(){return isApprover();}
+function canSeePrice(){return isApprover()||userRole()==="checker";}
 
 // === Login ===
 async function initLogin(){
@@ -276,8 +277,8 @@ async function initLogin(){
   const el=document.getElementById('workerList');
   if(!all.length){el.innerHTML='<div class="empty">暂无成员，请先添加</div>';return;}
   el.innerHTML=all.map(w=>{
-    const roleLabel=w.role==='admin'?'管理员':w.role==='approver'?'审核人':'车标人';
-    const roleClass=w.role==='admin'?'role-admin':w.role==='approver'?'role-approver':'role-worker';
+    const roleLabel=w.role==='admin'?'管理员':w.role==='approver'?'审核人':w.role==='checker'?'对账':'车标人';
+    const roleClass=w.role==='admin'?'role-admin':w.role==='approver'?'role-approver':w.role==='checker'?'role-checker':'role-worker';
     return `<div class="worker-item" onclick="loginAs('${w.id}')">${w.name}<span class="role-tag ${roleClass}">${roleLabel}</span></div>`;
   }).join('');
 }
@@ -303,7 +304,7 @@ async function loginAs(id){
 function showMain(){
   document.getElementById('loginPage').style.display='none';
   document.getElementById('mainApp').style.display='block';
-  const roleLabel=userRole()==='admin'?'管理员':isApprover()?'审核人':'车标人';
+  const roleLabel=userRole()==='admin'?'管理员':isApprover()?'审核人':userRole()==='checker'?'对账':'车标人';
   document.getElementById('headerUser').innerHTML=currentUser.name+' <span style="font-size:11px;opacity:.7">退出</span>';
   // Show/hide and sort tabs by role
   const role=userRole();
@@ -318,7 +319,7 @@ function showMain(){
   document.getElementById('btnExport').style.display=canSeePrice()?'block':'none';
   const now=new Date();statsYear=now.getFullYear();statsMonth=now.getMonth()+1;
   // Default tab: admin→记录, approver→审核, worker→录入
-  switchTab(isAdmin()?'history':isApprover()?'approve':'record');
+  switchTab(isAdmin()?'history':userRole()==='checker'?'history':isApprover()?'approve':'record');
 }
 function logout(){localStorage.removeItem('label_user');currentUser=null;document.getElementById('loginPage').style.display='flex';document.getElementById('mainApp').style.display='none';initLogin();}
 
@@ -586,8 +587,8 @@ async function rejectRecord(id){const reason=document.getElementById('reason-'+i
 async function loadManage(){
   const all=await loadAllMembers();
   document.getElementById('memberList').innerHTML=all.map(m=>{
-    const roleLabel=m.role==='admin'?'管理员':m.role==='approver'?'审核人':'车标人';
-    const roleClass=m.role==='admin'?'role-admin':m.role==='approver'?'role-approver':'role-worker';
+    const roleLabel=m.role==='admin'?'管理员':m.role==='approver'?'审核人':m.role==='checker'?'对账':'车标人';
+    const roleClass=m.role==='admin'?'role-admin':m.role==='approver'?'role-approver':m.role==='checker'?'role-checker':'role-worker';
     return `<div class="record-item"><div class="record-row"><span><span class="member-name" style="cursor:pointer;border-bottom:1px dashed var(--text2)" onclick="renameMember('${m.id}','${m._src}','${m.name}')">${m.name}</span><span class="role-tag ${roleClass}">${roleLabel}</span></span><div><select onchange="changeRole('${m.id}','${m._src}',this.value)" style="font-size:12px;padding:2px 6px;border-radius:4px;border:1px solid var(--border)"><option value="worker"${m.role==='worker'?' selected':''}>车标人</option><option value="approver"${m.role==='approver'?' selected':''}>审核人</option><option value="admin"${m.role==='admin'?' selected':''}>管理员</option></select> <button class="btn btn-danger btn-sm" onclick="deleteMember('${m.id}','${m._src}')">删除</button></div></div></div>`;
   }).join('')||'<div class="empty">无成员</div>';
   document.getElementById('settingHourPrice').value=HOUR_PRICE;
