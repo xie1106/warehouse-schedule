@@ -116,6 +116,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
       <div class="type-btn" data-type="time" onclick="switchType('time')">⏱ 计时</div>
     </div>
     <div class="form-group"><label>款号</label><input id="inputStyle" placeholder="输入款号"></div>
+    <div class="form-group" style="position:relative"><label>销售</label><input id="inputSales" placeholder="输入销售名字" autocomplete="off" onfocus="showSalesHints()" oninput="showSalesHints()"><div id="salesHints" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:0 0 8px 8px;max-height:150px;overflow-y:auto;z-index:10"></div></div>
     <!-- 计件 -->
     <div id="pieceFields">
       <div class="form-group"><label>数量（件）</label><input id="inputQty" type="number" inputmode="numeric" placeholder="0"></div>
@@ -311,12 +312,26 @@ function updateTimer(){
   document.getElementById('timerDisplay').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 
+// === Sales Hints ===
+function getSalesHistory(){return JSON.parse(localStorage.getItem('label_sales_history')||'[]');}
+function addSalesHistory(name){if(!name)return;let h=getSalesHistory();h=h.filter(n=>n!==name);h.unshift(name);if(h.length>20)h=h.slice(0,20);localStorage.setItem('label_sales_history',JSON.stringify(h));}
+function showSalesHints(){
+  const input=document.getElementById('inputSales');const box=document.getElementById('salesHints');
+  const val=input.value.trim().toLowerCase();const history=getSalesHistory();
+  const filtered=val?history.filter(n=>n.toLowerCase().includes(val)):history;
+  if(!filtered.length){box.style.display='none';return;}
+  box.style.display='block';
+  box.innerHTML=filtered.map(n=>`<div style="padding:8px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border)" onclick="pickSales('${n}')">${n}</div>`).join('');
+}
+function pickSales(name){document.getElementById('inputSales').value=name;document.getElementById('salesHints').style.display='none';}
+document.addEventListener('click',e=>{if(!e.target.closest('#inputSales,#salesHints'))document.getElementById('salesHints').style.display='none';});
+
 // === Submit Record ===
 async function submitRecord() {
   const style=document.getElementById('inputStyle').value.trim();
   if(!style){alert('请输入款号');return;}
   const type=document.querySelector('.type-btn.active').dataset.type;
-  let rec={worker_id:currentUser.id, worker_name:currentUser.name, type, style_no:style, remark:document.getElementById('inputRemark').value.trim()};
+  let rec={worker_id:currentUser.id, worker_name:currentUser.name, type, style_no:style, salesperson:document.getElementById('inputSales').value.trim(), remark:document.getElementById('inputRemark').value.trim()};
   if(type==='piece'){
     const qty=parseInt(document.getElementById('inputQty').value);
     const price=parseFloat(document.getElementById('inputPiecePrice').value);
@@ -333,6 +348,7 @@ async function submitRecord() {
   document.getElementById('btnSubmit').disabled=true;
   try{
     await sb('label_records','POST',rec);
+    addSalesHistory(rec.salesperson);
     alert('提交成功！');
     document.getElementById('inputStyle').value='';
     document.getElementById('inputQty').value='';
@@ -358,7 +374,7 @@ async function loadHistory() {
     const detail=r.type==='piece'?`${r.quantity}件 × ¥${r.unit_price}`:`${r.duration_minutes}分钟 × ¥${r.unit_price}/时`;
     const amount=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
     const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-    return `<div class="record-item"><div class="record-row"><span class="record-style">${r.style_no}</span><span class="badge ${badge}">${label}</span></div><div class="record-detail">${r.type==='piece'?'计件':'计时'} | ${detail} = ¥${amount}</div><div class="record-detail">${date}${r.reject_reason?' | 驳回：'+r.reject_reason:''}</div></div>`;
+    return `<div class="record-item"><div class="record-row"><span class="record-style">${r.style_no}</span><span class="badge ${badge}">${label}</span></div><div class="record-detail">${r.type==='piece'?'计件':'计时'} | ${detail} = ¥${amount}${r.salesperson?' | 销售：'+r.salesperson:''}</div><div class="record-detail">${date}${r.reject_reason?' | 驳回：'+r.reject_reason:''}</div></div>`;
   }).join('');
 }
 
@@ -373,7 +389,7 @@ async function loadApprove() {
     const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
     return `<div class="record-item">
       <div class="record-row"><span class="record-style">${r.style_no}</span><span style="font-size:13px;color:var(--text2)">${r.worker_name}</span></div>
-      <div class="record-detail">${r.type==='piece'?'计件':'计时'} | ${detail} = ¥${amount}</div>
+      <div class="record-detail">${r.type==='piece'?'计件':'计时'} | ${detail} = ¥${amount}${r.salesperson?' | 销售：'+r.salesperson:''}</div>
       <div class="record-detail">${date}${r.remark?' | '+r.remark:''}</div>
       <div class="approve-actions">
         <button class="btn btn-success btn-sm" onclick="approveRecord('${r.id}')">✓ 通过</button>
@@ -438,12 +454,12 @@ async function exportCSV() {
   const end=`${endY}-${String(endM).padStart(2,'0')}-01T00:00:00`;
   const data=await sb('label_records','GET',null,`?status=eq.approved&created_at=gte.${start}&created_at=lt.${end}&order=created_at.asc`);
   if(!data||!data.length){alert('无数据');return;}
-  let csv='\uFEFF日期,工人,类型,款号,数量,时长(分钟),单价,金额,备注\n';
+  let csv='\uFEFF日期,工人,类型,款号,销售,数量,时长(分钟),单价,金额,备注\n';
   data.forEach(r=>{
     const date=new Date(r.created_at).toLocaleDateString('zh-CN');
     const type=r.type==='piece'?'计件':'计时';
     const amt=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
-    csv+=`${date},${r.worker_name},${type},"${r.style_no}",${r.quantity||''},${r.duration_minutes||''},${r.unit_price},${amt},"${r.remark||''}"\n`;
+    csv+=`${date},${r.worker_name},${type},"${r.style_no}","${r.salesperson||''}",${r.quantity||''},${r.duration_minutes||''},${r.unit_price},${amt},"${r.remark||''}"\n`;
   });
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
