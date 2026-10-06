@@ -546,7 +546,17 @@ async function loadApprove(){
   html+='</tbody></table></div>';
   el.innerHTML=html;
 }
-async function approveRecord(id){await sb('label_records','PATCH',{status:'approved',approved_by:currentUser.name,approved_at:new Date().toISOString()},`?id=eq.${id}`);loadApprove();}
+async function approveRecord(id){
+  const rec=await sb('label_records','GET',null,`?id=eq.${id}`);
+  if(rec&&rec[0]&&!rec[0].salesperson){
+    const name=prompt('该记录未填写销售名字，请输入销售名字后才能审核通过：');
+    if(!name||!name.trim()){alert('必须填写销售名字');return;}
+    await sb('label_records','PATCH',{salesperson:name.trim(),status:'approved',approved_by:currentUser.name,approved_at:new Date().toISOString()},`?id=eq.${id}`);
+  }else{
+    await sb('label_records','PATCH',{status:'approved',approved_by:currentUser.name,approved_at:new Date().toISOString()},`?id=eq.${id}`);
+  }
+  loadApprove();
+}
 function showReject(id){document.getElementById('reject-'+id).classList.toggle('show');}
 async function rejectRecord(id){const reason=document.getElementById('reason-'+id).value.trim();if(!reason){alert('请填写驳回原因');return;}await sb('label_records','PATCH',{status:'rejected',reject_reason:reason,approved_by:currentUser.name,approved_at:new Date().toISOString()},`?id=eq.${id}`);loadApprove();}
 
