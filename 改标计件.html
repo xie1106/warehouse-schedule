@@ -147,8 +147,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           <div class="form-group" style="flex:1;margin-bottom:0"><label>开始时间</label><input id="inputTimeStart" type="time" step="60"></div>
           <div class="form-group" style="flex:1;margin-bottom:0"><label>结束时间</label><input id="inputTimeEnd" type="time" step="60"></div>
         </div>
-        <div id="manualResult" style="text-align:center;font-size:18px;font-weight:600;color:var(--primary);padding:8px 0"></div>
       </div>
+      <div style="border:2px solid var(--primary);border-radius:8px;padding:12px;text-align:center;min-height:44px;margin-bottom:12px" id="timeResult"><span style="color:var(--text2);font-size:14px">工时将显示在这里</span></div>
     </div>
     <div class="form-group"><label>备注</label><textarea id="inputRemark" rows="2" placeholder="款号/单号和备注至少填一个"></textarea></div>
     <button class="btn btn-primary" id="btnSubmit" onclick="submitRecord()">提交</button>
@@ -320,7 +320,7 @@ function switchTab(page){
 
 // === Type Toggle ===
 function switchType(type){document.querySelectorAll('[data-type]').forEach(b=>b.classList.toggle('active',b.dataset.type===type));document.getElementById('pieceFields').style.display=type==='piece'?'block':'none';document.getElementById('timeFields').style.display=type==='time'?'block':'none';}
-function switchTimeMode(mode){document.querySelectorAll('[data-tmode]').forEach(b=>b.classList.toggle('active',b.dataset.tmode===mode));document.getElementById('timerMode').style.display=mode==='timer'?'block':'none';document.getElementById('manualMode').style.display=mode==='manual'?'block':'none';}
+function switchTimeMode(mode){document.querySelectorAll('[data-tmode]').forEach(b=>b.classList.toggle('active',b.dataset.tmode===mode));document.getElementById('timerMode').style.display=mode==='timer'?'block':'none';document.getElementById('manualMode').style.display=mode==='manual'?'block':'none';updateTimeResult();}
 
 // === Timer (persistent) ===
 function saveTimerState(){localStorage.setItem('label_timer',JSON.stringify({seconds:timerSeconds,running:timerRunning,startedAt:timerRunning?Date.now()-timerSeconds*1000:null,stopped:timerStopped}));}
@@ -355,6 +355,23 @@ function resetTimerFull(){
 function updateTimer(){
   const h=Math.floor(timerSeconds/3600),m=Math.floor((timerSeconds%3600)/60),s=timerSeconds%60;
   document.getElementById('timerDisplay').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  updateTimeResult();
+}
+function updateTimeResult(){
+  const el=document.getElementById('timeResult');
+  const isManual=document.querySelector('[data-tmode="manual"]')&&document.querySelector('[data-tmode="manual"]').classList.contains('active');
+  if(isManual){
+    const s=document.getElementById('inputTimeStart').value,e=document.getElementById('inputTimeEnd').value;
+    if(!s||!e){el.innerHTML='<span style="color:var(--text2);font-size:14px">工时将显示在这里</span>';return;}
+    const [sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);
+    let mins=(eh*60+em)-(sh*60+sm);
+    if(mins<=0){el.innerHTML='<span style="color:var(--danger);font-weight:600">结束时间须晚于开始时间</span>';return;}
+    el.innerHTML=`<span style="color:var(--primary);font-size:18px;font-weight:700">工时：${(mins/60).toFixed(1)} 小时（${mins} 分钟）</span>`;
+  }else{
+    if(timerSeconds<1){el.innerHTML='<span style="color:var(--text2);font-size:14px">工时将显示在这里</span>';return;}
+    const mins=Math.round(timerSeconds/60*10)/10;
+    el.innerHTML=`<span style="color:var(--primary);font-size:18px;font-weight:700">工时：${(mins/60).toFixed(1)} 小时（${Math.round(mins)} 分钟）</span>`;
+  }
 }
 function updateTimerUI(){
   const b1=document.getElementById('timerBtns1'),b2=document.getElementById('timerBtns2'),b3=document.getElementById('timerBtns3');
@@ -370,16 +387,7 @@ function updateTimerUI(){
 document.addEventListener('change',e=>{
   if(e.target.id==='inputTimeStart'||e.target.id==='inputTimeEnd')calcManualTime();
 });
-function calcManualTime(){
-  const s=document.getElementById('inputTimeStart').value,e=document.getElementById('inputTimeEnd').value;
-  const el=document.getElementById('manualResult');
-  if(!s||!e){el.textContent='';return;}
-  const [sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);
-  let mins=(eh*60+em)-(sh*60+sm);
-  if(mins<=0){el.textContent='结束时间须晚于开始时间';el.style.color='var(--danger)';return;}
-  el.style.color='var(--primary)';
-  el.textContent=`工时：${(mins/60).toFixed(1)} 小时（${mins} 分钟）`;
-}
+function calcManualTime(){updateTimeResult();}
 
 // === Sales Hints ===
 function getSalesHistory(){return JSON.parse(localStorage.getItem('label_sales_history')||'[]');}
@@ -416,7 +424,7 @@ async function submitRecord(){
     rec.duration_minutes=minutes;rec.unit_price=HOUR_PRICE;
   }
   document.getElementById('btnSubmit').disabled=true;
-  try{await sb('label_records','POST',rec);addSalesHistory(rec.salesperson);alert('提交成功！');document.getElementById('inputStyle').value='';document.getElementById('inputQty').value='';document.getElementById('inputPiecePrice').value='';document.getElementById('inputTimeStart').value='';document.getElementById('inputTimeEnd').value='';document.getElementById('manualResult').textContent='';document.getElementById('inputRemark').value='';resetTimerFull();}
+  try{await sb('label_records','POST',rec);addSalesHistory(rec.salesperson);alert('提交成功！');document.getElementById('inputStyle').value='';document.getElementById('inputQty').value='';document.getElementById('inputPiecePrice').value='';document.getElementById('inputTimeStart').value='';document.getElementById('inputTimeEnd').value='';document.getElementById('inputRemark').value='';resetTimerFull();updateTimeResult();}
   catch(e){alert('提交失败：'+e.message);}
   document.getElementById('btnSubmit').disabled=false;
 }
