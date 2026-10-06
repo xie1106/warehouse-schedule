@@ -57,10 +57,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .worker-list{display:flex;flex-direction:column;gap:8px}
 .worker-item{padding:12px;border:1px solid var(--border);border-radius:8px;text-align:center;font-size:15px;cursor:pointer}
 .worker-item:active{background:var(--primary);color:#fff;border-color:var(--primary)}
-.record-table{width:100%;border-collapse:collapse;font-size:12px}
-.record-table th{background:var(--bg);padding:6px 4px;text-align:left;font-weight:600;font-size:11px;color:var(--text2);border-bottom:2px solid var(--border);white-space:nowrap}
-.record-table td{padding:6px 4px;border-bottom:1px solid var(--border);vertical-align:middle}
+.record-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+.record-table th{background:var(--bg);padding:6px 4px;text-align:left;font-weight:600;font-size:11px;color:var(--text2);border-bottom:2px solid var(--border);white-space:nowrap;overflow:hidden}
+.record-table td{padding:6px 4px;border-bottom:1px solid var(--border);vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .record-table tr:last-child td{border-bottom:none}
+.record-table tr.clickable{cursor:pointer}
+.record-table tr.clickable:active{background:var(--bg)}
 .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .edit-btn{background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:12px;cursor:pointer;color:var(--primary)}
 .edit-btn:active{background:var(--primary);color:#fff}
@@ -456,7 +458,7 @@ async function loadHistory(){
   const el=document.getElementById('historyList');
   if(!data||!data.length){el.innerHTML='<div class="empty">暂无记录</div>';return;}
   const sp=canSeePrice();const showWorker=userRole()!=='worker';
-  let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th>'+(showWorker?'<th>车标人</th>':'')+'<th>类型</th><th>款号/单号</th><th>销售</th><th>数量/工时</th>'+(sp?'<th>单价</th>':'')+'<th>状态</th><th></th></tr></thead><tbody>';
+  let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th>'+(showWorker?'<th>车标人</th>':'')+'<th>类型</th><th>款号/单号</th><th>销售</th><th>数量/工时</th>'+(sp?'<th>单价</th>':'')+'<th>状态</th></tr></thead><tbody>';
   data.forEach(r=>{
     const date=new Date(r.created_at).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'});
     const typeStr=r.type==='piece'?'计件':'计时';
@@ -465,9 +467,9 @@ async function loadHistory(){
     const badge=r.status==='pending'?'badge-pending':r.status==='approved'?'badge-approved':'badge-rejected';
     const label=r.status==='pending'?'待审核':r.status==='approved'?'已通过':'已驳回';
     const pw=r.type==='piece'&&r.unit_price>1?'color:var(--danger);font-weight:600':'';
-    const delBtn=isAdmin()?' <button class="edit-btn" style="color:var(--danger);border-color:var(--danger)" onclick="deleteRecord(\''+r.id+'\')">删除</button>':'';
+    const delBtn=isAdmin()?' <button class="edit-btn" style="color:var(--danger);border-color:var(--danger)" onclick="event.stopPropagation();deleteRecord(\''+r.id+'\')">删除</button>':'';
     const priceCol=sp&&r.type==='piece'?'<td style="'+pw+'">¥'+r.unit_price+'</td>':'';
-    html+=`<tr><td>${date}</td>${showWorker?'<td>'+r.worker_name+'</td>':''}<td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td>${priceCol}<td><span class="badge ${badge}">${label}</span></td><td><button class="edit-btn" onclick='openEdit(${JSON.stringify(r).replace(/'/g,"&#39;")})'>编辑</button>${delBtn}</td></tr>`;
+    html+=`<tr class="clickable" onclick='openEdit(${JSON.stringify(r).replace(/'/g,"&#39;")})'><td>${date}</td>${showWorker?'<td>'+r.worker_name+'</td>':''}<td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td>${priceCol}<td><span class="badge ${badge}">${label}</span></td>${delBtn?'<td onclick="event.stopPropagation()">'+delBtn+'</td>':''}</tr>`;
   });
   html+='</tbody></table></div>';
   el.innerHTML=html;
@@ -534,20 +536,32 @@ async function loadApprove(){
   const data=await sb('label_records','GET',null,'?status=eq.pending&order=created_at.desc');
   const el=document.getElementById('approveList');
   if(!data||!data.length){el.innerHTML='<div class="empty">无待审核记录</div>';return;}
-  let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th><th>车标人</th><th>类型</th><th>款号/单号</th><th>销售</th><th>数量/工时</th><th>单价</th><th>备注</th><th>操作</th></tr></thead><tbody>';
-  data.forEach(r=>{
+  window._approveData=data;
+  let html='';
+  data.forEach((r,i)=>{
     const date=new Date(r.created_at).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'});
     const typeStr=r.type==='piece'?'计件':'计时';
     const qtyStr=r.type==='piece'?(r.quantity+'件'):((r.duration_minutes/60).toFixed(1)+'h');
-    const amt=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
-    const rj=JSON.stringify(r).replace(/'/g,"&#39;");
-    const priceWarn=r.type==='piece'&&r.unit_price>1?' style="color:var(--danger);font-weight:600"':'';
-    const priceCell=r.type==='piece'?'<td'+priceWarn+'>¥'+r.unit_price+'</td>':'<td>-</td>';
-    html+=`<tr><td>${date}</td><td>${r.worker_name}</td><td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td>${priceCell}<td style="font-size:12px">${r.remark||''}</td><td style="white-space:nowrap"><button class="btn btn-success btn-sm" style="margin-bottom:4px" onclick="approveRecord('${r.id}')">✓</button> <button class="btn btn-danger btn-sm" style="margin-bottom:4px" onclick="showReject('${r.id}')">✗</button> <button class="edit-btn" onclick='openEdit(${rj})'>编辑</button><div class="reject-input" id="reject-${r.id}"><div style="display:flex;gap:4px;margin-top:4px"><input id="reason-${r.id}" placeholder="原因" style="width:80px;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:12px"><button class="btn btn-danger btn-sm" onclick="rejectRecord('${r.id}')">确认</button></div></div></td></tr>`;
+    const priceWarn=r.type==='piece'&&r.unit_price>1?'color:var(--danger);font-weight:600;':'';
+    const priceStr=r.type==='piece'?'<span style="'+priceWarn+'">¥'+r.unit_price+'</span>':'';
+    html+=`<div class="card" style="padding:10px;cursor:pointer" onclick="openEdit(window._approveData[${i}])">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:14px">${r.style_no}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${date} · ${r.worker_name} · ${typeStr} · ${qtyStr} ${priceStr}</div>
+          <div style="font-size:12px;color:var(--text2)">${r.salesperson?'销售：'+r.salesperson:''}${r.remark?' · '+r.remark:''}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;margin-left:8px" onclick="event.stopPropagation()">
+          <button class="btn btn-success btn-sm" onclick="approveRecord('${r.id}')">✓</button>
+          <button class="btn btn-danger btn-sm" onclick="showRejectInline(this,'${r.id}')">✗</button>
+        </div>
+      </div>
+      <div class="reject-input" id="reject-${r.id}"><div style="display:flex;gap:4px;margin-top:6px"><input id="reason-${r.id}" placeholder="驳回原因" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px" onclick="event.stopPropagation()"><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();rejectRecord('${r.id}')">确认</button></div></div>
+    </div>`;
   });
-  html+='</tbody></table></div>';
   el.innerHTML=html;
 }
+function showRejectInline(btn,id){document.getElementById('reject-'+id).classList.toggle('show');}
 async function approveRecord(id){
   const rec=await sb('label_records','GET',null,`?id=eq.${id}`);
   if(rec&&rec[0]&&!rec[0].salesperson){
@@ -559,7 +573,6 @@ async function approveRecord(id){
   }
   loadApprove();
 }
-function showReject(id){document.getElementById('reject-'+id).classList.toggle('show');}
 async function rejectRecord(id){const reason=document.getElementById('reason-'+id).value.trim();if(!reason){alert('请填写驳回原因');return;}await sb('label_records','PATCH',{status:'rejected',reject_reason:reason,approved_by:currentUser.name,approved_at:new Date().toISOString()},`?id=eq.${id}`);loadApprove();}
 
 // === Manage ===
