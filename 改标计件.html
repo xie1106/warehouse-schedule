@@ -460,7 +460,8 @@ async function loadHistory(){
     const badge=r.status==='pending'?'badge-pending':r.status==='approved'?'badge-approved':'badge-rejected';
     const label=r.status==='pending'?'待审核':r.status==='approved'?'已通过':'已驳回';
     const pw=r.type==='piece'&&r.unit_price>1?'color:var(--danger);font-weight:600':'';
-    html+=`<tr><td>${date}</td>${showWorker?'<td>'+r.worker_name+'</td>':''}<td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td>${sp?'<td style="'+pw+'">¥'+r.unit_price+'</td><td style="'+pw+'">¥'+amt+'</td>':''}<td><span class="badge ${badge}">${label}</span></td><td><button class="edit-btn" onclick='openEdit(${JSON.stringify(r).replace(/'/g,"&#39;")})'>编辑</button></td></tr>`;
+    const delBtn=isAdmin()?' <button class="edit-btn" style="color:var(--danger);border-color:var(--danger)" onclick="deleteRecord(\''+r.id+'\')">删除</button>':'';
+    html+=`<tr><td>${date}</td>${showWorker?'<td>'+r.worker_name+'</td>':''}<td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td>${sp?'<td style="'+pw+'">¥'+r.unit_price+'</td><td style="'+pw+'">¥'+amt+'</td>':''}<td><span class="badge ${badge}">${label}</span></td><td><button class="edit-btn" onclick='openEdit(${JSON.stringify(r).replace(/'/g,"&#39;")})'>编辑</button>${delBtn}</td></tr>`;
   });
   html+='</tbody></table></div>';
   el.innerHTML=html;
@@ -577,6 +578,13 @@ async function addMemberFrom(ctx){
 }
 
 // === Export ===
+async function deleteRecord(id){
+  if(!isAdmin())return;
+  if(!confirm('确认删除这条记录？删除后不可恢复！'))return;
+  await sb('label_records','DELETE',null,`?id=eq.${id}`);
+  loadHistory();loadStats();loadApprove();
+}
+
 async function exportCSV(){
   const start=`${statsYear}-${String(statsMonth).padStart(2,'0')}-01T00:00:00`;
   const endM=statsMonth===12?1:statsMonth+1;const endY=statsMonth===12?statsYear+1:statsYear;
