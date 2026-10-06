@@ -137,10 +137,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           <button class="btn btn-success" id="btnPause" onclick="pauseTimer()" style="flex:1">⏸ 暂停</button>
           <button class="btn btn-danger" id="btnStop" onclick="stopTimer()" style="flex:1">⏹ 结束</button>
         </div>
-        <div id="timerBtns3" style="display:none;margin-bottom:12px">
-          <div style="text-align:center;color:var(--success);font-weight:600;margin-bottom:8px">✓ 计时完成</div>
-          <button class="btn" style="background:var(--border)" onclick="resetTimerFull()">重新计时</button>
-        </div>
       </div>
       <div id="manualMode" style="display:none">
         <div style="margin-bottom:8px">
@@ -356,9 +352,9 @@ function pauseTimer(){
   updateTimerUI();saveTimerState();
 }
 function stopTimer(){
-  clearInterval(timerInterval);timerRunning=false;timerStopped=true;
+  clearInterval(timerInterval);timerRunning=false;timerStopped=false;timerSeconds=0;
   document.getElementById('timerDisplay').classList.remove('running');
-  updateTimerUI();saveTimerState();
+  updateTimer();updateTimerUI();localStorage.removeItem('label_timer');
 }
 function resetTimerFull(){
   clearInterval(timerInterval);timerSeconds=0;timerRunning=false;timerStopped=false;
@@ -383,13 +379,12 @@ function updateTimeResult(){
   }
 }
 function updateTimerUI(){
-  const b1=document.getElementById('timerBtns1'),b2=document.getElementById('timerBtns2'),b3=document.getElementById('timerBtns3');
-  if(timerStopped){b1.style.display='none';b2.style.display='none';b3.style.display='block';}
-  else if(timerRunning||timerSeconds>0){
-    b1.style.display='none';b2.style.display='flex';b3.style.display='none';
+  const b1=document.getElementById('timerBtns1'),b2=document.getElementById('timerBtns2');
+  if(timerRunning||timerSeconds>0){
+    b1.style.display='none';b2.style.display='flex';
     document.getElementById('btnPause').textContent=timerRunning?'⏸ 暂停':'▶ 继续';
     document.getElementById('btnPause').onclick=timerRunning?pauseTimer:startTimer;
-  }else{b1.style.display='block';b2.style.display='none';b3.style.display='none';}
+  }else{b1.style.display='block';b2.style.display='none';}
 }
 
 // Manual time calc
