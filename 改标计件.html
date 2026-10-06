@@ -348,7 +348,10 @@ function loadTimerState(){
 let timerStopped=false;
 let stoppedMinutes=0;
 function startTimer(){
-  timerRunning=true;timerStopped=false;stoppedMinutes=0;
+  const style=document.getElementById('inputStyle').value.trim();
+  const sales=document.getElementById('inputSales').value.trim();
+  if(!style&&!sales){alert('请先填写款号/单号或销售');return;}
+  timerRunning=true;stoppedMinutes=0;
   document.getElementById('timerDisplay').classList.add('running');
   timerInterval=setInterval(()=>{timerSeconds++;updateTimer();if(timerSeconds%5===0)saveTimerState();},1000);
   updateTimerUI();saveTimerState();
