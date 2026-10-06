@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>改标计件计时系统</title>
+<style>
+:root {
+  --primary: #4F46E5;
+  --primary-light: #818CF8;
+  --success: #10B981;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+  --bg: #F3F4F6;
+  --card: #FFFFFF;
+  --text: #1F2937;
+  --text2: #6B7280;
+  --border: #E5E7EB;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); font-size:15px; padding-bottom:70px; }
+.header { background:var(--primary); color:#fff; padding:14px 16px; font-size:17px; font-weight:600; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+.header .user-info { font-size:13px; font-weight:400; opacity:.85; }
+.tabs { display:flex; background:#fff; border-bottom:1px solid var(--border); position:sticky; top:47px; z-index:99; }
+.tab { flex:1; text-align:center; padding:10px 0; font-size:14px; color:var(--text2); border-bottom:2px solid transparent; cursor:pointer; }
+.tab.active { color:var(--primary); border-bottom-color:var(--primary); font-weight:600; }
+.page { display:none; padding:12px; }
+.page.active { display:block; }
+.card { background:var(--card); border-radius:10px; padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.card-title { font-size:14px; font-weight:600; margin-bottom:10px; color:var(--text); }
+.form-group { margin-bottom:12px; }
+.form-group label { display:block; font-size:13px; color:var(--text2); margin-bottom:4px; }
+.form-group input, .form-group select, .form-group textarea { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:15px; outline:none; }
+.form-group input:focus, .form-group select:focus { border-color:var(--primary); }
+.type-toggle { display:flex; gap:8px; margin-bottom:14px; }
+.type-btn { flex:1; padding:10px; text-align:center; border-radius:8px; border:2px solid var(--border); font-size:14px; font-weight:600; cursor:pointer; background:#fff; }
+.type-btn.active { border-color:var(--primary); background:var(--primary); color:#fff; }
+/* PLACEHOLDER_STYLE_CONT */
+.btn { display:block; width:100%; padding:12px; border:none; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; text-align:center; }
+.btn-primary { background:var(--primary); color:#fff; }
+.btn-success { background:var(--success); color:#fff; }
+.btn-danger { background:var(--danger); color:#fff; }
+.btn-sm { display:inline-block; width:auto; padding:6px 14px; font-size:13px; border-radius:6px; }
+.btn:disabled { opacity:.5; }
+.timer-display { text-align:center; font-size:42px; font-weight:700; color:var(--primary); padding:16px 0; font-variant-numeric:tabular-nums; }
+.timer-display.running { color:var(--success); }
+.record-item { padding:12px 0; border-bottom:1px solid var(--border); }
+.record-item:last-child { border-bottom:none; }
+.record-row { display:flex; justify-content:space-between; align-items:center; }
+.record-style { font-weight:600; font-size:15px; }
+.record-detail { font-size:13px; color:var(--text2); margin-top:3px; }
+.badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+.badge-pending { background:#FEF3C7; color:#92400E; }
+.badge-approved { background:#D1FAE5; color:#065F46; }
+.badge-rejected { background:#FEE2E2; color:#991B1B; }
+.stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.stat-card { background:var(--bg); border-radius:8px; padding:12px; text-align:center; }
+.stat-value { font-size:22px; font-weight:700; color:var(--primary); }
+.stat-label { font-size:12px; color:var(--text2); margin-top:2px; }
+.month-picker { display:flex; align-items:center; gap:10px; justify-content:center; margin-bottom:14px; }
+.month-picker button { background:none; border:1px solid var(--border); border-radius:6px; padding:6px 12px; font-size:14px; cursor:pointer; }
+.month-picker span { font-size:16px; font-weight:600; min-width:100px; text-align:center; }
+.empty { text-align:center; color:var(--text2); padding:30px 0; font-size:14px; }
+.login-page { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:80vh; padding:20px; }
+.login-card { background:#fff; border-radius:12px; padding:24px; width:100%; max-width:340px; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+.login-card h2 { text-align:center; margin-bottom:20px; font-size:18px; }
+.worker-list { display:flex; flex-direction:column; gap:8px; }
+.worker-item { padding:12px; border:1px solid var(--border); border-radius:8px; text-align:center; font-size:15px; cursor:pointer; }
+.worker-item:active { background:var(--primary); color:#fff; border-color:var(--primary); }
+.approve-actions { display:flex; gap:8px; margin-top:8px; }
+.reject-input { margin-top:8px; display:none; }
+.reject-input.show { display:block; }
+/* PLACEHOLDER_PAGES */
+</style>
+</head>
+<body>
+
+<!-- 登录页 -->
+<div id="loginPage" class="login-page">
+  <div class="login-card">
+    <h2>选择身份</h2>
+    <div class="worker-list" id="workerList"></div>
+    <div style="margin-top:14px;text-align:center">
+      <a href="#" onclick="showAddWorker()" style="color:var(--primary);font-size:13px">+ 添加新成员</a>
+    </div>
+    <div id="addWorkerForm" style="display:none;margin-top:12px">
+      <div class="form-group"><input id="newWorkerName" placeholder="姓名"></div>
+      <div class="form-group">
+        <select id="newWorkerRole"><option value="worker">工人</option><option value="approver">审核人</option></select>
+      </div>
+      <div class="form-group"><input id="newWorkerPin" placeholder="PIN码（4位数字）" type="password" maxlength="4" inputmode="numeric"></div>
+      <button class="btn btn-primary" onclick="addWorker()">添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="mainApp" style="display:none">
+<div class="header">
+  <span>改标计件计时</span>
+  <span class="user-info" id="headerUser" onclick="logout()">退出</span>
+</div>
+<div class="tabs" id="mainTabs">
+  <div class="tab active" data-page="record">录入</div>
+  <div class="tab" data-page="history">记录</div>
+  <div class="tab" data-page="approve">审核</div>
+  <div class="tab" data-page="stats">统计</div>
+  <div class="tab" data-page="settings">设置</div>
+</div>
+
+<!-- 录入页 -->
+<div class="page active" id="page-record">
+  <div class="card">
+    <div class="type-toggle">
+      <div class="type-btn active" data-type="piece" onclick="switchType('piece')">📦 计件</div>
+      <div class="type-btn" data-type="time" onclick="switchType('time')">⏱ 计时</div>
+    </div>
+    <div class="form-group"><label>款号</label><input id="inputStyle" placeholder="输入款号"></div>
+    <!-- 计件 -->
+    <div id="pieceFields">
+      <div class="form-group"><label>数量（件）</label><input id="inputQty" type="number" inputmode="numeric" placeholder="0"></div>
+      <div class="form-group"><label>单价（元/件）</label><input id="inputPiecePrice" type="number" inputmode="decimal" step="0.1" placeholder="0.00"></div>
+    </div>
+    <!-- 计时 -->
+    <div id="timeFields" style="display:none">
+      <div class="timer-display" id="timerDisplay">00:00:00</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn btn-success" id="btnTimerStart" onclick="toggleTimer()" style="flex:1">▶ 开始</button>
+        <button class="btn btn-danger" id="btnTimerReset" onclick="resetTimer()" style="flex:1" disabled>重置</button>
+      </div>
+      <div class="form-group"><label>工时单价（元/小时）</label><input id="inputHourPrice" type="number" inputmode="decimal" step="0.5" placeholder="0.00"></div>
+    </div>
+    <div class="form-group"><label>备注</label><textarea id="inputRemark" rows="2" placeholder="可选"></textarea></div>
+    <button class="btn btn-primary" id="btnSubmit" onclick="submitRecord()">提交</button>
+  </div>
+</div>
+
+<!-- 记录页 -->
+<div class="page" id="page-history">
+  <div class="card">
+    <div class="card-title">我的记录</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <select id="historyFilter" onchange="loadHistory()" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+        <option value="all">全部</option><option value="pending">待审核</option><option value="approved">已通过</option><option value="rejected">已驳回</option>
+      </select>
+    </div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<!-- 审核页 -->
+<div class="page" id="page-approve">
+  <div class="card">
+    <div class="card-title">待审核</div>
+    <div id="approveList"></div>
+  </div>
+</div>
+
+<!-- 统计页 -->
+<div class="page" id="page-stats">
+  <div class="card">
+    <div class="month-picker">
+      <button onclick="changeMonth(-1)">◀</button>
+      <span id="statsMonth"></span>
+      <button onclick="changeMonth(1)">▶</button>
+    </div>
+    <div class="stat-grid" id="statsGrid"></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="card-title">明细</div>
+    <div id="statsDetail"></div>
+  </div>
+  <button class="btn btn-primary" style="margin-top:12px" onclick="exportCSV()">📥 导出Excel</button>
+</div>
+
+<!-- 设置页 -->
+<div class="page" id="page-settings">
+  <div class="card">
+    <div class="card-title">成员管理</div>
+    <div id="memberList"></div>
+    <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="showAddWorker2()">+ 添加成员</button>
+    <div id="addMemberForm" style="display:none;margin-top:12px">
+      <div class="form-group"><input id="newMemberName" placeholder="姓名"></div>
+      <div class="form-group">
+        <select id="newMemberRole"><option value="worker">工人</option><option value="approver">审核人</option></select>
+      </div>
+      <div class="form-group"><input id="newMemberPin" placeholder="PIN码" type="password" maxlength="4" inputmode="numeric"></div>
+      <button class="btn btn-success btn-sm" onclick="addMember()">确认添加</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /mainApp -->
+
+<script>
+const SUPABASE_URL = 'https://elyfxyrdbuykyklfjfdr.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg';
+const H = {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+
+let currentUser = null;
+let timerInterval = null;
+let timerSeconds = 0;
+let timerRunning = false;
+let statsYear, statsMonth;
+
+// === API ===
+async function sb(table, method='GET', body=null, query='') {
+  const opts = {method, headers:{...H}};
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, opts);
+  if (!r.ok) throw new Error(await r.text());
+  const txt = await r.text();
+  return txt ? JSON.parse(txt) : null;
+}
+
+// === Login ===
+async function initLogin() {
+  const workers = await sb('label_workers','GET',null,'?order=created_at.asc');
+  const approvers = await sb('label_approvers','GET',null,'?order=created_at.asc');
+  const all = [...(workers||[]).map(w=>({...w,_type:'worker'})), ...(approvers||[]).map(a=>({...a,_type:'approver'}))];
+  const el = document.getElementById('workerList');
+  if (!all.length) { el.innerHTML='<div class="empty">暂无成员，请先添加</div>'; return; }
+  el.innerHTML = all.map(w=>`<div class="worker-item" onclick="loginAs('${w.id}','${w._type}')">${w.name} <span style="font-size:11px;color:var(--text2)">${w._type==='approver'?'审核人':'工人'}</span></div>`).join('');
+}
+
+async function loginAs(id, type) {
+  const pin = prompt('请输入PIN码');
+  if (!pin) return;
+  const table = type==='approver'?'label_approvers':'label_workers';
+  const data = await sb(table,'GET',null,`?id=eq.${id}&pin=eq.${pin}`);
+  if (!data||!data.length) { alert('PIN码错误'); return; }
+  currentUser = {...data[0], _type:type};
+  localStorage.setItem('label_user', JSON.stringify(currentUser));
+  showMain();
+}
+
+function showMain() {
+  document.getElementById('loginPage').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+  document.getElementById('headerUser').textContent=currentUser.name+' (退出)';
+  switchTab('record');
+}
+
+function logout() {
+  localStorage.removeItem('label_user');
+  currentUser=null;
+  document.getElementById('loginPage').style.display='flex';
+  document.getElementById('mainApp').style.display='none';
+  initLogin();
+}
+
+// === Add Worker ===
+function showAddWorker() { document.getElementById('addWorkerForm').style.display='block'; }
+async function addWorker() {
+  const name=document.getElementById('newWorkerName').value.trim();
+  const role=document.getElementById('newWorkerRole').value;
+  const pin=document.getElementById('newWorkerPin').value.trim();
+  if(!name||!pin||pin.length!==4){alert('请填写姓名和4位PIN码');return;}
+  const table=role==='approver'?'label_approvers':'label_workers';
+  await sb(table,'POST',{name,pin});
+  document.getElementById('addWorkerForm').style.display='none';
+  document.getElementById('newWorkerName').value='';
+  document.getElementById('newWorkerPin').value='';
+  initLogin();
+}
+
+// === Tabs ===
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>switchTab(t.dataset.page));
+});
+function switchTab(page) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.page===page));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+page));
+  if(page==='history') loadHistory();
+  if(page==='approve') loadApprove();
+  if(page==='stats') initStats();
+  if(page==='settings') loadMembers();
+}
+
+// === Record Type ===
+function switchType(type) {
+  document.querySelectorAll('.type-btn').forEach(b=>b.classList.toggle('active',b.dataset.type===type));
+  document.getElementById('pieceFields').style.display=type==='piece'?'block':'none';
+  document.getElementById('timeFields').style.display=type==='time'?'block':'none';
+}
+
+// === Timer ===
+function toggleTimer() {
+  if(timerRunning){
+    clearInterval(timerInterval);timerRunning=false;
+    document.getElementById('btnTimerStart').textContent='▶ 继续';
+    document.getElementById('btnTimerStart').className='btn btn-success';
+    document.getElementById('btnTimerReset').disabled=false;
+  } else {
+    timerRunning=true;
+    document.getElementById('btnTimerStart').textContent='⏸ 暂停';
+    document.getElementById('btnTimerStart').className='btn btn-warning';
+    document.getElementById('btnTimerReset').disabled=false;
+    document.getElementById('timerDisplay').classList.add('running');
+    timerInterval=setInterval(()=>{timerSeconds++;updateTimer();},1000);
+  }
+}
+function resetTimer(){clearInterval(timerInterval);timerSeconds=0;timerRunning=false;updateTimer();
+  document.getElementById('timerDisplay').classList.remove('running');
+  document.getElementById('btnTimerStart').textContent='▶ 开始';
+  document.getElementById('btnTimerStart').className='btn btn-success';
+  document.getElementById('btnTimerReset').disabled=true;
+}
+function updateTimer(){
+  const h=Math.floor(timerSeconds/3600),m=Math.floor((timerSeconds%3600)/60),s=timerSeconds%60;
+  document.getElementById('timerDisplay').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+// === Submit Record ===
+async function submitRecord() {
+  const style=document.getElementById('inputStyle').value.trim();
+  if(!style){alert('请输入款号');return;}
+  const type=document.querySelector('.type-btn.active').dataset.type;
+  let rec={worker_id:currentUser.id, worker_name:currentUser.name, type, style_no:style, remark:document.getElementById('inputRemark').value.trim()};
+  if(type==='piece'){
+    const qty=parseInt(document.getElementById('inputQty').value);
+    const price=parseFloat(document.getElementById('inputPiecePrice').value);
+    if(!qty||qty<=0){alert('请输入数量');return;}
+    if(!price||price<=0){alert('请输入单价');return;}
+    rec.quantity=qty; rec.unit_price=price;
+  } else {
+    if(timerSeconds<60){alert('计时不足1分钟');return;}
+    const price=parseFloat(document.getElementById('inputHourPrice').value);
+    if(!price||price<=0){alert('请输入工时单价');return;}
+    rec.duration_minutes=Math.round(timerSeconds/60*10)/10; rec.unit_price=price;
+    clearInterval(timerInterval);
+  }
+  document.getElementById('btnSubmit').disabled=true;
+  try{
+    await sb('label_records','POST',rec);
+    alert('提交成功！');
+    document.getElementById('inputStyle').value='';
+    document.getElementById('inputQty').value='';
+    document.getElementById('inputPiecePrice').value='';
+    document.getElementById('inputHourPrice').value='';
+    document.getElementById('inputRemark').value='';
+    resetTimer();
+  }catch(e){alert('提交失败：'+e.message);}
+  document.getElementById('btnSubmit').disabled=false;
+}
+
+// === History ===
+async function loadHistory() {
+  const filter=document.getElementById('historyFilter').value;
+  let q=`?worker_id=eq.${currentUser.id}&order=created_at.desc&limit=50`;
+  if(filter!=='all') q+=`&status=eq.${filter}`;
+  const data=await sb('label_records','GET',null,q);
+  const el=document.getElementById('historyList');
+  if(!data||!data.length){el.innerHTML='<div class="empty">暂无记录</div>';return;}
+  el.innerHTML=data.map(r=>{
+    const badge=r.status==='pending'?'badge-pending':r.status==='approved'?'badge-approved':'badge-rejected';
+    const label=r.status==='pending'?'待审核':r.status==='approved'?'已通过':'已驳回';
+    const detail=r.type==='piece'?`${r.quantity}件 × ¥${r.unit_price}`:`${r.duration_minutes}分钟 × ¥${r.unit_price}/时`;
+    const amount=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
+    const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    return `<div class="record-item"><div class="record-row"><span class="record-style">${r.style_no}</span><span class="badge ${badge}">${label}</span></div><div class="record-detail">${r.type==='piece'?'计件':'计时'} | ${detail} = ¥${amount}</div><div class="record-detail">${date}${r.reject_reason?' | 驳回：'+r.reject_reason:''}</div></div>`;
+  }).join('');
+}
+
+// === Approve ===
+async function loadApprove() {
+  const data=await sb('label_records','GET',null,'?status=eq.pending&order=created_at.desc');
+  const el=document.getElementById('approveList');
+  if(!data||!data.length){el.innerHTML='<div class="empty">无待审核记录</div>';return;}
+  el.innerHTML=data.map(r=>{
+    const detail=r.type==='piece'?`${r.quantity}件 × ¥${r.unit_price}`:`${r.duration_minutes}分钟 × ¥${r.unit_price}/时`;
+    const amount=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
+    const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    return `<div class="record-item">
+      <div class="record-row"><span class="record-style">${r.style_no}</span><span style="font-size:13px;color:var(--text2)">${r.worker_name}</span></div>
+      <div class="record-detail">${r.type==='piece'?'计件':'计时'} | ${detail} = ¥${amount}</div>
+      <div class="record-detail">${date}${r.remark?' | '+r.remark:''}</div>
+      <div class="approve-actions">
+        <button class="btn btn-success btn-sm" onclick="approveRecord('${r.id}')">✓ 通过</button>
+        <button class="btn btn-danger btn-sm" onclick="showReject('${r.id}')">✗ 驳回</button>
+      </div>
+      <div class="reject-input" id="reject-${r.id}">
+        <div style="display:flex;gap:6px;margin-top:6px"><input id="reason-${r.id}" placeholder="驳回原因" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px"><button class="btn btn-danger btn-sm" onclick="rejectRecord('${r.id}')">确认驳回</button></div>
+      </div></div>`;
+  }).join('');
+}
+
+async function approveRecord(id) {
+  await sb('label_records','PATCH',{status:'approved',approved_by:currentUser.name,approved_at:new Date().toISOString()},`?id=eq.${id}`);
+  loadApprove();
+}
+function showReject(id){document.getElementById('reject-'+id).classList.toggle('show');}
+async function rejectRecord(id) {
+  const reason=document.getElementById('reason-'+id).value.trim();
+  if(!reason){alert('请填写驳回原因');return;}
+  await sb('label_records','PATCH',{status:'rejected',reject_reason:reason,approved_by:currentUser.name,approved_at:new Date().toISOString()},`?id=eq.${id}`);
+  loadApprove();
+}
+
+// === Stats ===
+function initStats() {
+  const now=new Date();
+  if(!statsYear){statsYear=now.getFullYear();statsMonth=now.getMonth()+1;}
+  loadStats();
+}
+function changeMonth(d){statsMonth+=d;if(statsMonth>12){statsMonth=1;statsYear++;}if(statsMonth<1){statsMonth=12;statsYear--;}loadStats();}
+async function loadStats() {
+  document.getElementById('statsMonth').textContent=`${statsYear}年${statsMonth}月`;
+  const start=`${statsYear}-${String(statsMonth).padStart(2,'0')}-01T00:00:00`;
+  const endM=statsMonth===12?1:statsMonth+1;const endY=statsMonth===12?statsYear+1:statsYear;
+  const end=`${endY}-${String(endM).padStart(2,'0')}-01T00:00:00`;
+  const data=await sb('label_records','GET',null,`?status=eq.approved&created_at=gte.${start}&created_at=lt.${end}&order=created_at.desc`);
+  const grid=document.getElementById('statsGrid');
+  const detail=document.getElementById('statsDetail');
+  if(!data||!data.length){grid.innerHTML='';detail.innerHTML='<div class="empty">本月无已审核记录</div>';return;}
+  let totalPieces=0,totalMinutes=0,totalAmount=0,count=data.length;
+  data.forEach(r=>{
+    if(r.type==='piece'){totalPieces+=r.quantity||0;totalAmount+=(r.quantity||0)*r.unit_price;}
+    else{totalMinutes+=r.duration_minutes||0;totalAmount+=(r.duration_minutes||0)/60*r.unit_price;}
+  });
+  grid.innerHTML=`
+    <div class="stat-card"><div class="stat-value">${count}</div><div class="stat-label">总记录数</div></div>
+    <div class="stat-card"><div class="stat-value">¥${totalAmount.toFixed(0)}</div><div class="stat-label">总金额</div></div>
+    <div class="stat-card"><div class="stat-value">${totalPieces}</div><div class="stat-label">总件数</div></div>
+    <div class="stat-card"><div class="stat-value">${(totalMinutes/60).toFixed(1)}h</div><div class="stat-label">总工时</div></div>`;
+  detail.innerHTML=data.map(r=>{
+    const amt=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
+    const info=r.type==='piece'?`${r.quantity}件×¥${r.unit_price}`:`${r.duration_minutes}分×¥${r.unit_price}/时`;
+    const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric'});
+    return `<div class="record-item"><div class="record-row"><span class="record-style">${r.style_no}</span><span style="font-weight:600;color:var(--primary)">¥${amt}</span></div><div class="record-detail">${r.worker_name} | ${info} | ${date}</div></div>`;
+  }).join('');
+}
+
+// === Export CSV ===
+async function exportCSV() {
+  const start=`${statsYear}-${String(statsMonth).padStart(2,'0')}-01T00:00:00`;
+  const endM=statsMonth===12?1:statsMonth+1;const endY=statsMonth===12?statsYear+1:statsYear;
+  const end=`${endY}-${String(endM).padStart(2,'0')}-01T00:00:00`;
+  const data=await sb('label_records','GET',null,`?status=eq.approved&created_at=gte.${start}&created_at=lt.${end}&order=created_at.asc`);
+  if(!data||!data.length){alert('无数据');return;}
+  let csv='\uFEFF日期,工人,类型,款号,数量,时长(分钟),单价,金额,备注\n';
+  data.forEach(r=>{
+    const date=new Date(r.created_at).toLocaleDateString('zh-CN');
+    const type=r.type==='piece'?'计件':'计时';
+    const amt=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
+    csv+=`${date},${r.worker_name},${type},"${r.style_no}",${r.quantity||''},${r.duration_minutes||''},${r.unit_price},${amt},"${r.remark||''}"\n`;
+  });
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`改标统计_${statsYear}年${statsMonth}月.csv`;a.click();
+}
+
+// === Settings ===
+async function loadMembers() {
+  const workers=await sb('label_workers','GET',null,'?order=created_at.asc');
+  const approvers=await sb('label_approvers','GET',null,'?order=created_at.asc');
+  const all=[...(workers||[]).map(w=>({...w,_type:'worker'})),...(approvers||[]).map(a=>({...a,_type:'approver'}))];
+  document.getElementById('memberList').innerHTML=all.map(m=>`<div class="record-item"><div class="record-row"><span>${m.name} <span style="font-size:11px;color:var(--text2)">${m._type==='approver'?'审核人':'工人'}</span></span><button class="btn btn-danger btn-sm" onclick="deleteMember('${m.id}','${m._type}')">删除</button></div></div>`).join('')||'<div class="empty">无成员</div>';
+}
+function showAddWorker2(){document.getElementById('addMemberForm').style.display='block';}
+async function addMember(){
+  const name=document.getElementById('newMemberName').value.trim();
+  const role=document.getElementById('newMemberRole').value;
+  const pin=document.getElementById('newMemberPin').value.trim();
+  if(!name||!pin||pin.length!==4){alert('请填写姓名和4位PIN码');return;}
+  const table=role==='approver'?'label_approvers':'label_workers';
+  await sb(table,'POST',{name,pin});
+  document.getElementById('addMemberForm').style.display='none';
+  document.getElementById('newMemberName').value='';document.getElementById('newMemberPin').value='';
+  loadMembers();
+}
+async function deleteMember(id,type){
+  if(!confirm('确认删除？'))return;
+  const table=type==='approver'?'label_approvers':'label_workers';
+  await sb(table,'DELETE',null,`?id=eq.${id}`);
+  loadMembers();
+}
+
+// === Init ===
+(async function(){
+  const saved=localStorage.getItem('label_user');
+  if(saved){
+    currentUser=JSON.parse(saved);
+    // verify still exists
+    const table=currentUser._type==='approver'?'label_approvers':'label_workers';
+    const check=await sb(table,'GET',null,`?id=eq.${currentUser.id}`);
+    if(check&&check.length){showMain();return;}
+  }
+  initLogin();
+})();
+</script>
+</body>
+</html>
