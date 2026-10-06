@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>改标计件计时系统</title>
+<title>改标计时&计件统计系统</title>
 <style>
 :root{--primary:#4F46E5;--primary-light:#818CF8;--success:#10B981;--danger:#EF4444;--warning:#F59E0B;--bg:#F3F4F6;--card:#FFF;--text:#1F2937;--text2:#6B7280;--border:#E5E7EB}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -100,7 +100,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <!-- 主界面 -->
 <div id="mainApp" style="display:none">
 <div class="header">
-  <span>改标计件计时</span>
+  <span>改标计时&计件统计</span>
   <span class="user-info" id="headerUser" onclick="logout()"></span>
 </div>
 <div class="tabs" id="mainTabs">
@@ -306,7 +306,7 @@ function showMain(){
   document.getElementById('loginPage').style.display='none';
   document.getElementById('mainApp').style.display='block';
   const roleLabel=userRole()==='admin'?'管理员':isApprover()?'审核人':'车标人';
-  document.getElementById('headerUser').textContent=currentUser.name+' ('+roleLabel+') 退出';
+  document.getElementById('headerUser').innerHTML=currentUser.name+' <span style="font-size:11px;opacity:.7">退出</span>';
   // Show/hide tabs by role
   const role=userRole();
   document.querySelectorAll('.tab').forEach(t=>{
