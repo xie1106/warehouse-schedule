@@ -106,10 +106,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <span class="user-info" id="headerUser" onclick="logout()"></span>
 </div>
 <div class="tabs" id="mainTabs">
-  <div class="tab" data-page="history" data-roles="worker,approver,admin">记录</div>
-  <div class="tab" data-page="manage" data-roles="admin">管理</div>
-  <div class="tab" data-page="record" data-roles="worker,admin">录入</div>
-  <div class="tab" data-page="approve" data-roles="approver,admin">审核</div>
+  <div class="tab" data-page="record" data-roles="worker,admin" data-order-worker="1" data-order-approver="9" data-order-admin="3">录入</div>
+  <div class="tab" data-page="history" data-roles="worker,approver,admin" data-order-worker="2" data-order-approver="2" data-order-admin="1">记录</div>
+  <div class="tab" data-page="approve" data-roles="approver,admin" data-order-worker="9" data-order-approver="1" data-order-admin="4">审核</div>
+  <div class="tab" data-page="manage" data-roles="admin" data-order-worker="9" data-order-approver="9" data-order-admin="2">管理</div>
 </div>
 
 <!-- 录入页 -->
@@ -305,12 +305,16 @@ function showMain(){
   document.getElementById('mainApp').style.display='block';
   const roleLabel=userRole()==='admin'?'管理员':isApprover()?'审核人':'车标人';
   document.getElementById('headerUser').innerHTML=currentUser.name+' <span style="font-size:11px;opacity:.7">退出</span>';
-  // Show/hide tabs by role
+  // Show/hide and sort tabs by role
   const role=userRole();
-  document.querySelectorAll('.tab').forEach(t=>{
+  const tabContainer=document.getElementById('mainTabs');
+  const tabs=[...tabContainer.querySelectorAll('.tab')];
+  tabs.forEach(t=>{
     const roles=t.dataset.roles||'';
     t.classList.toggle('visible',roles.split(',').includes(role));
   });
+  tabs.sort((a,b)=>(parseInt(a.dataset['order'+role.charAt(0).toUpperCase()+role.slice(1)])||9)-(parseInt(b.dataset['order'+role.charAt(0).toUpperCase()+role.slice(1)])||9));
+  tabs.forEach(t=>tabContainer.appendChild(t));
   document.getElementById('btnExport').style.display=canSeePrice()?'block':'none';
   const now=new Date();statsYear=now.getFullYear();statsMonth=now.getMonth()+1;
   // Default tab: admin→记录, approver→审核, worker→录入
