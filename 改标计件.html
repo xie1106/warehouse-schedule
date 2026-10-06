@@ -86,17 +86,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <div class="login-card">
     <h2>选择身份</h2>
     <div class="worker-list" id="workerList"></div>
-    <div style="margin-top:14px;text-align:center">
-      <a href="#" onclick="showAddForm('login')" style="color:var(--primary);font-size:13px">+ 添加新成员</a>
-    </div>
-    <div id="addFormLogin" style="display:none;margin-top:12px">
-      <div class="form-group"><input id="newNameLogin" placeholder="姓名"></div>
-      <div class="form-group">
-        <select id="newRoleLogin"><option value="worker">车标人</option><option value="approver">审核人</option><option value="admin">管理员</option><option value="checker">对账</option></select>
-      </div>
-      <div class="form-group"><input id="newPinLogin" placeholder="PIN码（4位数字）" type="password" maxlength="4" inputmode="numeric"></div>
-      <button class="btn btn-primary" onclick="addMemberFrom('login')">添加</button>
-    </div>
   </div>
 </div>
 
