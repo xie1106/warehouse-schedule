@@ -354,7 +354,7 @@ function pauseTimer(){
 }
 function stopTimer(){
   clearInterval(timerInterval);timerRunning=false;
-  stoppedMinutes=Math.round(timerSeconds/60*10)/10;
+  stoppedMinutes=timerSeconds/60;
   timerSeconds=0;timerStopped=false;
   document.getElementById('timerDisplay').classList.remove('running');
   updateTimer();updateTimerUI();updateTimeResult();
@@ -378,7 +378,7 @@ function updateTimeResult(){
     el.innerHTML=`<span style="color:var(--primary);font-size:18px;font-weight:700">工时：${(mins/60).toFixed(1)} 小时（${mins} 分钟）</span>`;
   }else{
     const mins=stoppedMinutes>0?stoppedMinutes:(timerSeconds>0?Math.round(timerSeconds/60*10)/10:0);
-    if(mins<0.1){el.innerHTML='<span style="color:var(--text2);font-size:14px">工时将显示在这里</span>';return;}
+    if(mins<0.01){el.innerHTML='<span style="color:var(--text2);font-size:14px">工时将显示在这里</span>';return;}
     el.innerHTML=`<span style="color:var(--primary);font-size:18px;font-weight:700">工时：${(mins/60).toFixed(1)} 小时（${Math.round(mins)} 分钟）</span>`;
   }
 }
