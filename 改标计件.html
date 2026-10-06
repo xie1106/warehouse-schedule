@@ -143,9 +143,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         </div>
       </div>
       <div id="manualMode" style="display:none">
-        <div style="display:flex;gap:8px;margin-bottom:12px">
-          <div class="form-group" style="flex:1;margin-bottom:0"><label>开始时间</label><input id="inputTimeStart" type="time" step="60"></div>
-          <div class="form-group" style="flex:1;margin-bottom:0"><label>结束时间</label><input id="inputTimeEnd" type="time" step="60"></div>
+        <div style="margin-bottom:8px">
+          <label style="font-size:13px;color:var(--text2)">开始时间</label>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+            <select id="inputStartH" onchange="calcManualTime()" style="flex:1;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:18px;font-weight:600;text-align:center;appearance:none;-webkit-appearance:none;background:#fff"></select>
+            <span style="font-size:20px;font-weight:700">:</span>
+            <select id="inputStartM" onchange="calcManualTime()" style="flex:1;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:18px;font-weight:600;text-align:center;appearance:none;-webkit-appearance:none;background:#fff"></select>
+          </div>
+        </div>
+        <div style="margin-bottom:8px">
+          <label style="font-size:13px;color:var(--text2)">结束时间</label>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+            <select id="inputEndH" onchange="calcManualTime()" style="flex:1;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:18px;font-weight:600;text-align:center;appearance:none;-webkit-appearance:none;background:#fff"></select>
+            <span style="font-size:20px;font-weight:700">:</span>
+            <select id="inputEndM" onchange="calcManualTime()" style="flex:1;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:18px;font-weight:600;text-align:center;appearance:none;-webkit-appearance:none;background:#fff"></select>
+          </div>
         </div>
       </div>
       <div style="border:2px solid var(--primary);border-radius:8px;padding:12px;text-align:center;min-height:44px;margin-bottom:12px" id="timeResult"><span style="color:var(--text2);font-size:14px">工时将显示在这里</span></div>
@@ -361,10 +373,7 @@ function updateTimeResult(){
   const el=document.getElementById('timeResult');
   const isManual=document.querySelector('[data-tmode="manual"]')&&document.querySelector('[data-tmode="manual"]').classList.contains('active');
   if(isManual){
-    const s=document.getElementById('inputTimeStart').value,e=document.getElementById('inputTimeEnd').value;
-    if(!s||!e){el.innerHTML='<span style="color:var(--text2);font-size:14px">工时将显示在这里</span>';return;}
-    const [sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);
-    let mins=(eh*60+em)-(sh*60+sm);
+    let mins=getManualMinutes();
     if(mins<=0){el.innerHTML='<span style="color:var(--danger);font-weight:600">结束时间须晚于开始时间</span>';return;}
     el.innerHTML=`<span style="color:var(--primary);font-size:18px;font-weight:700">工时：${(mins/60).toFixed(1)} 小时（${mins} 分钟）</span>`;
   }else{
@@ -384,9 +393,18 @@ function updateTimerUI(){
 }
 
 // Manual time calc
-document.addEventListener('change',e=>{
-  if(e.target.id==='inputTimeStart'||e.target.id==='inputTimeEnd')calcManualTime();
-});
+function initTimeSelects(){
+  const now=new Date();const ch=now.getHours(),cm=Math.floor(now.getMinutes()/5)*5;
+  ['inputStartH','inputEndH'].forEach(id=>{const el=document.getElementById(id);el.innerHTML='';for(let h=6;h<=23;h++)el.innerHTML+=`<option value="${h}"${h===ch?' selected':''}>${String(h).padStart(2,'0')}时</option>`;});
+  ['inputStartM','inputEndM'].forEach(id=>{const el=document.getElementById(id);el.innerHTML='';for(let m=0;m<60;m+=5)el.innerHTML+=`<option value="${m}"${m===cm?' selected':''}>${String(m).padStart(2,'0')}分</option>`;});
+}
+initTimeSelects();
+document.addEventListener('change',e=>{if(['inputStartH','inputStartM','inputEndH','inputEndM'].includes(e.target.id))calcManualTime();});
+function getManualMinutes(){
+  const sh=parseInt(document.getElementById('inputStartH').value),sm=parseInt(document.getElementById('inputStartM').value);
+  const eh=parseInt(document.getElementById('inputEndH').value),em=parseInt(document.getElementById('inputEndM').value);
+  return (eh*60+em)-(sh*60+sm);
+}
 function calcManualTime(){updateTimeResult();}
 
 // === Sales Hints ===
@@ -412,10 +430,7 @@ async function submitRecord(){
     const isManual=document.querySelector('[data-tmode="manual"]').classList.contains('active');
     let minutes;
     if(isManual){
-      const s=document.getElementById('inputTimeStart').value,e=document.getElementById('inputTimeEnd').value;
-      if(!s||!e){alert('请输入开始和结束时间');return;}
-      const [sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);
-      minutes=(eh*60+em)-(sh*60+sm);
+      minutes=getManualMinutes();
       if(minutes<=0){alert('结束时间须晚于开始时间');return;}
     } else {
       if(timerSeconds<60){alert('计时不足1分钟，请先结束计时');return;}
@@ -424,7 +439,7 @@ async function submitRecord(){
     rec.duration_minutes=minutes;rec.unit_price=HOUR_PRICE;
   }
   document.getElementById('btnSubmit').disabled=true;
-  try{await sb('label_records','POST',rec);addSalesHistory(rec.salesperson);alert('提交成功！');document.getElementById('inputStyle').value='';document.getElementById('inputQty').value='';document.getElementById('inputPiecePrice').value='';document.getElementById('inputTimeStart').value='';document.getElementById('inputTimeEnd').value='';document.getElementById('inputRemark').value='';resetTimerFull();updateTimeResult();}
+  try{await sb('label_records','POST',rec);addSalesHistory(rec.salesperson);alert('提交成功！');document.getElementById('inputStyle').value='';document.getElementById('inputQty').value='';document.getElementById('inputPiecePrice').value='';document.getElementById('inputRemark').value='';resetTimerFull();initTimeSelects();updateTimeResult();}
   catch(e){alert('提交失败：'+e.message);}
   document.getElementById('btnSubmit').disabled=false;
 }
