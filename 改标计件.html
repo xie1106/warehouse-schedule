@@ -124,12 +124,20 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
     </div>
     <!-- 计时 -->
     <div id="timeFields" style="display:none">
-      <div class="timer-display" id="timerDisplay">00:00:00</div>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button class="btn btn-success" id="btnTimerStart" onclick="toggleTimer()" style="flex:1">▶ 开始</button>
-        <button class="btn btn-danger" id="btnTimerReset" onclick="resetTimer()" style="flex:1" disabled>重置</button>
+      <div class="type-toggle" style="margin-bottom:10px">
+        <div class="type-btn active" data-tmode="timer" onclick="switchTimeMode('timer')">⏱ 计时器</div>
+        <div class="type-btn" data-tmode="manual" onclick="switchTimeMode('manual')">✏️ 手动输入</div>
       </div>
-      <div class="form-group"><label>工时单价（元/小时）</label><input id="inputHourPrice" type="number" inputmode="decimal" step="0.5" placeholder="0.00"></div>
+      <div id="timerMode">
+        <div class="timer-display" id="timerDisplay">00:00:00</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="btn btn-success" id="btnTimerStart" onclick="toggleTimer()" style="flex:1">▶ 开始</button>
+          <button class="btn btn-danger" id="btnTimerReset" onclick="resetTimer()" style="flex:1" disabled>重置</button>
+        </div>
+      </div>
+      <div id="manualMode" style="display:none">
+        <div class="form-group"><label>工时（小时）</label><input id="inputManualHours" type="number" inputmode="decimal" step="0.1" placeholder="例如 1.5"></div>
+      </div>
     </div>
     <div class="form-group"><label>备注</label><textarea id="inputRemark" rows="2" placeholder="可选"></textarea></div>
     <button class="btn btn-primary" id="btnSubmit" onclick="submitRecord()">提交</button>
@@ -311,6 +319,11 @@ function updateTimer(){
   const h=Math.floor(timerSeconds/3600),m=Math.floor((timerSeconds%3600)/60),s=timerSeconds%60;
   document.getElementById('timerDisplay').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
+function switchTimeMode(mode){
+  document.querySelectorAll('[data-tmode]').forEach(b=>b.classList.toggle('active',b.dataset.tmode===mode));
+  document.getElementById('timerMode').style.display=mode==='timer'?'block':'none';
+  document.getElementById('manualMode').style.display=mode==='manual'?'block':'none';
+}
 
 // === Sales Hints ===
 function getSalesHistory(){return JSON.parse(localStorage.getItem('label_sales_history')||'[]');}
@@ -339,11 +352,18 @@ async function submitRecord() {
     if(!price||price<=0){alert('请输入单价');return;}
     rec.quantity=qty; rec.unit_price=price;
   } else {
-    if(timerSeconds<60){alert('计时不足1分钟');return;}
-    const price=parseFloat(document.getElementById('inputHourPrice').value);
-    if(!price||price<=0){alert('请输入工时单价');return;}
-    rec.duration_minutes=Math.round(timerSeconds/60*10)/10; rec.unit_price=price;
-    clearInterval(timerInterval);
+    const isManual=document.querySelector('[data-tmode="manual"]').classList.contains('active');
+    let minutes;
+    if(isManual){
+      const hrs=parseFloat(document.getElementById('inputManualHours').value);
+      if(!hrs||hrs<=0){alert('请输入工时');return;}
+      minutes=Math.round(hrs*60*10)/10;
+    } else {
+      if(timerSeconds<60){alert('计时不足1分钟');return;}
+      minutes=Math.round(timerSeconds/60*10)/10;
+      clearInterval(timerInterval);
+    }
+    rec.duration_minutes=minutes; rec.unit_price=39.5;
   }
   document.getElementById('btnSubmit').disabled=true;
   try{
@@ -353,7 +373,7 @@ async function submitRecord() {
     document.getElementById('inputStyle').value='';
     document.getElementById('inputQty').value='';
     document.getElementById('inputPiecePrice').value='';
-    document.getElementById('inputHourPrice').value='';
+    document.getElementById('inputManualHours').value='';
     document.getElementById('inputRemark').value='';
     resetTimer();
   }catch(e){alert('提交失败：'+e.message);}
@@ -371,10 +391,12 @@ async function loadHistory() {
   el.innerHTML=data.map(r=>{
     const badge=r.status==='pending'?'badge-pending':r.status==='approved'?'badge-approved':'badge-rejected';
     const label=r.status==='pending'?'待审核':r.status==='approved'?'已通过':'已驳回';
-    const detail=r.type==='piece'?`${r.quantity}件 × ¥${r.unit_price}`:`${r.duration_minutes}分钟 × ¥${r.unit_price}/时`;
+    const isAdmin=currentUser&&currentUser._type==='approver';
+    const detail=r.type==='piece'?`${r.quantity}件${isAdmin?' × ¥'+r.unit_price:''}`:((r.duration_minutes/60).toFixed(1)+'小时');
     const amount=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
+    const amountStr=isAdmin?' = ¥'+amount:'';
     const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-    return `<div class="record-item"><div class="record-row"><span class="record-style">${r.style_no}</span><span class="badge ${badge}">${label}</span></div><div class="record-detail">${r.type==='piece'?'计件':'计时'} | ${detail} = ¥${amount}${r.salesperson?' | 销售：'+r.salesperson:''}</div><div class="record-detail">${date}${r.reject_reason?' | 驳回：'+r.reject_reason:''}</div></div>`;
+    return `<div class="record-item"><div class="record-row"><span class="record-style">${r.style_no}</span><span class="badge ${badge}">${label}</span></div><div class="record-detail">${r.type==='piece'?'计件':'计时'} | ${detail}${amountStr}${r.salesperson?' | 销售：'+r.salesperson:''}</div><div class="record-detail">${date}${r.reject_reason?' | 驳回：'+r.reject_reason:''}</div></div>`;
   }).join('');
 }
 
@@ -434,16 +456,18 @@ async function loadStats() {
     if(r.type==='piece'){totalPieces+=r.quantity||0;totalAmount+=(r.quantity||0)*r.unit_price;}
     else{totalMinutes+=r.duration_minutes||0;totalAmount+=(r.duration_minutes||0)/60*r.unit_price;}
   });
+  const isAdmin=currentUser&&currentUser._type==='approver';
   grid.innerHTML=`
     <div class="stat-card"><div class="stat-value">${count}</div><div class="stat-label">总记录数</div></div>
-    <div class="stat-card"><div class="stat-value">¥${totalAmount.toFixed(0)}</div><div class="stat-label">总金额</div></div>
+    ${isAdmin?'<div class="stat-card"><div class="stat-value">¥'+totalAmount.toFixed(0)+'</div><div class="stat-label">总金额</div></div>':''}
     <div class="stat-card"><div class="stat-value">${totalPieces}</div><div class="stat-label">总件数</div></div>
     <div class="stat-card"><div class="stat-value">${(totalMinutes/60).toFixed(1)}h</div><div class="stat-label">总工时</div></div>`;
   detail.innerHTML=data.map(r=>{
     const amt=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
-    const info=r.type==='piece'?`${r.quantity}件×¥${r.unit_price}`:`${r.duration_minutes}分×¥${r.unit_price}/时`;
+    const info=r.type==='piece'?`${r.quantity}件${isAdmin?'×¥'+r.unit_price:''}`:((r.duration_minutes/60).toFixed(1)+'小时');
+    const amtStr=isAdmin?'¥'+amt:'';
     const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric'});
-    return `<div class="record-item"><div class="record-row"><span class="record-style">${r.style_no}</span><span style="font-weight:600;color:var(--primary)">¥${amt}</span></div><div class="record-detail">${r.worker_name} | ${info} | ${date}</div></div>`;
+    return `<div class="record-item"><div class="record-row"><span class="record-style">${r.style_no}</span>${amtStr?'<span style="font-weight:600;color:var(--primary)">'+amtStr+'</span>':''}</div><div class="record-detail">${r.worker_name} | ${info} | ${date}</div></div>`;
   }).join('');
 }
 
