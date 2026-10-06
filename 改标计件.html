@@ -89,7 +89,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div id="addFormLogin" style="display:none;margin-top:12px">
       <div class="form-group"><input id="newNameLogin" placeholder="姓名"></div>
       <div class="form-group">
-        <select id="newRoleLogin"><option value="worker">工人</option><option value="approver">审核人</option><option value="admin">管理员</option></select>
+        <select id="newRoleLogin"><option value="worker">车标人</option><option value="approver">审核人</option><option value="admin">管理员</option></select>
       </div>
       <div class="form-group"><input id="newPinLogin" placeholder="PIN码（4位数字）" type="password" maxlength="4" inputmode="numeric"></div>
       <button class="btn btn-primary" onclick="addMemberFrom('login')">添加</button>
@@ -117,7 +117,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <div class="type-btn active" data-type="piece" onclick="switchType('piece')">📦 计件</div>
       <div class="type-btn" data-type="time" onclick="switchType('time')">⏱ 计时</div>
     </div>
-    <div class="form-group"><label>款号</label><input id="inputStyle" placeholder="输入款号"></div>
+    <div class="form-group"><label>款号/单号</label><input id="inputStyle" placeholder="输入款号或单号"></div>
     <div class="form-group" style="position:relative"><label>销售</label><input id="inputSales" placeholder="输入销售名字" autocomplete="off" onfocus="showSalesHints()" oninput="showSalesHints()"><div id="salesHints" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:0 0 8px 8px;max-height:150px;overflow-y:auto;z-index:10"></div></div>
     <div id="pieceFields">
       <div class="form-group"><label>数量（件）</label><input id="inputQty" type="number" inputmode="numeric" placeholder="0"></div>
@@ -139,7 +139,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         <div class="form-group"><label>工时（小时）</label><input id="inputManualHours" type="number" inputmode="decimal" step="0.1" placeholder="例如 1.5"></div>
       </div>
     </div>
-    <div class="form-group"><label>备注</label><textarea id="inputRemark" rows="2" placeholder="可选"></textarea></div>
+    <div class="form-group"><label>备注</label><textarea id="inputRemark" rows="2" placeholder="款号/单号和备注至少填一个"></textarea></div>
     <button class="btn btn-primary" id="btnSubmit" onclick="submitRecord()">提交</button>
   </div>
 </div>
@@ -187,7 +187,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div id="addFormManage" style="display:none;margin-top:12px">
       <div class="form-group"><input id="newNameManage" placeholder="姓名"></div>
       <div class="form-group">
-        <select id="newRoleManage"><option value="worker">工人</option><option value="approver">审核人</option><option value="admin">管理员</option></select>
+        <select id="newRoleManage"><option value="worker">车标人</option><option value="approver">审核人</option><option value="admin">管理员</option></select>
       </div>
       <div class="form-group"><input id="newPinManage" placeholder="PIN码（4位数字）" type="password" maxlength="4" inputmode="numeric"></div>
       <button class="btn btn-success btn-sm" onclick="addMemberFrom('manage')">确认添加</button>
@@ -204,7 +204,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <div class="modal-overlay" id="editModal" style="display:none" onclick="if(event.target===this)closeEdit()">
   <div class="modal-card">
     <div class="card-title">修改记录</div>
-    <div class="form-group"><label>款号</label><input id="editStyle"></div>
+    <div class="form-group"><label>款号/单号</label><input id="editStyle"></div>
     <div class="form-group"><label>销售</label><input id="editSales"></div>
     <div id="editPieceFields">
       <div class="form-group"><label>数量</label><input id="editQty" type="number" inputmode="numeric"></div>
@@ -255,7 +255,7 @@ async function initLogin(){
   const el=document.getElementById('workerList');
   if(!all.length){el.innerHTML='<div class="empty">暂无成员，请先添加</div>';return;}
   el.innerHTML=all.map(w=>{
-    const roleLabel=w.role==='admin'?'管理员':w.role==='approver'?'审核人':'工人';
+    const roleLabel=w.role==='admin'?'管理员':w.role==='approver'?'审核人':'车标人';
     const roleClass=w.role==='admin'?'role-admin':w.role==='approver'?'role-approver':'role-worker';
     return `<div class="worker-item" onclick="loginAs('${w.id}')">${w.name}<span class="role-tag ${roleClass}">${roleLabel}</span></div>`;
   }).join('');
@@ -282,7 +282,7 @@ async function loginAs(id){
 function showMain(){
   document.getElementById('loginPage').style.display='none';
   document.getElementById('mainApp').style.display='block';
-  const roleLabel=userRole()==='admin'?'管理员':isApprover()?'审核人':'工人';
+  const roleLabel=userRole()==='admin'?'管理员':isApprover()?'审核人':'车标人';
   document.getElementById('headerUser').textContent=currentUser.name+' ('+roleLabel+') 退出';
   // Show/hide tabs by role
   const role=userRole();
@@ -329,9 +329,11 @@ document.addEventListener('click',e=>{if(!e.target.closest('#inputSales,#salesHi
 // PLACEHOLDER_JS_B
 // === Submit ===
 async function submitRecord(){
-  const style=document.getElementById('inputStyle').value.trim();if(!style){alert('请输入款号');return;}
+  const style=document.getElementById('inputStyle').value.trim();
+  const remark=document.getElementById('inputRemark').value.trim();
+  if(!style&&!remark){alert('款号/单号和备注至少填一个');return;}
   const type=document.querySelector('.type-btn.active[data-type]').dataset.type;
-  let rec={worker_id:currentUser.id,worker_name:currentUser.name,type,style_no:style,salesperson:document.getElementById('inputSales').value.trim(),remark:document.getElementById('inputRemark').value.trim()};
+  let rec={worker_id:currentUser.id,worker_name:currentUser.name,type,style_no:style||'-',salesperson:document.getElementById('inputSales').value.trim(),remark:remark};
   if(type==='piece'){
     const qty=parseInt(document.getElementById('inputQty').value);const price=parseFloat(document.getElementById('inputPiecePrice').value);
     if(!qty||qty<=0){alert('请输入数量');return;}if(!price||price<=0){alert('请输入单价');return;}
@@ -361,7 +363,7 @@ async function loadHistory(){
   const el=document.getElementById('historyList');
   if(!data||!data.length){el.innerHTML='<div class="empty">暂无记录</div>';return;}
   const sp=canSeePrice();const showWorker=userRole()!=='worker';
-  let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th>'+(showWorker?'<th>工人</th>':'')+'<th>类型</th><th>款号</th><th>销售</th><th>数量/工时</th>'+(sp?'<th>单价</th><th>金额</th>':'')+'<th>状态</th><th></th></tr></thead><tbody>';
+  let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th>'+(showWorker?'<th>车标人</th>':'')+'<th>类型</th><th>款号/单号</th><th>销售</th><th>数量/工时</th>'+(sp?'<th>单价</th><th>金额</th>':'')+'<th>状态</th><th></th></tr></thead><tbody>';
   data.forEach(r=>{
     const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
     const typeStr=r.type==='piece'?'计件':'计时';
@@ -437,7 +439,7 @@ async function loadApprove(){
   const data=await sb('label_records','GET',null,'?status=eq.pending&order=created_at.desc');
   const el=document.getElementById('approveList');
   if(!data||!data.length){el.innerHTML='<div class="empty">无待审核记录</div>';return;}
-  let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th><th>工人</th><th>类型</th><th>款号</th><th>销售</th><th>数量/工时</th><th>单价</th><th>金额</th><th>备注</th><th>操作</th></tr></thead><tbody>';
+  let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th><th>车标人</th><th>类型</th><th>款号/单号</th><th>销售</th><th>数量/工时</th><th>单价</th><th>金额</th><th>备注</th><th>操作</th></tr></thead><tbody>';
   data.forEach(r=>{
     const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
     const typeStr=r.type==='piece'?'计件':'计时';
@@ -458,9 +460,9 @@ async function rejectRecord(id){const reason=document.getElementById('reason-'+i
 async function loadManage(){
   const all=await loadAllMembers();
   document.getElementById('memberList').innerHTML=all.map(m=>{
-    const roleLabel=m.role==='admin'?'管理员':m.role==='approver'?'审核人':'工人';
+    const roleLabel=m.role==='admin'?'管理员':m.role==='approver'?'审核人':'车标人';
     const roleClass=m.role==='admin'?'role-admin':m.role==='approver'?'role-approver':'role-worker';
-    return `<div class="record-item"><div class="record-row"><span>${m.name}<span class="role-tag ${roleClass}">${roleLabel}</span></span><div><select onchange="changeRole('${m.id}','${m._src}',this.value)" style="font-size:12px;padding:2px 6px;border-radius:4px;border:1px solid var(--border)"><option value="worker"${m.role==='worker'?' selected':''}>工人</option><option value="approver"${m.role==='approver'?' selected':''}>审核人</option><option value="admin"${m.role==='admin'?' selected':''}>管理员</option></select> <button class="btn btn-danger btn-sm" onclick="deleteMember('${m.id}','${m._src}')">删除</button></div></div></div>`;
+    return `<div class="record-item"><div class="record-row"><span>${m.name}<span class="role-tag ${roleClass}">${roleLabel}</span></span><div><select onchange="changeRole('${m.id}','${m._src}',this.value)" style="font-size:12px;padding:2px 6px;border-radius:4px;border:1px solid var(--border)"><option value="worker"${m.role==='worker'?' selected':''}>车标人</option><option value="approver"${m.role==='approver'?' selected':''}>审核人</option><option value="admin"${m.role==='admin'?' selected':''}>管理员</option></select> <button class="btn btn-danger btn-sm" onclick="deleteMember('${m.id}','${m._src}')">删除</button></div></div></div>`;
   }).join('')||'<div class="empty">无成员</div>';
   document.getElementById('settingHourPrice').value=HOUR_PRICE;
 }
@@ -493,7 +495,7 @@ async function exportCSV(){
   const end=`${endY}-${String(endM).padStart(2,'0')}-01T00:00:00`;
   const data=await sb('label_records','GET',null,`?status=eq.approved&created_at=gte.${start}&created_at=lt.${end}&order=created_at.asc`);
   if(!data||!data.length){alert('无数据');return;}
-  let csv='\uFEFF日期,工人,类型,款号,销售,数量,时长(小时),单价,金额,备注\n';
+  let csv='\uFEFF日期,车标人,类型,款号/单号,销售,数量,时长(小时),单价,金额,备注\n';
   data.forEach(r=>{const date=new Date(r.created_at).toLocaleDateString('zh-CN');const type=r.type==='piece'?'计件':'计时';const amt=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);csv+=`${date},${r.worker_name},${type},"${r.style_no}","${r.salesperson||''}",${r.quantity||''},${r.duration_minutes?(r.duration_minutes/60).toFixed(1):''},${r.unit_price},${amt},"${r.remark||''}"\n`;});
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`改标统计_${statsYear}年${statsMonth}月.csv`;a.click();
 }
