@@ -43,7 +43,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .badge-approved{background:#D1FAE5;color:#065F46}
 .badge-rejected{background:#FEE2E2;color:#991B1B}
 /* PLACEHOLDER_CSS2 */
-.stat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}
 .stat-card{background:var(--bg);border-radius:8px;padding:12px;text-align:center}
 .stat-value{font-size:22px;font-weight:700;color:var(--primary)}
 .stat-label{font-size:12px;color:var(--text2);margin-top:2px}
@@ -57,10 +57,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .worker-list{display:flex;flex-direction:column;gap:8px}
 .worker-item{padding:12px;border:1px solid var(--border);border-radius:8px;text-align:center;font-size:15px;cursor:pointer}
 .worker-item:active{background:var(--primary);color:#fff;border-color:var(--primary)}
-.record-table{width:100%;border-collapse:collapse;font-size:13px}
-.record-table th{background:var(--bg);padding:8px 6px;text-align:left;font-weight:600;font-size:12px;color:var(--text2);border-bottom:2px solid var(--border);white-space:nowrap}
-.record-table td{padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:middle}
+.record-table{width:100%;border-collapse:collapse;font-size:12px}
+.record-table th{background:var(--bg);padding:6px 4px;text-align:left;font-weight:600;font-size:11px;color:var(--text2);border-bottom:2px solid var(--border);white-space:nowrap}
+.record-table td{padding:6px 4px;border-bottom:1px solid var(--border);vertical-align:middle}
 .record-table tr:last-child td{border-bottom:none}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .edit-btn{background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:12px;cursor:pointer;color:var(--primary)}
 .edit-btn:active{background:var(--primary);color:#fff}
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
@@ -360,7 +361,7 @@ async function loadHistory(){
   const el=document.getElementById('historyList');
   if(!data||!data.length){el.innerHTML='<div class="empty">暂无记录</div>';return;}
   const sp=canSeePrice();const showWorker=userRole()!=='worker';
-  let html='<table class="record-table"><thead><tr><th>日期</th>'+(showWorker?'<th>工人</th>':'')+'<th>类型</th><th>款号</th><th>销售</th><th>数量/工时</th>'+(sp?'<th>单价</th><th>金额</th>':'')+'<th>状态</th><th></th></tr></thead><tbody>';
+  let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th>'+(showWorker?'<th>工人</th>':'')+'<th>类型</th><th>款号</th><th>销售</th><th>数量/工时</th>'+(sp?'<th>单价</th><th>金额</th>':'')+'<th>状态</th><th></th></tr></thead><tbody>';
   data.forEach(r=>{
     const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
     const typeStr=r.type==='piece'?'计件':'计时';
@@ -371,7 +372,7 @@ async function loadHistory(){
     const pw=r.type==='piece'&&r.unit_price>1?'color:var(--danger);font-weight:600':'';
     html+=`<tr><td>${date}</td>${showWorker?'<td>'+r.worker_name+'</td>':''}<td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td>${sp?'<td style="'+pw+'">¥'+r.unit_price+'</td><td style="'+pw+'">¥'+amt+'</td>':''}<td><span class="badge ${badge}">${label}</span></td><td><button class="edit-btn" onclick='openEdit(${JSON.stringify(r).replace(/'/g,"&#39;")})'>编辑</button></td></tr>`;
   });
-  html+='</tbody></table>';
+  html+='</tbody></table></div>';
   el.innerHTML=html;
 }
 
@@ -426,7 +427,7 @@ async function loadStats(){
   let totalPieces=0,totalMinutes=0,totalAmount=0,count=data.length;
   data.forEach(r=>{if(r.type==='piece'){totalPieces+=r.quantity||0;totalAmount+=(r.quantity||0)*r.unit_price;}else{totalMinutes+=r.duration_minutes||0;totalAmount+=(r.duration_minutes||0)/60*r.unit_price;}});
   const showPrice=canSeePrice();
-  grid.innerHTML=`<div class="stat-card"><div class="stat-value">${count}</div><div class="stat-label">记录数</div></div><div class="stat-card"><div class="stat-value">${totalPieces}</div><div class="stat-label">总件数</div></div><div class="stat-card"><div class="stat-value">${(totalMinutes/60).toFixed(1)}h</div><div class="stat-label">总工时</div></div>${showPrice?'<div class="stat-card" style="grid-column:1/-1"><div class="stat-value">¥'+totalAmount.toFixed(0)+'</div><div class="stat-label">总金额</div></div>':''}`;
+  grid.innerHTML=`<div class="stat-card"><div class="stat-value">${count}</div><div class="stat-label">记录数</div></div><div class="stat-card"><div class="stat-value">${totalPieces}</div><div class="stat-label">总件数</div></div><div class="stat-card"><div class="stat-value">${(totalMinutes/60).toFixed(1)}h</div><div class="stat-label">总工时</div></div>${showPrice?'<div class="stat-card"><div class="stat-value">¥'+totalAmount.toFixed(0)+'</div><div class="stat-label">总金额</div></div>':''}`;
 }
 function changeMonth(d){statsMonth+=d;if(statsMonth>12){statsMonth=1;statsYear++;}if(statsMonth<1){statsMonth=12;statsYear--;}loadHistory();loadStats();}
 
@@ -436,7 +437,7 @@ async function loadApprove(){
   const data=await sb('label_records','GET',null,'?status=eq.pending&order=created_at.desc');
   const el=document.getElementById('approveList');
   if(!data||!data.length){el.innerHTML='<div class="empty">无待审核记录</div>';return;}
-  let html='<table class="record-table"><thead><tr><th>日期</th><th>工人</th><th>类型</th><th>款号</th><th>销售</th><th>数量/工时</th><th>单价</th><th>金额</th><th>备注</th><th>操作</th></tr></thead><tbody>';
+  let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th><th>工人</th><th>类型</th><th>款号</th><th>销售</th><th>数量/工时</th><th>单价</th><th>金额</th><th>备注</th><th>操作</th></tr></thead><tbody>';
   data.forEach(r=>{
     const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
     const typeStr=r.type==='piece'?'计件':'计时';
@@ -446,7 +447,7 @@ async function loadApprove(){
     const priceWarn=r.type==='piece'&&r.unit_price>1?' style="color:var(--danger);font-weight:600"':'';
     html+=`<tr><td>${date}</td><td>${r.worker_name}</td><td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td><td${priceWarn}>¥${r.unit_price}</td><td${priceWarn}>¥${amt}</td><td style="font-size:12px">${r.remark||''}</td><td style="white-space:nowrap"><button class="btn btn-success btn-sm" style="margin-bottom:4px" onclick="approveRecord('${r.id}')">✓</button> <button class="btn btn-danger btn-sm" style="margin-bottom:4px" onclick="showReject('${r.id}')">✗</button> <button class="edit-btn" onclick='openEdit(${rj})'>编辑</button><div class="reject-input" id="reject-${r.id}"><div style="display:flex;gap:4px;margin-top:4px"><input id="reason-${r.id}" placeholder="原因" style="width:80px;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:12px"><button class="btn btn-danger btn-sm" onclick="rejectRecord('${r.id}')">确认</button></div></div></td></tr>`;
   });
-  html+='</tbody></table>';
+  html+='</tbody></table></div>';
   el.innerHTML=html;
 }
 async function approveRecord(id){await sb('label_records','PATCH',{status:'approved',approved_by:currentUser.name,approved_at:new Date().toISOString()},`?id=eq.${id}`);loadApprove();}
