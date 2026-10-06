@@ -456,7 +456,7 @@ async function loadHistory(){
   const el=document.getElementById('historyList');
   if(!data||!data.length){el.innerHTML='<div class="empty">暂无记录</div>';return;}
   const sp=canSeePrice();const showWorker=userRole()!=='worker';
-  let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th>'+(showWorker?'<th>车标人</th>':'')+'<th>类型</th><th>款号/单号</th><th>销售</th><th>数量/工时</th>'+(sp?'<th>单价</th><th>金额</th>':'')+'<th>状态</th><th></th></tr></thead><tbody>';
+  let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th>'+(showWorker?'<th>车标人</th>':'')+'<th>类型</th><th>款号/单号</th><th>销售</th><th>数量/工时</th>'+(sp?'<th>单价</th>':'')+'<th>状态</th><th></th></tr></thead><tbody>';
   data.forEach(r=>{
     const date=new Date(r.created_at).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'});
     const typeStr=r.type==='piece'?'计件':'计时';
@@ -466,7 +466,8 @@ async function loadHistory(){
     const label=r.status==='pending'?'待审核':r.status==='approved'?'已通过':'已驳回';
     const pw=r.type==='piece'&&r.unit_price>1?'color:var(--danger);font-weight:600':'';
     const delBtn=isAdmin()?' <button class="edit-btn" style="color:var(--danger);border-color:var(--danger)" onclick="deleteRecord(\''+r.id+'\')">删除</button>':'';
-    html+=`<tr><td>${date}</td>${showWorker?'<td>'+r.worker_name+'</td>':''}<td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td>${sp?'<td style="'+pw+'">¥'+r.unit_price+'</td><td style="'+pw+'">¥'+amt+'</td>':''}<td><span class="badge ${badge}">${label}</span></td><td><button class="edit-btn" onclick='openEdit(${JSON.stringify(r).replace(/'/g,"&#39;")})'>编辑</button>${delBtn}</td></tr>`;
+    const priceCol=sp&&r.type==='piece'?'<td style="'+pw+'">¥'+r.unit_price+'</td>':'';
+    html+=`<tr><td>${date}</td>${showWorker?'<td>'+r.worker_name+'</td>':''}<td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td>${priceCol}<td><span class="badge ${badge}">${label}</span></td><td><button class="edit-btn" onclick='openEdit(${JSON.stringify(r).replace(/'/g,"&#39;")})'>编辑</button>${delBtn}</td></tr>`;
   });
   html+='</tbody></table></div>';
   el.innerHTML=html;
@@ -533,7 +534,7 @@ async function loadApprove(){
   const data=await sb('label_records','GET',null,'?status=eq.pending&order=created_at.desc');
   const el=document.getElementById('approveList');
   if(!data||!data.length){el.innerHTML='<div class="empty">无待审核记录</div>';return;}
-  let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th><th>车标人</th><th>类型</th><th>款号/单号</th><th>销售</th><th>数量/工时</th><th>单价</th><th>金额</th><th>备注</th><th>操作</th></tr></thead><tbody>';
+  let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th><th>车标人</th><th>类型</th><th>款号/单号</th><th>销售</th><th>数量/工时</th><th>单价</th><th>备注</th><th>操作</th></tr></thead><tbody>';
   data.forEach(r=>{
     const date=new Date(r.created_at).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'});
     const typeStr=r.type==='piece'?'计件':'计时';
@@ -541,7 +542,8 @@ async function loadApprove(){
     const amt=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
     const rj=JSON.stringify(r).replace(/'/g,"&#39;");
     const priceWarn=r.type==='piece'&&r.unit_price>1?' style="color:var(--danger);font-weight:600"':'';
-    html+=`<tr><td>${date}</td><td>${r.worker_name}</td><td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td><td${priceWarn}>¥${r.unit_price}</td><td${priceWarn}>¥${amt}</td><td style="font-size:12px">${r.remark||''}</td><td style="white-space:nowrap"><button class="btn btn-success btn-sm" style="margin-bottom:4px" onclick="approveRecord('${r.id}')">✓</button> <button class="btn btn-danger btn-sm" style="margin-bottom:4px" onclick="showReject('${r.id}')">✗</button> <button class="edit-btn" onclick='openEdit(${rj})'>编辑</button><div class="reject-input" id="reject-${r.id}"><div style="display:flex;gap:4px;margin-top:4px"><input id="reason-${r.id}" placeholder="原因" style="width:80px;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:12px"><button class="btn btn-danger btn-sm" onclick="rejectRecord('${r.id}')">确认</button></div></div></td></tr>`;
+    const priceCell=r.type==='piece'?'<td'+priceWarn+'>¥'+r.unit_price+'</td>':'<td>-</td>';
+    html+=`<tr><td>${date}</td><td>${r.worker_name}</td><td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td>${priceCell}<td style="font-size:12px">${r.remark||''}</td><td style="white-space:nowrap"><button class="btn btn-success btn-sm" style="margin-bottom:4px" onclick="approveRecord('${r.id}')">✓</button> <button class="btn btn-danger btn-sm" style="margin-bottom:4px" onclick="showReject('${r.id}')">✗</button> <button class="edit-btn" onclick='openEdit(${rj})'>编辑</button><div class="reject-input" id="reject-${r.id}"><div style="display:flex;gap:4px;margin-top:4px"><input id="reason-${r.id}" placeholder="原因" style="width:80px;padding:4px;border:1px solid var(--border);border-radius:4px;font-size:12px"><button class="btn btn-danger btn-sm" onclick="rejectRecord('${r.id}')">确认</button></div></div></td></tr>`;
   });
   html+='</tbody></table></div>';
   el.innerHTML=html;
