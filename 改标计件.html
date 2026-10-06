@@ -458,7 +458,7 @@ async function loadHistory(){
   const sp=canSeePrice();const showWorker=userRole()!=='worker';
   let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th>'+(showWorker?'<th>车标人</th>':'')+'<th>类型</th><th>款号/单号</th><th>销售</th><th>数量/工时</th>'+(sp?'<th>单价</th><th>金额</th>':'')+'<th>状态</th><th></th></tr></thead><tbody>';
   data.forEach(r=>{
-    const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const date=new Date(r.created_at).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'});
     const typeStr=r.type==='piece'?'计件':'计时';
     const qtyStr=r.type==='piece'?(r.quantity+'件'):((r.duration_minutes/60).toFixed(1)+'h');
     const amt=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
@@ -534,7 +534,7 @@ async function loadApprove(){
   if(!data||!data.length){el.innerHTML='<div class="empty">无待审核记录</div>';return;}
   let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th><th>车标人</th><th>类型</th><th>款号/单号</th><th>销售</th><th>数量/工时</th><th>单价</th><th>金额</th><th>备注</th><th>操作</th></tr></thead><tbody>';
   data.forEach(r=>{
-    const date=new Date(r.created_at).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const date=new Date(r.created_at).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'});
     const typeStr=r.type==='piece'?'计件':'计时';
     const qtyStr=r.type==='piece'?(r.quantity+'件'):((r.duration_minutes/60).toFixed(1)+'h');
     const amt=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
