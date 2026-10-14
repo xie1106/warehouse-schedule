@@ -31,8 +31,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .btn-danger{background:var(--danger);color:#fff}
 .btn-sm{display:inline-block;width:auto;padding:6px 14px;font-size:13px;border-radius:6px}
 .btn:disabled{opacity:.5}
-.timer-display{text-align:center;font-size:42px;font-weight:700;color:var(--primary);padding:16px 0;font-variant-numeric:tabular-nums}
-.timer-display.running{color:var(--success)}
+.hours-input input{width:100%;padding:14px 12px;border:1px solid var(--border);border-radius:8px;font-size:24px;font-weight:700;outline:none;text-align:center}
+.hours-input input:focus{border-color:var(--primary)}
+.quick-hours{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 12px}
+.quick-hour{flex:1 1 20%;min-width:56px;padding:8px 0;text-align:center;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;background:#fff}
+.quick-hour:active{background:var(--bg)}
+.quick-hour.active{border-color:var(--primary);background:var(--primary);color:#fff}
 .record-item{padding:12px 0;border-bottom:1px solid var(--border)}
 .record-item:last-child{border-bottom:none}
 .record-row{display:flex;justify-content:space-between;align-items:center}
@@ -116,37 +120,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <div class="form-group"><label>单价（元/件）</label><input id="inputPiecePrice" type="number" inputmode="decimal" step="0.1" placeholder="0.00"></div>
     </div>
     <div id="timeFields" style="display:none">
-      <div class="type-toggle" style="margin-bottom:10px">
-        <div class="type-btn active" data-tmode="timer" onclick="switchTimeMode('timer')">⏱ 计时器</div>
-        <div class="type-btn" data-tmode="manual" onclick="switchTimeMode('manual')">✏️ 手动输入</div>
-      </div>
-      <div id="timerMode">
-        <div class="timer-display" id="timerDisplay">00:00:00</div>
-        <div id="timerBtns1" style="margin-bottom:12px">
-          <button class="btn btn-success" onclick="startTimer()">▶ 开始计时</button>
-        </div>
-        <div id="timerBtns2" style="display:none;display:flex;gap:8px;margin-bottom:12px">
-          <button class="btn btn-success" id="btnPause" onclick="pauseTimer()" style="flex:1">⏸ 暂停</button>
-          <button class="btn btn-danger" id="btnStop" onclick="stopTimer()" style="flex:1">⏹ 结束</button>
-        </div>
-      </div>
-      <div id="manualMode" style="display:none">
-        <div style="margin-bottom:8px">
-          <label style="font-size:13px;color:var(--text2)">开始时间</label>
-          <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
-            <select id="inputStartH" onchange="calcManualTime()" style="flex:1;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:18px;font-weight:600;text-align:center;appearance:none;-webkit-appearance:none;background:#fff"></select>
-            <span style="font-size:20px;font-weight:700">:</span>
-            <select id="inputStartM" onchange="calcManualTime()" style="flex:1;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:18px;font-weight:600;text-align:center;appearance:none;-webkit-appearance:none;background:#fff"></select>
-          </div>
-        </div>
-        <div style="margin-bottom:8px">
-          <label style="font-size:13px;color:var(--text2)">结束时间</label>
-          <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
-            <select id="inputEndH" onchange="calcManualTime()" style="flex:1;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:18px;font-weight:600;text-align:center;appearance:none;-webkit-appearance:none;background:#fff"></select>
-            <span style="font-size:20px;font-weight:700">:</span>
-            <select id="inputEndM" onchange="calcManualTime()" style="flex:1;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:18px;font-weight:600;text-align:center;appearance:none;-webkit-appearance:none;background:#fff"></select>
-          </div>
-        </div>
+      <div class="form-group hours-input"><label>总工时（小时）</label><input id="inputHours" type="number" inputmode="decimal" step="0.5" min="0" placeholder="0.0" oninput="updateTimeResult()"></div>
+      <div class="quick-hours">
+        <div class="quick-hour" onclick="setHours(0.5)">0.5h</div>
+        <div class="quick-hour" onclick="setHours(1)">1h</div>
+        <div class="quick-hour" onclick="setHours(1.5)">1.5h</div>
+        <div class="quick-hour" onclick="setHours(2)">2h</div>
+        <div class="quick-hour" onclick="setHours(3)">3h</div>
+        <div class="quick-hour" onclick="setHours(4)">4h</div>
+        <div class="quick-hour" onclick="setHours(8)">8h</div>
       </div>
       <div style="border:2px solid var(--primary);border-radius:8px;padding:12px;text-align:center;min-height:44px;margin-bottom:12px" id="timeResult"><span style="color:var(--text2);font-size:14px">工时将显示在这里</span></div>
     </div>
@@ -238,7 +220,7 @@ const SB_URL='https://elyfxyrdbuykyklfjfdr.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVseWZ4eXJkYnV5a3lrbGZqZmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMDIwMjQsImV4cCI6MjA5NjU3ODAyNH0.irrMM8iKJVGnOBW6VQ4BHlkwiVIDtB97EPiHvasOWyg';
 const H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
 
-let currentUser=null, timerInterval=null, timerSeconds=0, timerRunning=false, statsYear, statsMonth;
+let currentUser=null, statsYear, statsMonth;
 let HOUR_PRICE=parseFloat(localStorage.getItem('label_hour_price')||'39.5');
 
 async function sb(table,method='GET',body=null,query=''){
@@ -324,86 +306,16 @@ function switchTab(page){
 
 // === Type Toggle ===
 function switchType(type){document.querySelectorAll('[data-type]').forEach(b=>b.classList.toggle('active',b.dataset.type===type));document.getElementById('pieceFields').style.display=type==='piece'?'block':'none';document.getElementById('timeFields').style.display=type==='time'?'block':'none';}
-function switchTimeMode(mode){document.querySelectorAll('[data-tmode]').forEach(b=>b.classList.toggle('active',b.dataset.tmode===mode));document.getElementById('timerMode').style.display=mode==='timer'?'block':'none';document.getElementById('manualMode').style.display=mode==='manual'?'block':'none';updateTimeResult();}
 
-// === Timer (persistent) ===
-function saveTimerState(){localStorage.setItem('label_timer',JSON.stringify({seconds:timerSeconds,running:timerRunning,startedAt:timerRunning?Date.now()-timerSeconds*1000:null,stopped:timerStopped}));}
-function loadTimerState(){
-  const s=localStorage.getItem('label_timer');if(!s)return;
-  const d=JSON.parse(s);timerStopped=d.stopped||false;
-  if(d.running&&d.startedAt){timerSeconds=Math.floor((Date.now()-d.startedAt)/1000);timerRunning=false;startTimer();}
-  else{timerSeconds=d.seconds||0;}
-  updateTimer();updateTimerUI();
-}
-let timerStopped=false;
-let stoppedMinutes=0;
-function startTimer(){
-  const style=document.getElementById('inputStyle').value.trim();
-  const sales=document.getElementById('inputSales').value.trim();
-  if(!style&&!sales){alert('请先填写款号/单号或销售');return;}
-  timerRunning=true;stoppedMinutes=0;
-  document.getElementById('timerDisplay').classList.add('running');
-  timerInterval=setInterval(()=>{timerSeconds++;updateTimer();if(timerSeconds%5===0)saveTimerState();},1000);
-  updateTimerUI();saveTimerState();
-}
-function pauseTimer(){
-  clearInterval(timerInterval);timerRunning=false;
-  document.getElementById('timerDisplay').classList.remove('running');
-  updateTimerUI();saveTimerState();
-}
-function stopTimer(){
-  clearInterval(timerInterval);timerRunning=false;
-  stoppedMinutes=timerSeconds/60;
-  timerSeconds=0;timerStopped=false;
-  document.getElementById('timerDisplay').classList.remove('running');
-  updateTimer();updateTimerUI();updateTimeResult();
-  localStorage.removeItem('label_timer');
-}
-function resetTimerFull(){
-  clearInterval(timerInterval);timerSeconds=0;timerRunning=false;timerStopped=false;stoppedMinutes=0;
-  updateTimer();updateTimerUI();updateTimeResult();localStorage.removeItem('label_timer');
-}
-function updateTimer(){
-  const h=Math.floor(timerSeconds/3600),m=Math.floor((timerSeconds%3600)/60),s=timerSeconds%60;
-  document.getElementById('timerDisplay').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  updateTimeResult();
-}
+// === Hours input (manual total) ===
+function setHours(h){document.getElementById('inputHours').value=h;updateTimeResult();}
+function clearHours(){document.getElementById('inputHours').value='';updateTimeResult();}
 function updateTimeResult(){
   const el=document.getElementById('timeResult');
-  const isManual=document.querySelector('[data-tmode="manual"]')&&document.querySelector('[data-tmode="manual"]').classList.contains('active');
-  if(isManual){
-    let mins=getManualMinutes();
-    if(mins<=0){el.innerHTML='<span style="color:var(--danger);font-weight:600">结束时间须晚于开始时间</span>';return;}
-    el.innerHTML=`<span style="color:var(--primary);font-size:18px;font-weight:700">工时：${(mins/60).toFixed(1)} 小时（${mins} 分钟）</span>`;
-  }else{
-    const mins=stoppedMinutes>0?stoppedMinutes:(timerSeconds>0?Math.round(timerSeconds/60*10)/10:0);
-    if(mins<0.01){el.innerHTML='<span style="color:var(--text2);font-size:14px">工时将显示在这里</span>';return;}
-    el.innerHTML=`<span style="color:var(--primary);font-size:18px;font-weight:700">工时：${(mins/60).toFixed(1)} 小时（${Math.round(mins)} 分钟）</span>`;
-  }
+  const hrs=parseFloat(document.getElementById('inputHours').value);
+  if(!hrs||hrs<=0){el.innerHTML='<span style="color:var(--text2);font-size:14px">工时将显示在这里</span>';return;}
+  el.innerHTML=`<span style="color:var(--primary);font-size:18px;font-weight:700">工时：${hrs.toFixed(1)} 小时（${Math.round(hrs*60)} 分钟）</span>`;
 }
-function updateTimerUI(){
-  const b1=document.getElementById('timerBtns1'),b2=document.getElementById('timerBtns2');
-  if(timerRunning||timerSeconds>0){
-    b1.style.display='none';b2.style.display='flex';
-    document.getElementById('btnPause').textContent=timerRunning?'⏸ 暂停':'▶ 继续';
-    document.getElementById('btnPause').onclick=timerRunning?pauseTimer:startTimer;
-  }else{b1.style.display='block';b2.style.display='none';}
-}
-
-// Manual time calc
-function initTimeSelects(){
-  const now=new Date();const ch=now.getHours(),cm=Math.floor(now.getMinutes()/5)*5;
-  ['inputStartH','inputEndH'].forEach(id=>{const el=document.getElementById(id);el.innerHTML='';for(let h=6;h<=23;h++)el.innerHTML+=`<option value="${h}"${h===ch?' selected':''}>${String(h).padStart(2,'0')}时</option>`;});
-  ['inputStartM','inputEndM'].forEach(id=>{const el=document.getElementById(id);el.innerHTML='';for(let m=0;m<60;m+=5)el.innerHTML+=`<option value="${m}"${m===cm?' selected':''}>${String(m).padStart(2,'0')}分</option>`;});
-}
-initTimeSelects();
-document.addEventListener('change',e=>{if(['inputStartH','inputStartM','inputEndH','inputEndM'].includes(e.target.id))calcManualTime();});
-function getManualMinutes(){
-  const sh=parseInt(document.getElementById('inputStartH').value),sm=parseInt(document.getElementById('inputStartM').value);
-  const eh=parseInt(document.getElementById('inputEndH').value),em=parseInt(document.getElementById('inputEndM').value);
-  return (eh*60+em)-(sh*60+sm);
-}
-function calcManualTime(){updateTimeResult();}
 
 // === Sales Hints ===
 function getSalesHistory(){return JSON.parse(localStorage.getItem('label_sales_history')||'[]');}
@@ -425,20 +337,13 @@ async function submitRecord(){
     if(!qty||qty<=0){alert('请输入数量');return;}if(!price||price<=0){alert('请输入单价');return;}
     rec.quantity=qty;rec.unit_price=price;
   }else{
-    const isManual=document.querySelector('[data-tmode="manual"]').classList.contains('active');
-    let minutes;
-    if(isManual){
-      minutes=getManualMinutes();
-      if(minutes<=0){alert('结束时间须晚于开始时间');return;}
-    } else {
-      if(stoppedMinutes>0){minutes=stoppedMinutes;}
-      else if(timerSeconds>=60){minutes=Math.round(timerSeconds/60*10)/10;}
-      else{alert('请先计时或输入时间');return;}
-    }
-    rec.duration_minutes=minutes;rec.unit_price=HOUR_PRICE;
+    const hrs=parseFloat(document.getElementById('inputHours').value);
+    if(!hrs||hrs<=0){alert('请输入工时');return;}
+    if(hrs>24){alert('单次工时不能超过24小时');return;}
+    rec.duration_minutes=Math.round(hrs*60*10)/10;rec.unit_price=HOUR_PRICE;
   }
   document.getElementById('btnSubmit').disabled=true;
-  try{await sb('label_records','POST',rec);addSalesHistory(rec.salesperson);alert('提交成功！');document.getElementById('inputStyle').value='';document.getElementById('inputQty').value='';document.getElementById('inputPiecePrice').value='';document.getElementById('inputRemark').value='';resetTimerFull();initTimeSelects();updateTimeResult();}
+  try{await sb('label_records','POST',rec);addSalesHistory(rec.salesperson);alert('提交成功！');document.getElementById('inputStyle').value='';document.getElementById('inputQty').value='';document.getElementById('inputPiecePrice').value='';document.getElementById('inputRemark').value='';clearHours();}
   catch(e){alert('提交失败：'+e.message);}
   document.getElementById('btnSubmit').disabled=false;
 }
@@ -633,9 +538,6 @@ async function exportCSV(){
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`改标统计_${statsYear}年${statsMonth}月.csv`;a.click();
 }
 
-// Prevent accidental close while timing
-window.addEventListener('beforeunload',e=>{if(timerRunning||timerSeconds>0){e.preventDefault();e.returnValue='';}});
-
 // === Init ===
 (async function(){
   const saved=localStorage.getItem('label_user');
@@ -643,7 +545,7 @@ window.addEventListener('beforeunload',e=>{if(timerRunning||timerSeconds>0){e.pr
     currentUser=JSON.parse(saved);
     const table=currentUser._src==='approvers'?'label_approvers':'label_workers';
     const check=await sb(table,'GET',null,`?id=eq.${currentUser.id}`);
-    if(check&&check.length){currentUser={...check[0],_src:currentUser._src,role:check[0].role||currentUser.role||'worker'};showMain();loadTimerState();return;}
+    if(check&&check.length){currentUser={...check[0],_src:currentUser._src,role:check[0].role||currentUser.role||'worker'};showMain();return;}
   }
   initLogin();
 })();
