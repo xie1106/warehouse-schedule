@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>改标计时&计件统计系统</title>
 <style>
-:root{--primary:#4F46E5;--primary-light:#818CF8;--success:#10B981;--danger:#EF4444;--warning:#F59E0B;--bg:#F3F4F6;--card:#FFF;--text:#1F2937;--text2:#6B7280;--border:#E5E7EB}
+:root{--primary:#4F46E5;--primary-light:#818CF8;--success:#10B981;--danger:#EF4444;--warning:#F59E0B;--bg:#F3F4F6;--card:#FFF;--text:#1F2937;--text2:#6B7280;--text3:#9CA3AF;--border:#E5E7EB}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:15px;padding-bottom:70px}
 .header{background:var(--primary);color:#fff;padding:14px 16px;font-size:17px;font-weight:600;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
@@ -33,6 +33,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .btn:disabled{opacity:.5}
 .hours-input input{width:100%;padding:14px 12px;border:1px solid var(--border);border-radius:8px;font-size:24px;font-weight:700;outline:none;text-align:center}
 .hours-input input:focus{border-color:var(--primary)}
+.timer-fab{position:fixed;right:14px;bottom:22px;min-width:56px;height:56px;padding:0 14px;border-radius:28px;background:var(--primary);color:#fff;font-size:15px;font-weight:700;display:none;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer;z-index:150;font-variant-numeric:tabular-nums;border:none}
+.timer-fab.show{display:flex}
+.timer-fab.paused{background:var(--text2)}
+.timer-fab.pulse{animation:timerPulse 1.8s ease-in-out infinite}
+@keyframes timerPulse{0%,100%{box-shadow:0 4px 14px rgba(79,70,229,.35)}50%{box-shadow:0 4px 20px rgba(79,70,229,.6)}}
+.timer-panel{position:fixed;right:14px;bottom:22px;width:250px;background:#fff;border-radius:14px;box-shadow:0 6px 28px rgba(0,0,0,.18);z-index:151;display:none;overflow:hidden;border:1px solid var(--border)}
+.timer-panel.show{display:block}
+.timer-panel-head{background:var(--primary);color:#fff;padding:12px 14px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.timer-panel-body{padding:14px}
+.timer-panel-time{text-align:center;font-size:32px;font-weight:700;color:var(--primary);font-variant-numeric:tabular-nums;margin-bottom:4px}
+.timer-panel-time.paused{color:var(--text2)}
+.timer-panel-sub{text-align:center;font-size:12px;color:var(--text2);margin-bottom:12px}
+.timer-panel-btns{display:flex;gap:8px}
+.timer-panel-btns .btn{padding:10px;font-size:14px}
+.timer-panel-tip{font-size:11px;color:var(--text3,#9CA3AF);text-align:center;margin-top:10px;line-height:1.5}
 .record-item{padding:12px 0;border-bottom:1px solid var(--border)}
 .record-item:last-child{border-bottom:none}
 .record-row{display:flex;justify-content:space-between;align-items:center}
@@ -117,6 +132,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     </div>
     <div id="timeFields" style="display:none">
       <div class="form-group hours-input"><label>总工时（小时）</label><input id="inputHours" type="number" inputmode="decimal" step="0.5" min="0" placeholder="0.0"></div>
+      <div style="display:flex;gap:8px;margin:-4px 0 12px">
+        <button class="btn btn-sm" onclick="toggleTimerPanel()" style="flex:1;background:var(--bg);color:var(--primary);border:1px solid var(--primary)">⏱ 用计时器累计</button>
+        <button class="btn btn-sm" onclick="tReset();document.getElementById('inputHours').value=''" style="flex:0 0 auto;background:var(--bg);color:var(--text2)">清零</button>
+      </div>
     </div>
     <div class="form-group"><label>备注</label><textarea id="inputRemark" rows="2" placeholder="款号/单号和备注至少填一个"></textarea></div>
     <button class="btn btn-primary" id="btnSubmit" onclick="submitRecord()">提交</button>
@@ -176,6 +195,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div class="card-title">工价设置</div>
     <div class="form-group"><label>计时工价（元/小时）</label><input id="settingHourPrice" type="number" inputmode="decimal" step="0.5" value="39.5"></div>
     <button class="btn btn-primary btn-sm" onclick="saveHourPrice()">保存</button>
+  </div>
+</div>
+
+<!-- 隐藏式悬浮计时器 -->
+<button class="timer-fab" id="timerFab" onclick="toggleTimerPanel()"></button>
+<div class="timer-panel" id="timerPanel">
+  <div class="timer-panel-head">
+    <span>累计计时</span>
+    <span style="cursor:pointer;opacity:.85;font-weight:400" onclick="toggleTimerPanel()">收起 ✕</span>
+  </div>
+  <div class="timer-panel-body">
+    <div class="timer-panel-time" id="timerPanelTime">00:00:00</div>
+    <div class="timer-panel-sub" id="timerPanelSub">未开始</div>
+    <div class="timer-panel-btns" id="timerPanelBtns">
+      <button class="btn btn-success" id="timerToggleBtn" onclick="toggleTimerRun()" style="flex:1">开始</button>
+      <button class="btn btn-primary" id="timerUseBtn" onclick="useTimerHours()" style="flex:1">填入工时</button>
+    </div>
+    <div class="timer-panel-tip" id="timerPanelTip">可切到其他页面继续计时，时间会保留</div>
   </div>
 </div>
 
@@ -293,8 +330,100 @@ function switchTab(page){
 // === Type Toggle ===
 function switchType(type){document.querySelectorAll('[data-type]').forEach(b=>b.classList.toggle('active',b.dataset.type===type));document.getElementById('pieceFields').style.display=type==='piece'?'block':'none';document.getElementById('timeFields').style.display=type==='time'?'block':'none';}
 
-// === Hours input (manual total) ===
-function clearHours(){document.getElementById('inputHours').value='';}
+// === Hidden timer (persistent, pausable, accumulates) ===
+let tState=tLoadTimerState();
+let tTick=null;
+
+function tLoadTimerState(){
+  try{
+    const raw=localStorage.getItem('label_timer2');
+    if(raw){const d=JSON.parse(raw);return{seconds:d.seconds||0,running:!!d.running,segStart:d.running?d.segStart||null:null};}
+  }catch(e){}
+  return{seconds:0,running:false,segStart:null};
+}
+function tSaveTimerState(){
+  try{localStorage.setItem('label_timer2',JSON.stringify(tState));}catch(e){}
+}
+// 已累计的完整秒数（把正在跑的这一段也算进去）
+function tTotalSeconds(){
+  let s=tState.seconds;
+  if(tState.running&&tState.segStart)s+=Math.floor((Date.now()-tState.segStart)/1000);
+  return s;
+}
+function tFmt(sec){
+  const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
+  return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function tStart(){
+  tState.running=true;tState.segStart=Date.now();tSaveTimerState();tRunTick();tRender();
+}
+function tPause(){
+  if(!tState.running)return;
+  tState.seconds+=Math.floor((Date.now()-tState.segStart)/1000);
+  tState.running=false;tState.segStart=null;
+  tSaveTimerState();tStopTick();tRender();
+}
+function tReset(){
+  tState={seconds:0,running:false,segStart:null};
+  tSaveTimerState();tStopTick();tRender();
+}
+function tRunTick(){
+  tStopTick();
+  tTick=setInterval(tRender,1000);
+}
+function tStopTick(){if(tTick){clearInterval(tTick);tTick=null;}}
+
+function toggleTimerRun(){
+  if(tState.running)tPause();else tStart();
+}
+function toggleTimerPanel(){
+  document.getElementById('timerPanel').classList.toggle('show');
+}
+function useTimerHours(){
+  const totalSec=tTotalSeconds();
+  if(totalSec<60){alert('不足1分钟，无法填入工时');return;}
+  const hrs=Math.round(totalSec/360)/10;
+  if(!document.getElementById('inputHours'))return;
+  //自动切到计时录入
+  switchType('time');
+  document.getElementById('inputHours').value=hrs;
+  toggleTimerPanel();
+  alert(`已填入工时：${hrs.toFixed(1)} 小时\n计时器仍在后台继续，点击悬浮球可查看`);
+}
+function tRender(){
+  const total=tTotalSeconds();
+  const fab=document.getElementById('timerFab');
+  //悬浮球：有时间才显示
+  if(total>0||tState.running){
+    fab.classList.add('show');
+    fab.classList.toggle('paused',!tState.running);
+    fab.classList.toggle('pulse',tState.running);
+    fab.textContent=tFmt(total);
+  }else{
+    fab.classList.remove('show','paused','pulse');
+  }
+  // 面板
+  const timeEl=document.getElementById('timerPanelTime');
+  const subEl=document.getElementById('timerPanelSub');
+  const btn=document.getElementById('timerToggleBtn');
+  if(tState.running)timeEl.classList.remove('paused');else timeEl.classList.add('paused');
+  timeEl.textContent=tFmt(total);
+  btn.textContent=tState.running?'暂停':'继续';
+  btn.className=tState.running?'btn btn-warning':'btn btn-success';
+  btn.style.color='#fff';
+  if(tState.running)subEl.textContent='计时中…';
+  else if(total>0)subEl.textContent='已暂停，可继续累计';
+  else subEl.textContent='未开始';
+  const useBtn=document.getElementById('timerUseBtn');
+  useBtn.style.display=total>=60?'block':'none';
+  if(total>=60){
+    const hrs=Math.round(total/360)/10;
+    useBtn.textContent=`填入 ${hrs.toFixed(1)}h`;
+  }
+}
+tRender();
+// 页面重新可见时校准
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){tRender();if(tState.running)tRunTick();}});
 
 // === Sales Hints ===
 function getSalesHistory(){return JSON.parse(localStorage.getItem('label_sales_history')||'[]');}
@@ -322,7 +451,7 @@ async function submitRecord(){
     rec.duration_minutes=Math.round(hrs*60*10)/10;rec.unit_price=HOUR_PRICE;
   }
   document.getElementById('btnSubmit').disabled=true;
-  try{await sb('label_records','POST',rec);addSalesHistory(rec.salesperson);alert('提交成功！');document.getElementById('inputStyle').value='';document.getElementById('inputQty').value='';document.getElementById('inputPiecePrice').value='';document.getElementById('inputRemark').value='';clearHours();}
+  try{await sb('label_records','POST',rec);addSalesHistory(rec.salesperson);alert('提交成功！');document.getElementById('inputStyle').value='';document.getElementById('inputQty').value='';document.getElementById('inputPiecePrice').value='';document.getElementById('inputRemark').value='';document.getElementById('inputHours').value='';tReset();}
   catch(e){alert('提交失败：'+e.message);}
   document.getElementById('btnSubmit').disabled=false;
 }
