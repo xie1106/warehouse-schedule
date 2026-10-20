@@ -125,6 +125,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <div class="type-btn" data-type="time" onclick="switchType('time')">⏱ 计时</div>
     </div>
     <div class="form-group"><label>款号/单号</label><input id="inputStyle" placeholder="输入款号或单号"></div>
+    <div class="form-group"><label>日期</label><input id="inputDate" type="date"></div>
     <div class="form-group" style="position:relative"><label>销售</label><input id="inputSales" placeholder="输入销售名字" autocomplete="off" onfocus="showSalesHints()" oninput="showSalesHints()"><div id="salesHints" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid var(--border);border-radius:0 0 8px 8px;max-height:150px;overflow-y:auto;z-index:10"></div></div>
     <div id="pieceFields">
       <div class="form-group"><label>数量（件）</label><input id="inputQty" type="number" inputmode="numeric" placeholder="0"></div>
@@ -221,6 +222,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <div class="modal-card">
     <div class="card-title">修改记录</div>
     <div class="form-group"><label>款号/单号</label><input id="editStyle"></div>
+    <div class="form-group"><label>日期</label><input id="editDate" type="date"></div>
     <div class="form-group"><label>销售</label><input id="editSales"></div>
     <div id="editPieceFields">
       <div class="form-group"><label>数量</label><input id="editQty" type="number" inputmode="numeric"></div>
@@ -328,6 +330,15 @@ function switchTab(page){
 }
 
 // === Type Toggle ===
+// 解析记录中的日期：优先从remark里的[date:YYYY-MM-DD]提取，否则用created_at
+function getRecordDate(r){
+  const m=(r.remark||'').match(/\[date:(\d{4}-\d{2}-\d{2})\]/);
+  if(m)return m[1];
+  return r.created_at?r.created_at.slice(0,10):'';
+}
+function getRecordRemark(r){return (r.remark||'').replace(/\[date:\d{4}-\d{2}-\d{2}\]\s*/,'');}
+function formatDateShort(dateStr){if(!dateStr)return'-';const d=new Date(dateStr+'T00:00:00');return (d.getMonth()+1)+'/'+d.getDate();}
+
 function switchType(type){document.querySelectorAll('[data-type]').forEach(b=>b.classList.toggle('active',b.dataset.type===type));document.getElementById('pieceFields').style.display=type==='piece'?'block':'none';document.getElementById('timeFields').style.display=type==='time'?'block':'none';}
 
 // === Hidden timer (persistent, pausable, accumulates) ===
@@ -439,7 +450,11 @@ async function submitRecord(){
   const remark=document.getElementById('inputRemark').value.trim();
   if(!style&&!remark){alert('款号/单号和备注至少填一个');return;}
   const type=document.querySelector('.type-btn.active[data-type]').dataset.type;
-  let rec={worker_id:currentUser.id,worker_name:currentUser.name,type,style_no:style||'-',salesperson:document.getElementById('inputSales').value.trim(),remark:remark};
+  // 日期：有选择就用，没填就用今天
+  const dateInput=document.getElementById('inputDate').value;
+  const workDate=dateInput||new Date().toISOString().slice(0,10);
+  const remarkWithDate='[date:'+workDate+']'+(remark?' '+remark:'');
+  let rec={worker_id:currentUser.id,worker_name:currentUser.name,type,style_no:style||'-',salesperson:document.getElementById('inputSales').value.trim(),remark:remarkWithDate};
   if(type==='piece'){
     const qty=parseInt(document.getElementById('inputQty').value);const price=parseFloat(document.getElementById('inputPiecePrice').value);
     if(!qty||qty<=0){alert('请输入数量');return;}if(!price||price<=0){alert('请输入单价');return;}
@@ -451,7 +466,7 @@ async function submitRecord(){
     rec.duration_minutes=Math.round(hrs*60*10)/10;rec.unit_price=HOUR_PRICE;
   }
   document.getElementById('btnSubmit').disabled=true;
-  try{await sb('label_records','POST',rec);addSalesHistory(rec.salesperson);alert('提交成功！');document.getElementById('inputStyle').value='';document.getElementById('inputQty').value='';document.getElementById('inputPiecePrice').value='';document.getElementById('inputRemark').value='';document.getElementById('inputHours').value='';tReset();}
+  try{await sb('label_records','POST',rec);addSalesHistory(rec.salesperson);alert('提交成功！');document.getElementById('inputStyle').value='';document.getElementById('inputQty').value='';document.getElementById('inputPiecePrice').value='';document.getElementById('inputRemark').value='';document.getElementById('inputHours').value='';document.getElementById('inputDate').value='';tReset();}
   catch(e){alert('提交失败：'+e.message);}
   document.getElementById('btnSubmit').disabled=false;
 }
@@ -470,7 +485,7 @@ async function loadHistory(){
   const sp=canSeePrice();const showWorker=userRole()!=='worker';
   let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th>'+(showWorker?'<th>车标人</th>':'')+'<th>类型</th><th>款号/单号</th><th>销售</th><th>数量/工时</th>'+(sp?'<th>单价</th>':'')+'<th>状态</th></tr></thead><tbody>';
   data.forEach(r=>{
-    const date=new Date(r.created_at).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'});
+    const date=formatDateShort(getRecordDate(r));
     const typeStr=r.type==='piece'?'计件':'计时';
     const qtyStr=r.type==='piece'?(r.quantity+'件'):((r.duration_minutes/60).toFixed(1)+'h');
     const amt=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);
@@ -489,8 +504,9 @@ let editingId=null;
 function openEdit(r){
   editingId=r.id;
   document.getElementById('editStyle').value=r.style_no||'';
+  document.getElementById('editDate').value=getRecordDate(r);
   document.getElementById('editSales').value=r.salesperson||'';
-  document.getElementById('editRemark').value=r.remark||'';
+  document.getElementById('editRemark').value=getRecordRemark(r);
   const sp=canSeePrice();
   if(r.type==='piece'){
     document.getElementById('editPieceFields').style.display='block';
@@ -510,7 +526,10 @@ function openEdit(r){
 function closeEdit(){document.getElementById('editModal').style.display='none';editingId=null;}
 async function saveEdit(){
   if(!editingId)return;
-  const patch={style_no:document.getElementById('editStyle').value.trim(),salesperson:document.getElementById('editSales').value.trim(),remark:document.getElementById('editRemark').value.trim(),status:'pending',reject_reason:null,approved_by:null,approved_at:null};
+  const editDateVal=document.getElementById('editDate').value||new Date().toISOString().slice(0,10);
+  const editRemarkText=document.getElementById('editRemark').value.trim();
+  const editRemarkFull='[date:'+editDateVal+']'+(editRemarkText?' '+editRemarkText:'');
+  const patch={style_no:document.getElementById('editStyle').value.trim(),salesperson:document.getElementById('editSales').value.trim(),remark:editRemarkFull,status:'pending',reject_reason:null,approved_by:null,approved_at:null};
   if(document.getElementById('editPieceFields').style.display!=='none'){
     patch.quantity=parseInt(document.getElementById('editQty').value)||0;
     if(canSeePrice())patch.unit_price=parseFloat(document.getElementById('editPiecePrice').value)||0;
@@ -549,7 +568,7 @@ async function loadApprove(){
   window._approveData=data;
   let html='';
   data.forEach((r,i)=>{
-    const date=new Date(r.created_at).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'});
+    const date=formatDateShort(getRecordDate(r));
     const typeStr=r.type==='piece'?'计件':'计时';
     const qtyStr=r.type==='piece'?(r.quantity+'件'):((r.duration_minutes/60).toFixed(1)+'h');
     const priceWarn=r.type==='piece'&&r.unit_price>1?'color:var(--danger);font-weight:600;':'';
@@ -642,7 +661,7 @@ async function exportCSV(){
   const data=await sb('label_records','GET',null,`?status=eq.approved&created_at=gte.${start}&created_at=lt.${end}&order=created_at.asc`);
   if(!data||!data.length){alert('无数据');return;}
   let csv='\uFEFF日期,车标人,类型,款号/单号,销售,数量,时长(小时),单价,金额,备注\n';
-  data.forEach(r=>{const date=new Date(r.created_at).toLocaleDateString('zh-CN');const type=r.type==='piece'?'计件':'计时';const amt=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);csv+=`${date},${r.worker_name},${type},"${r.style_no}","${r.salesperson||''}",${r.quantity||''},${r.duration_minutes?(r.duration_minutes/60).toFixed(1):''},${r.unit_price},${amt},"${r.remark||''}"\n`;});
+  data.forEach(r=>{const date=getRecordDate(r);const type=r.type==='piece'?'计件':'计时';const amt=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);csv+=`${date},${r.worker_name},${type},"${r.style_no}","${r.salesperson||''}",${r.quantity||''},${r.duration_minutes?(r.duration_minutes/60).toFixed(1):''},${r.unit_price},${amt},"${getRecordRemark(r)}"\n`;});
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`改标统计_${statsYear}年${statsMonth}月.csv`;a.click();
 }
 
