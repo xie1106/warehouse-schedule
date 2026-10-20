@@ -496,14 +496,19 @@ async function loadHistory(){
     const priceCol=sp?'<td style="'+pw+'">¥'+r.unit_price+(r.type==='time'?'/时':'')+'</td><td style="font-weight:600">¥'+amt+'</td>':'';
     html+=`<tr class="clickable" onclick='openEdit(${JSON.stringify(r).replace(/'/g,"&#39;")})'><td>${date}</td>${showWorker?'<td>'+r.worker_name+'</td>':''}<td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td>${priceCol}<td><span class="badge ${badge}">${label}</span></td>${delBtn}</tr>`;
   });
-  // 合计费用
-  let totalAmt=0;
+  // 合计
+  let totalAmt=0;let totalPcs=0;let totalHrs=0;
   data.forEach(r=>{
     const a=r.type==='piece'?(r.quantity*r.unit_price):(r.duration_minutes/60*r.unit_price);
     totalAmt+=a||0;
+    if(r.type==='piece')totalPcs+=(r.quantity||0);
+    else totalHrs+=(r.duration_minutes||0)/60;
   });
   const colSpan=3+(showWorker?1:0)+(sp?1:0);
-  html+=`<tr style="background:var(--bg);font-weight:700"><td colspan="${colSpan}" style="text-align:right;padding:8px 4px">合计</td><td colspan="2" style="color:var(--primary);font-size:15px;padding:8px 4px">¥${totalAmt.toFixed(2)}</td><td></td>${showDel?'<td></td>':''}</tr>`;
+  const isWorker=userRole()==='worker';
+  const sumText=isWorker?('合计 '+totalPcs+'件'+(totalHrs>0?' / '+totalHrs.toFixed(1)+'h':'')):('合计');
+  const sumVal=isWorker?'':'¥'+totalAmt.toFixed(2);
+  html+=`<tr style="background:var(--bg);font-weight:700"><td colspan="${colSpan}" style="text-align:right;padding:8px 4px">${sumText}</td><td colspan="2" style="color:var(--primary);font-size:15px;padding:8px 4px">${sumVal}</td><td></td>${showDel?'<td></td>':''}</tr>`;
   html+='</tbody></table></div>';
   el.innerHTML=html;
 }
