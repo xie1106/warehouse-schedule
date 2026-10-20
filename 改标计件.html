@@ -483,6 +483,8 @@ async function loadHistory(){
   const el=document.getElementById('historyList');
   if(!data||!data.length){el.innerHTML='<div class="empty">暂无记录</div>';return;}
   const sp=canSeePrice();const showWorker=userRole()!=='worker';const showDel=isAdmin();
+  // 按日期降序排序
+  data.sort((a,b)=>{const da=getRecordDate(a),db=getRecordDate(b);return da>db?-1:da<db?1:0;});
   let html='<div class="table-wrap"><table class="record-table"><thead><tr><th>日期</th>'+(showWorker?'<th>车标人</th>':'')+'<th>类型</th><th>款号/单号</th><th>销售</th><th>数量/工时</th>'+(sp?'<th>单价</th><th>费用</th>':'')+'<th>状态</th>'+(showDel?'<th></th>':'')+'</tr></thead><tbody>';
   data.forEach(r=>{
     const date=formatDateShort(getRecordDate(r));
@@ -504,11 +506,15 @@ async function loadHistory(){
     if(r.type==='piece')totalPcs+=(r.quantity||0);
     else totalHrs+=(r.duration_minutes||0)/60;
   });
-  const colSpan=3+(showWorker?1:0)+(sp?1:0);
   const isWorker=userRole()==='worker';
-  const sumText=isWorker?('合计 '+totalPcs+'件'+(totalHrs>0?' / '+totalHrs.toFixed(1)+'h':'')):('合计');
-  const sumVal=isWorker?'':'¥'+totalAmt.toFixed(2);
-  html+=`<tr style="background:var(--bg);font-weight:700"><td colspan="${colSpan}" style="text-align:right;padding:8px 4px">${sumText}</td><td colspan="2" style="color:var(--primary);font-size:15px;padding:8px 4px">${sumVal}</td><td></td>${showDel?'<td></td>':''}</tr>`;
+  // 合计行：日期~销售 colspan → 数量/工时列显示件数 → 单价列 → 费用列显示金额 → 状态列 → 删除列
+  const preColSpan=3+(showWorker?1:0); // 日期+(车标人)+类型+款号+销售 前面的列数到"销售"
+  const qtyText=totalPcs+'件'+(totalHrs>0?' / '+totalHrs.toFixed(1)+'h':'');
+  if(isWorker){
+    html+=`<tr style="background:var(--bg);font-weight:700"><td colspan="${preColSpan}" style="text-align:right;padding:8px 4px">合计</td><td style="padding:8px 4px;color:var(--primary)">${qtyText}</td><td></td></tr>`;
+  }else{
+    html+=`<tr style="background:var(--bg);font-weight:700"><td colspan="${preColSpan}" style="text-align:right;padding:8px 4px">合计</td><td style="padding:8px 4px">${qtyText}</td><td></td><td style="color:var(--primary);font-size:15px;padding:8px 4px">¥${totalAmt.toFixed(2)}</td><td></td>${showDel?'<td></td>':''}</tr>`;
+  }
   html+='</tbody></table></div>';
   el.innerHTML=html;
 }
