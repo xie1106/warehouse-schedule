@@ -485,11 +485,12 @@ async function loadHistory(){
   const data=await sb('label_records','GET',null,q);
   const el=document.getElementById('historyList');
   if(!data||!data.length){el.innerHTML='<div class="empty">暂无记录</div>';return;}
-  const sp=canSeePrice();const showWorker=userRole()!=='worker';const showDel=isAdmin();
+  const isWorker=userRole()==='worker';
+  const sp=canSeePrice();const showAmt=!isWorker;const showWorker=!isWorker;const showDel=isAdmin();
   // 按日期降序排序
   data.sort((a,b)=>{const da=getRecordDate(a),db=getRecordDate(b);return da>db?-1:da<db?1:0;});
-  // 表头：状态(固定) | 日期 | 车标人? | 类型 | 款号 | 销售 | 数量/工时 | 单价? | 费用? | 删除?
-  let html='<div class="table-wrap"><table class="record-table" style="min-width:600px"><thead><tr><th class="sticky-col" style="min-width:56px">状态</th><th>日期</th>'+(showWorker?'<th>车标人</th>':'')+'<th>类型</th><th style="min-width:100px">款号/单号</th><th>销售</th><th>数量/工时</th>'+(sp?'<th>单价</th><th>费用</th>':'')+(showDel?'<th></th>':'')+'</tr></thead><tbody>';
+  // 表头：状态(固定) | 日期 | 车标人? | 类型 | 款号 | 销售 | 数量/工时 | 单价 | 费用?(非车标) | 删除?
+  let html='<div class="table-wrap"><table class="record-table" style="min-width:600px"><thead><tr><th class="sticky-col" style="min-width:56px">状态</th><th>日期</th>'+(showWorker?'<th>车标人</th>':'')+'<th>类型</th><th style="min-width:100px">款号/单号</th><th>销售</th><th>数量/工时</th><th>单价</th>'+(showAmt?'<th>费用</th>':'')+(showDel?'<th></th>':'')+'</tr></thead><tbody>';
   data.forEach(r=>{
     const date=formatDateShort(getRecordDate(r));
     const typeStr=r.type==='piece'?'计件':'计时';
@@ -499,8 +500,8 @@ async function loadHistory(){
     const label=r.status==='pending'?'待审核':r.status==='approved'?'已通过':'已驳回';
     const pw=r.type==='piece'&&r.unit_price>1?'color:var(--danger);font-weight:600':'';
     const delBtn=showDel?'<td onclick="event.stopPropagation()"><button class="edit-btn" style="color:var(--danger);border-color:var(--danger)" onclick="event.stopPropagation();deleteRecord(\''+r.id+'\')">删除</button></td>':'';
-    const priceCol=sp?'<td style="'+pw+'">¥'+r.unit_price+(r.type==='time'?'/时':'')+'</td><td style="font-weight:600">¥'+amt+'</td>':'';
-    html+=`<tr class="clickable" onclick='openEdit(${JSON.stringify(r).replace(/'/g,"&#39;")})'><td class="sticky-col"><span class="badge ${badge}">${label}</span></td><td>${date}</td>${showWorker?'<td>'+r.worker_name+'</td>':''}<td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td>${priceCol}${delBtn}</tr>`;
+    const amtCol=showAmt?'<td style="font-weight:600">¥'+amt+'</td>':'';
+    html+=`<tr class="clickable" onclick='openEdit(${JSON.stringify(r).replace(/'/g,"&#39;")})'><td class="sticky-col"><span class="badge ${badge}">${label}</span></td><td>${date}</td>${showWorker?'<td>'+r.worker_name+'</td>':''}<td>${typeStr}</td><td style="font-weight:600">${r.style_no}</td><td>${r.salesperson||''}</td><td>${qtyStr}</td><td style="${pw}">¥${r.unit_price}${r.type==='time'?'/时':''}</td>${amtCol}${delBtn}</tr>`;
   });
   // 合计
   let totalAmt=0;let totalPcs=0;let totalHrs=0;
@@ -511,9 +512,14 @@ async function loadHistory(){
     else totalHrs+=(r.duration_minutes||0)/60;
   });
   const qtyText=totalPcs+'件'+(totalHrs>0?' / '+totalHrs.toFixed(1)+'h':'');
-  // 合计行：状态(固定) | 日期~销售合并为"合计" | 数量/工时 | 单价空 | 费用
-  const mergeSpan=3+(showWorker?1:0); // 日期+(车标人)+类型+款号+销售
-  html+=`<tr style="background:var(--bg);font-weight:700"><td class="sticky-col"></td><td colspan="${mergeSpan}" style="text-align:right;padding:8px 4px">合计</td><td style="padding:8px 4px">${qtyText}</td>${sp?'<td></td><td style="color:var(--primary);font-size:15px;padding:8px 4px">¥'+totalAmt.toFixed(2)+'</td>':''}${showDel?'<td></td>':''}</tr>`;
+  // 合计行对齐：状态 | (日期~销售合并) | 数量/工时 | 单价 | 费用? | 删除?
+  const mergeSpan=4+(showWorker?1:0); // 日期+(车标人?)+类型+款号+销售
+  if(isWorker){
+    // 车标人：只合计件数，不显示金额
+    html+=`<tr style="background:var(--bg);font-weight:700"><td class="sticky-col"></td><td colspan="${mergeSpan}" style="text-align:right;padding:8px 4px">合计</td><td style="padding:8px 4px;color:var(--primary)">${qtyText}</td><td></td></tr>`;
+  }else{
+    html+=`<tr style="background:var(--bg);font-weight:700"><td class="sticky-col"></td><td colspan="${mergeSpan}" style="text-align:right;padding:8px 4px">合计</td><td style="padding:8px 4px">${qtyText}</td><td></td><td style="color:var(--primary);font-size:15px;padding:8px 4px">¥${totalAmt.toFixed(2)}</td>${showDel?'<td></td>':''}</tr>`;
+  }
   html+='</tbody></table></div>';
   el.innerHTML=html;
 }
