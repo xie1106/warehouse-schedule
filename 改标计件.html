@@ -478,13 +478,17 @@ async function submitRecord(){
 async function loadHistory(){
   const status=document.getElementById('historyStatus').value;
   const type=document.getElementById('historyType').value;
-  let q='?order=created_at.desc&limit=100';
+  let q='?order=created_at.desc&limit=500';
   if(userRole()==='worker')q+=`&worker_id=eq.${currentUser.id}`;
   if(status!=='all')q+=`&status=eq.${status}`;
   if(type!=='all')q+=`&type=eq.${type}`;
-  const data=await sb('label_records','GET',null,q);
+  let data=await sb('label_records','GET',null,q);
   const el=document.getElementById('historyList');
   if(!data||!data.length){el.innerHTML='<div class="empty">暂无记录</div>';return;}
+  // 按选中月份过滤（用work_date）
+  const mStart=`${statsYear}-${String(statsMonth).padStart(2,'0')}`;
+  data=data.filter(r=>{const d=getRecordDate(r);return d.startsWith(mStart);});
+  if(!data.length){el.innerHTML='<div class="empty">本月无记录</div>';return;}
   const isWorker=userRole()==='worker';
   const sp=canSeePrice();const showAmt=!isWorker;const showWorker=!isWorker;const showDel=isAdmin();
   // 按日期降序排序
@@ -567,14 +571,15 @@ async function saveEdit(){
 
 async function loadStats(){
   document.getElementById('statsMonth').textContent=`${statsYear}年${statsMonth}月`;
-  const start=`${statsYear}-${String(statsMonth).padStart(2,'0')}-01T00:00:00`;
-  const endM=statsMonth===12?1:statsMonth+1;const endY=statsMonth===12?statsYear+1:statsYear;
-  const end=`${endY}-${String(endM).padStart(2,'0')}-01T00:00:00`;
-  let q=`?status=eq.approved&created_at=gte.${start}&created_at=lt.${end}&order=created_at.desc`;
+  let q='?status=eq.approved&order=created_at.desc&limit=500';
   if(userRole()==='worker')q+=`&worker_id=eq.${currentUser.id}`;
-  const data=await sb('label_records','GET',null,q);
+  const allData=await sb('label_records','GET',null,q);
   const grid=document.getElementById('statsGrid');
-  if(!data||!data.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1">本月无数据</div>';return;}
+  if(!allData||!allData.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1">本月无数据</div>';return;}
+  // 按work_date过滤月份
+  const mStart=`${statsYear}-${String(statsMonth).padStart(2,'0')}`;
+  const data=allData.filter(r=>{const d=getRecordDate(r);return d.startsWith(mStart);});
+  if(!data.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1">本月无数据</div>';return;}
   let totalPieces=0,totalMinutes=0,totalAmount=0,count=data.length;
   data.forEach(r=>{if(r.type==='piece'){totalPieces+=r.quantity||0;totalAmount+=(r.quantity||0)*r.unit_price;}else{totalMinutes+=r.duration_minutes||0;totalAmount+=(r.duration_minutes||0)/60*r.unit_price;}});
   const showPrice=canSeePrice();
@@ -678,11 +683,11 @@ async function deleteRecord(id){
 }
 
 async function exportCSV(){
-  const start=`${statsYear}-${String(statsMonth).padStart(2,'0')}-01T00:00:00`;
-  const endM=statsMonth===12?1:statsMonth+1;const endY=statsMonth===12?statsYear+1:statsYear;
-  const end=`${endY}-${String(endM).padStart(2,'0')}-01T00:00:00`;
-  const data=await sb('label_records','GET',null,`?status=eq.approved&created_at=gte.${start}&created_at=lt.${end}&order=created_at.asc`);
-  if(!data||!data.length){alert('无数据');return;}
+  const allData=await sb('label_records','GET',null,'?status=eq.approved&order=created_at.asc&limit=500');
+  if(!allData||!allData.length){alert('无数据');return;}
+  const mStart=`${statsYear}-${String(statsMonth).padStart(2,'0')}`;
+  const data=allData.filter(r=>{const d=getRecordDate(r);return d.startsWith(mStart);});
+  if(!data.length){alert('本月无数据');return;}
   let csv='\uFEFF日期,车标人,类型,款号/单号,销售,数量,时长(小时),单价,金额,备注\n';
   data.forEach(r=>{const date=getRecordDate(r);const type=r.type==='piece'?'计件':'计时';const amt=r.type==='piece'?(r.quantity*r.unit_price).toFixed(2):(r.duration_minutes/60*r.unit_price).toFixed(2);csv+=`${date},${r.worker_name},${type},"${r.style_no}","${r.salesperson||''}",${r.quantity||''},${r.duration_minutes?(r.duration_minutes/60).toFixed(1):''},${r.unit_price},${amt},"${getRecordRemark(r)}"\n`;});
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`改标统计_${statsYear}年${statsMonth}月.csv`;a.click();
