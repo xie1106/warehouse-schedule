@@ -469,7 +469,10 @@ async function submitRecord(){
     rec.duration_minutes=Math.round(hrs*60*10)/10;rec.unit_price=HOUR_PRICE;
   }
   document.getElementById('btnSubmit').disabled=true;
-  try{await sb('label_records','POST',rec);addSalesHistory(rec.salesperson);alert('提交成功！');document.getElementById('inputStyle').value='';document.getElementById('inputQty').value='';document.getElementById('inputPiecePrice').value='';document.getElementById('inputRemark').value='';document.getElementById('inputHours').value='';document.getElementById('inputDate').value='';tReset();}
+  try{await sb('label_records','POST',rec);addSalesHistory(rec.salesperson);
+    // 钉钉通知审核人
+    try{await fetch('https://elyfxyrdbuykyklfjfdr.supabase.co/functions/v1/dingtalk-notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({worker_name:rec.worker_name,style_no:rec.style_no,type:rec.type,quantity:rec.quantity,duration_minutes:rec.duration_minutes})});}catch(e){}
+    alert('提交成功！');document.getElementById('inputStyle').value='';document.getElementById('inputQty').value='';document.getElementById('inputPiecePrice').value='';document.getElementById('inputRemark').value='';document.getElementById('inputHours').value='';document.getElementById('inputDate').value='';tReset();}
   catch(e){alert('提交失败：'+e.message);}
   document.getElementById('btnSubmit').disabled=false;
 }
