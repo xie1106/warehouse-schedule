@@ -26,7 +26,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .tooltip .bin-name{font-weight:700;font-size:15px;margin-bottom:4px}
 .tooltip .qty{color:#ffc300}
 .zone-label{font-size:11px;color:#0f3460;font-weight:700;text-align:center;padding:2px;background:rgba(15,52,96,0.3);border-radius:3px}
-/* PLACEHOLDER_STYLE */
+.filters{padding:10px 20px;background:#16213e;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.filters .label{font-size:12px;color:#aaa;margin-right:4px}
+.zone-btn{padding:6px 14px;border-radius:16px;border:1px solid #0f3460;background:transparent;color:#aaa;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+.zone-btn:hover{border-color:#ffc300;color:#ffc300}
+.zone-btn.active{background:#0f3460;color:#fff;border-color:#ffc300}
+.zone-stats{font-size:12px;color:#ffc300;margin-left:8px}
+.cell.dimmed{opacity:0.08}
 </style>
 </head>
 <body>
@@ -40,6 +46,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="bar"></div>
     <span>高频</span>
   </div>
+</div>
+<div class="filters" id="filters">
+  <span class="label">区域</span>
 </div>
 <div class="container">
   <div id="grid"></div>
@@ -121,6 +130,74 @@ grid.forEach((row, ri) => {
 });
 
 document.getElementById('stats').textContent = `${totalBins}个库位 | ${activeBins}个有出库 | 30天总出库 ${totalQty.toLocaleString()}件 | P95=${p95}件`;
+
+// Zone filter
+const zones = new Set();
+grid.forEach(row => row.forEach(c => {
+  if(c.type==='bin' && c.name) zones.add(c.name.split('-')[0]);
+}));
+const sortedZones = [...zones].sort();
+const filtersEl = document.getElementById('filters');
+const zoneStatsEl = document.createElement('span');
+zoneStatsEl.className = 'zone-stats';
+filtersEl.appendChild(zoneStatsEl);
+
+// "全部" button
+const allBtn = document.createElement('button');
+allBtn.className = 'zone-btn active';
+allBtn.textContent = '全部';
+allBtn.onclick = () => filterZone(null);
+filtersEl.insertBefore(allBtn, zoneStatsEl);
+
+sortedZones.forEach(z => {
+  const btn = document.createElement('button');
+  btn.className = 'zone-btn';
+  btn.dataset.zone = z;
+  // Count bins and qty for this zone
+  let zBins=0, zQty=0;
+  grid.forEach(row => row.forEach(c => {
+    if(c.type==='bin' && c.name && c.name.split('-')[0]===z) { zBins++; zQty+=c.qty||0; }
+  }));
+  btn.textContent = `${z}区`;
+  btn.title = `${zBins}个库位, ${zQty.toLocaleString()}件`;
+  btn.onclick = () => filterZone(z);
+  filtersEl.insertBefore(btn, zoneStatsEl);
+});
+
+let activeZone = null;
+function filterZone(zone) {
+  activeZone = zone;
+  document.querySelectorAll('.zone-btn').forEach(b => b.classList.remove('active'));
+  if(!zone) {
+    allBtn.classList.add('active');
+    zoneStatsEl.textContent = '';
+  } else {
+    document.querySelector(`.zone-btn[data-zone="${zone}"]`).classList.add('active');
+    let zBins=0, zQty=0, zActive=0;
+    grid.forEach(row => row.forEach(c => {
+      if(c.type==='bin' && c.name && c.name.split('-')[0]===zone) {
+        zBins++; zQty+=c.qty||0; if(c.qty>0) zActive++;
+      }
+    }));
+    zoneStatsEl.textContent = `${zBins}个库位 | ${zActive}个有出库 | ${zQty.toLocaleString()}件`;
+  }
+  // Update cells
+  const cells = el.querySelectorAll('.cell');
+  let idx = 0;
+  grid.forEach((row, ri) => {
+    row.forEach((c, ci) => {
+      const cell = cells[idx++];
+      if(c.type === 'bin') {
+        const cZone = c.name.split('-')[0];
+        if(!zone || cZone === zone) {
+          cell.classList.remove('dimmed');
+        } else {
+          cell.classList.add('dimmed');
+        }
+      }
+    });
+  });
+}
 
 </script>
 </body>
