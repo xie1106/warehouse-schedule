@@ -109,12 +109,12 @@ td{border:1px solid #d0d0d0;padding:0;vertical-align:top}
   <div class="cooccur-btn" onclick="showCooccur()">🔗 关联购买</div>
 </div>
 <div class="legend">
-  <div class="legend-item"><div class="legend-box" style="background:#fff"></div>无出库</div>
-  <div class="legend-item"><div class="legend-box" style="background:#e3f2fd"></div>低频</div>
-  <div class="legend-item"><div class="legend-box" style="background:#90caf9"></div>中频</div>
-  <div class="legend-item"><div class="legend-box" style="background:#64b5f6"></div>较高</div>
-  <div class="legend-item"><div class="legend-box" style="background:#ff9800"></div>高频</div>
-  <div class="legend-item"><div class="legend-box" style="background:#f44336"></div>超高频</div>
+  <div class="legend-item"><div class="legend-box" style="background:#fff"></div>无出库(0)</div>
+  <div class="legend-item"><div class="legend-box" style="background:#e3f2fd"></div>低频 <span id="lg-low"></span></div>
+  <div class="legend-item"><div class="legend-box" style="background:#90caf9"></div>中频 <span id="lg-mid"></span></div>
+  <div class="legend-item"><div class="legend-box" style="background:#64b5f6"></div>较高 <span id="lg-high"></span></div>
+  <div class="legend-item"><div class="legend-box" style="background:#ff9800"></div>高频 <span id="lg-hot"></span></div>
+  <div class="legend-item"><div class="legend-box" style="background:#f44336"></div>超高频 <span id="lg-top"></span></div>
 </div>
 <div class="zone-stats" id="zoneStats"></div>
 <div class="container"><div id="tableWrap"></div></div>
@@ -165,6 +165,12 @@ function calcPercentiles(){
   p75=allQ[Math.floor(allQ.length*0.75)]||1;
   p90=allQ[Math.floor(allQ.length*0.90)]||1;
   p95=allQ[Math.floor(allQ.length*0.95)]||1;
+  const le=id=>document.getElementById(id);
+  if(le('lg-low'))le('lg-low').textContent='(1~'+p50+'件)';
+  if(le('lg-mid'))le('lg-mid').textContent='('+p50+'~'+p75+'件)';
+  if(le('lg-high'))le('lg-high').textContent='('+p75+'~'+p90+'件)';
+  if(le('lg-hot'))le('lg-hot').textContent='('+p90+'~'+p95+'件)';
+  if(le('lg-top'))le('lg-top').textContent='(>'+p95+'件)';
 }
 calcPercentiles();
 
