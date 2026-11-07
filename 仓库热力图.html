@@ -56,6 +56,8 @@ td{border:1px solid #d0d0d0;padding:0;vertical-align:top}
 .empty-cell{background:#fafafa}
 .tooltip{display:none;position:fixed;background:#333;color:#fff;padding:8px 12px;border-radius:6px;font-size:12px;z-index:100;pointer-events:none;max-width:260px}
 .layer.dimmed{opacity:0.12}
+.layer.hl-row{outline:2px solid #1565c0;outline-offset:-1px;z-index:2}
+.hl-active{background:#1565c0!important;color:#fff!important;font-weight:700}
 /* 弹窗 */
 .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:200;justify-content:center;align-items:center}
 .modal-overlay.show{display:flex}
@@ -191,52 +193,93 @@ function renderZone(zone){
   const zd=DATA[zone];
   const rows=Object.keys(zd).sort((a,b)=>(parseInt(a)||0)-(parseInt(b)||0));
   const gs=new Set();
-  rows.forEach(r=>Object.keys(zd[r]).forEach(g=>gs.add(g)));
+  // 找该区最大层数(至少3层)
+  let maxLayer=3;
+  rows.forEach(r=>Object.keys(zd[r]).forEach(g=>{
+    gs.add(g);
+    Object.keys(zd[r][g]).forEach(l=>{const ln=parseInt(l)||0;if(ln>maxLayer)maxLayer=ln;});
+  }));
   const groups=[...gs].sort((a,b)=>(parseInt(a)||0)-(parseInt(b)||0));
 
   let tB=0,tQ=0,aB=0;
   rows.forEach(r=>groups.forEach(g=>{
-    if(zd[r]&&zd[r][g]) Object.entries(zd[r][g]).forEach(([l,q])=>{tB++;tQ+=q;if(q>0)aB++;});
+    for(let l=1;l<=maxLayer;l++){
+      tB++;
+      const q=(zd[r]&&zd[r][g]&&zd[r][g][String(l)])||0;
+      tQ+=q;if(q>0)aB++;
+    }
   }));
-  statsEl.textContent=zone+'区: '+tB+'个库位 | '+aB+'个有出库 | 30天出库 '+tQ.toLocaleString()+'件';
+  statsEl.textContent=zone+'区: '+tB+'个库位 | '+aB+'个有出库 | '+curPeriod+'出库 '+tQ.toLocaleString()+'件';
 
-  let h='<table><thead><tr><th class="row-header">排\\组</th>';
-  groups.forEach(g=>{h+='<th>'+g+'</th>';});
+  let h='<table><thead><tr><th class="row-header" style="cursor:pointer" title="点击高亮整排">排\\组</th>';
+  groups.forEach(g=>{h+='<th style="cursor:pointer" data-hl-group="'+g+'" title="点击高亮整组">'+g+'</th>';});
   h+='</tr></thead><tbody>';
   rows.forEach(r=>{
-    h+='<tr><th class="row-header">'+r+'</th>';
+    h+='<tr><th class="row-header" style="cursor:pointer" data-hl-row="'+r+'" title="点击高亮整排">'+r+'</th>';
     groups.forEach(g=>{
-      if(zd[r]&&zd[r][g]){
-        const layers=zd[r][g];
-        const lkeys=Object.keys(layers).sort((a,b)=>parseInt(a)-parseInt(b));
-        h+='<td class="bin-cell">';
-        lkeys.forEach(l=>{
-          const q=layers[l]||0;
-          const fn=zone+'-'+r+'-'+g+'-'+l;
-          const lv=heatLevel(q);
-          const dim=matchFilter(lv)?'':'dimmed';
-          h+='<div class="layer heat-'+lv+' '+dim+'" data-bin="'+fn+'" data-qty="'+q+'" data-lv="'+lv+'"><span class="lname">'+fn+'</span><br><span class="lqty">('+q+')</span></div>';
-        });
-        h+='</td>';
-      } else {h+='<td class="empty-cell"></td>';}
+      h+='<td class="bin-cell" data-row="'+r+'" data-group="'+g+'">';
+      for(let l=1;l<=maxLayer;l++){
+        const q=(zd[r]&&zd[r][g]&&zd[r][g][String(l)])||0;
+        const fn=zone+'-'+r+'-'+g+'-'+l;
+        const lv=heatLevel(q);
+        const dim=matchFilter(lv)?'':'dimmed';
+        h+='<div class="layer heat-'+lv+' '+dim+'" data-bin="'+fn+'" data-qty="'+q+'" data-lv="'+lv+'" data-row="'+r+'" data-group="'+g+'"><span class="lname">'+fn+'</span><br><span class="lqty">('+q+')</span></div>';
+      }
+      h+='</td>';
     });
     h+='</tr>';
   });
   h+='</tbody></table>';
   wrapEl.innerHTML=h;
   bindLayerEvents();
+  bindHighlight();
 }
 
 function bindLayerEvents(){
   wrapEl.querySelectorAll('.layer').forEach(el=>{
     el.onmouseenter=e=>{
       tooltip.style.display='block';
-      tooltip.innerHTML='<b>'+el.dataset.bin+'</b><br>30天出库: '+parseInt(el.dataset.qty).toLocaleString()+'件<br><span style="color:#aaa;font-size:10px">点击查看商品</span>';
+      tooltip.innerHTML='<b>'+el.dataset.bin+'</b><br>'+curPeriod+'出库: '+parseInt(el.dataset.qty).toLocaleString()+'件<br><span style="color:#aaa;font-size:10px">点击查看商品</span>';
     };
     el.onmousemove=e=>{tooltip.style.left=(e.clientX+12)+'px';tooltip.style.top=(e.clientY-40)+'px';};
     el.onmouseleave=()=>{tooltip.style.display='none';};
     el.onclick=()=>{tooltip.style.display='none';showBinDetail(el.dataset.bin,parseInt(el.dataset.qty));};
   });
+}
+
+let hlRow=null,hlGroup=null;
+function bindHighlight(){
+  // 点击排号 → 高亮整排
+  wrapEl.querySelectorAll('[data-hl-row]').forEach(th=>{
+    th.onclick=()=>{
+      const r=th.dataset.hlRow;
+      if(hlRow===r){hlRow=null;}else{hlRow=r;hlGroup=null;}
+      applyHighlight();
+    };
+  });
+  // 点击组号 → 高亮整组
+  wrapEl.querySelectorAll('[data-hl-group]').forEach(th=>{
+    th.onclick=()=>{
+      const g=th.dataset.hlGroup;
+      if(hlGroup===g){hlGroup=null;}else{hlGroup=g;hlRow=null;}
+      applyHighlight();
+    };
+  });
+}
+
+function applyHighlight(){
+  // 清除所有高亮
+  wrapEl.querySelectorAll('.hl-row').forEach(el=>el.classList.remove('hl-row'));
+  wrapEl.querySelectorAll('[data-hl-row]').forEach(th=>th.classList.remove('hl-active'));
+  wrapEl.querySelectorAll('[data-hl-group]').forEach(th=>th.classList.remove('hl-active'));
+  if(hlRow){
+    wrapEl.querySelectorAll('[data-hl-row="'+hlRow+'"]').forEach(th=>th.classList.add('hl-active'));
+    wrapEl.querySelectorAll('.layer[data-row="'+hlRow+'"]').forEach(el=>el.classList.add('hl-row'));
+  }
+  if(hlGroup){
+    wrapEl.querySelectorAll('[data-hl-group="'+hlGroup+'"]').forEach(th=>th.classList.add('hl-active'));
+    wrapEl.querySelectorAll('.layer[data-group="'+hlGroup+'"]').forEach(el=>el.classList.add('hl-row'));
+  }
 }
 
 
